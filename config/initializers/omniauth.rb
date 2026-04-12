@@ -12,3 +12,8 @@ end
 OmniAuth.config.on_failure = Proc.new { |env|
   OmniAuth::FailureEndpoint.new(env).redirect_to_failure
 }
+
+# Developer strategy requires GET to serve its login form
+if Rails.env.development?
+  OmniAuth.config.allowed_request_methods = [:post, :get]
+end
