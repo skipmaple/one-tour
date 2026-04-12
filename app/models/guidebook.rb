@@ -5,7 +5,7 @@ class Guidebook < ApplicationRecord
 
   validates :title, presence: true
 
-  before_save :update_frontmatter_cache
+  before_validation :update_frontmatter_cache
 
   def owned_by?(user)
     if user
