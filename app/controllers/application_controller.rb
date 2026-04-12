@@ -1,4 +1,6 @@
 class ApplicationController < ActionController::Base
+  inertia_share flash: -> { { alert: flash[:alert], notice: flash[:notice] } }
+
   helper_method :current_user, :logged_in?
 
   def current_user

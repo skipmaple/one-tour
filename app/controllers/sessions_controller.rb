@@ -15,6 +15,10 @@ class SessionsController < ApplicationController
     redirect_to root_path
   end
 
+  def failure
+    redirect_to login_path, alert: "Authentication failed: #{params[:message]}"
+  end
+
   # Test-only action for setting session in request specs
   def test_login
     raise ActionController::RoutingError, "Not Found" unless Rails.env.test?
@@ -25,16 +29,17 @@ class SessionsController < ApplicationController
   private
     def find_or_create_identity(auth)
       identity = OauthIdentity.find_by(provider: auth.provider, uid: auth.uid)
+      credentials = auth.credentials ? auth.credentials.to_h : {}
 
       if identity
-        identity.update(credentials: auth.credentials.to_h)
+        identity.update(credentials: credentials)
         identity
       else
         user = find_or_create_user(auth)
         user.oauth_identities.create!(
           provider: auth.provider,
           uid: auth.uid,
-          credentials: auth.credentials.to_h
+          credentials: credentials
         )
       end
     end

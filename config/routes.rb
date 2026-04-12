@@ -1,6 +1,8 @@
 Rails.application.routes.draw do
   # OAuth callbacks
   match "/auth/:provider/callback", to: "sessions#create", via: [:get, :post]
+  get "/auth/failure", to: "sessions#failure"
+  # OmniAuth developer strategy serves a form at GET /auth/developer (handled by middleware)
   delete "/logout", to: "sessions#destroy"
 
   # Guidebooks
