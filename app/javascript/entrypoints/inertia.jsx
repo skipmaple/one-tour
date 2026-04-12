@@ -1,30 +1,28 @@
 import { createInertiaApp } from '@inertiajs/react'
+import { createRoot } from 'react-dom/client'
+import { MantineProvider, createTheme } from '@mantine/core'
+import '@mantine/core/styles.css'
+import AppLayout from '../layouts/AppLayout'
+
+const theme = createTheme({
+  primaryColor: 'blue',
+  fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+})
 
 createInertiaApp({
-  pages: "../pages",
-
-  strictMode: true,
-
-  defaults: {
-    form: {
-      forceIndicesArrayFormatInFormData: false,
-      withAllErrors: true,
-    },
-    visitOptions: () => {
-      return { queryStringArrayFormat: "brackets" }
-    },
+  resolve: name => {
+    const pages = import.meta.glob('../pages/**/*.jsx', { eager: true })
+    const page = pages[`../pages/${name}.jsx`]
+    if (!page.default.layout) {
+      page.default.layout = (page) => <AppLayout>{page}</AppLayout>
+    }
+    return page
   },
-}).catch((error) => {
-  // This ensures this entrypoint is only loaded on Inertia pages
-  // by checking for the presence of the root element (#app by default).
-  // Feel free to remove this `catch` if you don't need it.
-  if (document.getElementById("app")) {
-    throw error
-  } else {
-    console.error(
-      "Missing root element.\n\n" +
-      "If you see this error, it probably means you loaded Inertia.js on non-Inertia pages.\n" +
-      'Consider moving <%= vite_javascript_tag "inertia.jsx" %> to the Inertia-specific layout instead.',
+  setup({ el, App, props }) {
+    createRoot(el).render(
+      <MantineProvider theme={theme}>
+        <App {...props} />
+      </MantineProvider>
     )
-  }
+  },
 })
