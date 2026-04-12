@@ -10,9 +10,31 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_12_202545) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_12_203215) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "guidebook_memberships", force: :cascade do |t|
+    t.bigint "guidebook_id", null: false
+    t.bigint "user_id", null: false
+    t.integer "role", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["guidebook_id", "user_id"], name: "index_guidebook_memberships_on_guidebook_id_and_user_id", unique: true
+    t.index ["guidebook_id"], name: "index_guidebook_memberships_on_guidebook_id"
+    t.index ["user_id"], name: "index_guidebook_memberships_on_user_id"
+  end
+
+  create_table "guidebooks", force: :cascade do |t|
+    t.string "title", null: false
+    t.text "content", default: "", null: false
+    t.jsonb "frontmatter_cache", default: {}
+    t.bigint "author_id", null: false
+    t.boolean "published", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["author_id"], name: "index_guidebooks_on_author_id"
+  end
 
   create_table "oauth_identities", force: :cascade do |t|
     t.bigint "user_id", null: false
@@ -34,5 +56,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_12_202545) do
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 
+  add_foreign_key "guidebook_memberships", "guidebooks"
+  add_foreign_key "guidebook_memberships", "users"
+  add_foreign_key "guidebooks", "users", column: "author_id"
   add_foreign_key "oauth_identities", "users"
 end
