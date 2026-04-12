@@ -99,4 +99,15 @@ RSpec.describe Guidebook, type: :model do
       expect(guidebook.owned_by?(create(:user))).to be false
     end
   end
+
+  describe "frontmatter_cache callback" do
+    it "updates frontmatter_cache when content changes" do
+      guidebook = create(:guidebook, content: "---\ntitle: Original\ndays: []\n---\n\n# Body")
+      expect(guidebook.frontmatter_cache["title"]).to eq "Original"
+
+      guidebook.update!(content: "---\ntitle: Updated\ndays: []\n---\n\n# New Body")
+      expect(guidebook.frontmatter_cache["title"]).to eq "Updated"
+      expect(guidebook.title).to eq "Updated"
+    end
+  end
 end

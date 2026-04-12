@@ -5,6 +5,8 @@ class Guidebook < ApplicationRecord
 
   validates :title, presence: true
 
+  before_save :update_frontmatter_cache
+
   def owned_by?(user)
     if user
       author_id == user.id
@@ -31,6 +33,14 @@ class Guidebook < ApplicationRecord
     end
   end
 
+  def parsed_content
+    FrontmatterParser.new(content).parse
+  end
+
+  def publishable?
+    parsed_content.publishable?
+  end
+
   private
     def editor_member?(user)
       guidebook_memberships.exists?(user: user, role: :editor)
@@ -38,5 +48,15 @@ class Guidebook < ApplicationRecord
 
     def member?(user)
       guidebook_memberships.exists?(user: user)
+    end
+
+    def update_frontmatter_cache
+      if content_changed?
+        result = parsed_content
+        self.frontmatter_cache = result.frontmatter
+        if result.frontmatter["title"].present?
+          self.title = result.frontmatter["title"]
+        end
+      end
     end
 end
