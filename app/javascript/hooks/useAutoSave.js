@@ -5,13 +5,13 @@ export function useAutoSave(guidebookId, content, delay = 5000) {
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState(null)
   const [error, setError] = useState(null)
-  const [dirty, setDirty] = useState(false)
+  const dirtyRef = useRef(false)
   const timerRef = useRef(null)
   const contentRef = useRef(content)
 
   useEffect(() => {
     contentRef.current = content
-    setDirty(true)
+    dirtyRef.current = true
 
     if (timerRef.current) clearTimeout(timerRef.current)
 
@@ -27,7 +27,7 @@ export function useAutoSave(guidebookId, content, delay = 5000) {
   }, [content])
 
   const save = useCallback(() => {
-    if (!guidebookId || !dirty) return
+    if (!guidebookId || !dirtyRef.current) return
 
     setSaving(true)
     setError(null)
@@ -39,7 +39,7 @@ export function useAutoSave(guidebookId, content, delay = 5000) {
       preserveScroll: true,
       onSuccess: () => {
         setSaving(false)
-        setDirty(false)
+        dirtyRef.current = false
         setLastSaved(new Date().toLocaleTimeString())
       },
       onError: () => {
@@ -47,18 +47,18 @@ export function useAutoSave(guidebookId, content, delay = 5000) {
         setError('Save failed')
       },
     })
-  }, [guidebookId, dirty])
+  }, [guidebookId])
 
   useEffect(() => {
     const handler = (e) => {
-      if (dirty) {
+      if (dirtyRef.current) {
         e.preventDefault()
         e.returnValue = ''
       }
     }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [dirty])
+  }, [])
 
-  return { saving, lastSaved, error, save, dirty }
+  return { saving, lastSaved, error, save, dirty: dirtyRef.current }
 }

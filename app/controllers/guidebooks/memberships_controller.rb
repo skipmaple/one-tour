@@ -3,6 +3,8 @@ class Guidebooks::MembershipsController < ApplicationController
   before_action :set_guidebook
   before_action :require_owner
 
+  ALLOWED_ROLES = %w[reader editor].freeze
+
   def index
     memberships = @guidebook.guidebook_memberships.includes(:user)
     render inertia: "Guidebook/Settings", props: {
@@ -14,22 +16,35 @@ class Guidebooks::MembershipsController < ApplicationController
 
   def create
     user = User.find_by(email: params.dig(:membership, :email))
-    if user
-      membership = @guidebook.guidebook_memberships.build(user: user, role: params.dig(:membership, :role))
+    role = params.dig(:membership, :role)
+
+    if user.nil?
+      redirect_to guidebook_memberships_path(@guidebook),
+        inertia: { errors: { email: ["User not found"] } }
+    elsif !ALLOWED_ROLES.include?(role)
+      redirect_to guidebook_memberships_path(@guidebook),
+        inertia: { errors: { role: ["Invalid role"] } }
+    else
+      membership = @guidebook.guidebook_memberships.build(user: user, role: role)
       if membership.save
         redirect_to guidebook_memberships_path(@guidebook)
       else
-        redirect_to guidebook_memberships_path(@guidebook), inertia: { errors: membership.errors }
+        redirect_to guidebook_memberships_path(@guidebook),
+          inertia: { errors: membership.errors }
       end
-    else
-      redirect_to guidebook_memberships_path(@guidebook), inertia: { errors: { email: ["User not found"] } }
     end
   end
 
   def update
-    membership = @guidebook.guidebook_memberships.find(params[:id])
-    membership.update!(role: params.dig(:membership, :role))
-    redirect_to guidebook_memberships_path(@guidebook)
+    role = params.dig(:membership, :role)
+
+    if ALLOWED_ROLES.include?(role)
+      membership = @guidebook.guidebook_memberships.find(params[:id])
+      membership.update!(role: role)
+      redirect_to guidebook_memberships_path(@guidebook)
+    else
+      head :unprocessable_entity
+    end
   end
 
   def destroy

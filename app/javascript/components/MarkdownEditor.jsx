@@ -8,6 +8,8 @@ export default function MarkdownEditor({ value, onChange }) {
   const containerRef = useRef(null)
   const viewRef = useRef(null)
 
+  // Intentionally initialized once on mount — CodeMirror manages its own document state.
+  // External value changes after mount are not synced back to the editor.
   useEffect(() => {
     if (!containerRef.current) return
 

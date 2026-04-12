@@ -1,4 +1,16 @@
 import { Button, Stack, Title, Paper, Center, Text } from '@mantine/core'
+import { usePage } from '@inertiajs/react'
+
+function OAuthButton({ provider, label }) {
+  return (
+    <form action={`/auth/${provider}`} method="post">
+      <input type="hidden" name="authenticity_token" value={document.querySelector('meta[name="csrf-token"]')?.content || ''} />
+      <Button type="submit" variant="default" fullWidth size="md">
+        {label}
+      </Button>
+    </form>
+  )
+}
 
 export default function Login() {
   return (
@@ -9,18 +21,10 @@ export default function Login() {
           <Text size="sm" c="dimmed">Choose a provider to continue</Text>
 
           <Stack w="100%" gap="sm">
-            <Button component="a" href="/auth/github" data-method="post" variant="default" fullWidth size="md">
-              GitHub
-            </Button>
-            <Button component="a" href="/auth/google_oauth2" data-method="post" variant="default" fullWidth size="md">
-              Google
-            </Button>
-            <Button component="a" href="/auth/wechat" data-method="post" variant="default" fullWidth size="md">
-              WeChat
-            </Button>
-            <Button component="a" href="/auth/feishu" data-method="post" variant="default" fullWidth size="md">
-              Feishu
-            </Button>
+            <OAuthButton provider="github" label="GitHub" />
+            <OAuthButton provider="google_oauth2" label="Google" />
+            <OAuthButton provider="wechat" label="WeChat" />
+            <OAuthButton provider="feishu" label="Feishu" />
           </Stack>
         </Stack>
       </Paper>

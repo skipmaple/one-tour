@@ -69,6 +69,12 @@ RSpec.describe "Guidebooks", type: :request do
       get "/guidebooks/#{guidebook.id}/edit"
       expect(response).to have_http_status(:forbidden)
     end
+
+    it "redirects anonymous users to login" do
+      guidebook = create(:guidebook)
+      get "/guidebooks/#{guidebook.id}/edit"
+      expect(response).to redirect_to(login_path)
+    end
   end
 
   describe "POST /guidebooks" do
@@ -107,6 +113,12 @@ RSpec.describe "Guidebooks", type: :request do
       patch "/guidebooks/#{guidebook.id}", params: { guidebook: { content: "hack" } }
       expect(response).to have_http_status(:forbidden)
     end
+
+    it "redirects anonymous users to login" do
+      guidebook = create(:guidebook)
+      patch "/guidebooks/#{guidebook.id}", params: { guidebook: { content: "test" } }
+      expect(response).to redirect_to(login_path)
+    end
   end
 
   describe "DELETE /guidebooks/:id" do
@@ -122,6 +134,12 @@ RSpec.describe "Guidebooks", type: :request do
       login_as(user)
       delete "/guidebooks/#{guidebook.id}"
       expect(response).to have_http_status(:forbidden)
+    end
+
+    it "redirects anonymous users to login" do
+      guidebook = create(:guidebook)
+      delete "/guidebooks/#{guidebook.id}"
+      expect(response).to redirect_to(login_path)
     end
   end
 end

@@ -1,5 +1,5 @@
 class GuidebooksController < ApplicationController
-  before_action :require_login, only: [:new, :create]
+  before_action :require_login, only: [:new, :create, :edit, :update, :destroy]
   before_action :set_guidebook, only: [:show, :edit, :update, :destroy]
 
   def index
@@ -7,8 +7,10 @@ class GuidebooksController < ApplicationController
       Guidebook.where(published: true)
         .or(Guidebook.where(author: current_user))
         .or(Guidebook.where(id: current_user.guidebook_memberships.select(:guidebook_id)))
+        .includes(:author, :guidebook_memberships)
     else
       Guidebook.where(published: true)
+        .includes(:author, :guidebook_memberships)
     end
 
     render inertia: "Guidebook/Index", props: {

@@ -17,6 +17,7 @@ class SessionsController < ApplicationController
 
   # Test-only action for setting session in request specs
   def test_login
+    raise ActionController::RoutingError, "Not Found" unless Rails.env.test?
     session[:user_id] = params[:user_id]
     head :ok
   end

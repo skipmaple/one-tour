@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
   # OAuth callbacks
-  get "/auth/:provider/callback", to: "sessions#create"
+  match "/auth/:provider/callback", to: "sessions#create", via: [:get, :post]
   delete "/logout", to: "sessions#destroy"
 
   # Guidebooks
