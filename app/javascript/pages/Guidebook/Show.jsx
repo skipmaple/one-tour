@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, useRef } from 'react'
-import { MantineProvider, createTheme, ScrollArea } from '@mantine/core'
+import { MantineProvider, createTheme, ScrollArea, SegmentedControl } from '@mantine/core'
+import { Link } from '@inertiajs/react'
 import { useMediaQuery } from '@mantine/hooks'
 import '@mantine/core/styles.css'
 import '../../styles/responsive.css'
 import '../../styles/accessibility.css'
 import MapPreview from '../../components/MapPreview'
+import MarkdownPreview from '../../components/MarkdownPreview'
 import DayCard from '../../components/DayCard'
 import GalleryPanel from '../../components/GalleryPanel'
 import Lightbox from '../../components/Lightbox'
@@ -13,6 +15,18 @@ const theme = createTheme({
   primaryColor: 'blue',
   fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
 })
+
+const toolbarBtnStyle = {
+  background: '#fff',
+  border: '1px solid #e2e8f0',
+  borderRadius: 8,
+  padding: '6px 12px',
+  fontSize: 13,
+  color: '#1e293b',
+  textDecoration: 'none',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+  cursor: 'pointer',
+}
 
 const sidebarStyles = {
   container: (collapsed, mobile) => mobile ? {
@@ -145,6 +159,7 @@ export default function Show({ guidebook }) {
   const fm = guidebook.frontmatter || {}
   const days = fm.days || []
   const [activeDayIndex, setActiveDayIndex] = useState(null)
+  const [viewMode, setViewMode] = useState('map')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [gallerySpot, setGallerySpot] = useState(null)
   const [lightboxState, setLightboxState] = useState(null)
@@ -187,14 +202,41 @@ export default function Show({ guidebook }) {
         跳到行程列表
       </a>
 
-      {/* Map */}
-      <div style={{ flex: 1 }} role="application" aria-label="自驾路线交互式地图">
-        <MapPreview
-          frontmatter={fm}
-          activeDayId={activeDayIndex != null ? days[activeDayIndex]?.day : null}
-          onGalleryToggle={handleGalleryToggle}
-          onGalleryClose={handleGalleryClose}
+      {/* Floating toolbar */}
+      <div style={{
+        position: 'fixed', top: 16, left: 16, zIndex: 500,
+        display: 'flex', gap: 8, alignItems: 'center',
+      }}>
+        <Link href="/" style={toolbarBtnStyle}>← 主页</Link>
+        {guidebook.editable && (
+          <Link href={`/guidebooks/${guidebook.id}/edit`} style={toolbarBtnStyle}>编辑</Link>
+        )}
+        {guidebook.owned && (
+          <Link href={`/guidebooks/${guidebook.id}/memberships`} style={toolbarBtnStyle}>👥 协作</Link>
+        )}
+        <SegmentedControl
+          size="xs"
+          value={viewMode}
+          onChange={setViewMode}
+          data={[
+            { label: '地图', value: 'map' },
+            { label: '文档', value: 'markdown' },
+          ]}
         />
+      </div>
+
+      {/* Main content: map or markdown */}
+      <div style={{ flex: 1 }} role="application" aria-label="自驾路线交互式地图">
+        {viewMode === 'map' ? (
+          <MapPreview
+            frontmatter={fm}
+            activeDayId={activeDayIndex != null ? days[activeDayIndex]?.day : null}
+            onGalleryToggle={handleGalleryToggle}
+            onGalleryClose={handleGalleryClose}
+          />
+        ) : (
+          <MarkdownPreview content={(guidebook.content || '').replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '')} />
+        )}
       </div>
 
       {/* Toggle button */}
