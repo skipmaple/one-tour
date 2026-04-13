@@ -1,0 +1,135 @@
+/* Spot popup (marker click) */
+.popup-custom .leaflet-popup-content-wrapper {
+  background: #fff;
+  color: #1e293b;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+.popup-custom .leaflet-popup-tip {
+  background: #fff;
+}
+.popup-custom .leaflet-popup-content {
+  margin: 0;
+  max-width: 380px;
+}
+
+.popup-info {
+  padding: 14px 16px;
+}
+.popup-info h3 {
+  font-size: 15px;
+  font-weight: bold;
+  margin: 0 0 6px;
+  color: #0369a1;
+}
+.popup-desc {
+  margin-bottom: 8px;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.popup-tip {
+  padding: 6px 8px 6px 10px;
+  background: #fff7ed;
+  border-left: 3px solid #ea580c;
+  border-radius: 0 4px 4px 0;
+  font-size: 12px;
+  color: #9a3412;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+.popup-tip-label {
+  font-weight: 700;
+  color: #c2410c;
+  margin-right: 4px;
+}
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 4px;
+  margin-bottom: 4px;
+  background: #f1f5f9;
+  color: #334155;
+}
+.popup-gallery-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0369a1;
+  cursor: pointer;
+  margin-top: 10px;
+  width: 100%;
+}
+.popup-gallery-toggle:hover {
+  background: #e0f2fe;
+}
+.popup-no-photos {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 10px;
+}
+
+/* Route popup (segment click) */
+.route-popup .leaflet-popup-content-wrapper {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #bae6fd;
+  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.2);
+}
+.route-popup .leaflet-popup-tip {
+  background: #fff;
+}
+.route-popup .leaflet-popup-content {
+  margin: 14px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.route-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+.route-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.route-stat {
+  text-align: center;
+}
+.route-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0369a1;
+}
+.route-stat-label {
+  font-size: 11px;
+  color: #475569;
+}
+.route-road {
+  font-size: 12px;
+  color: #475569;
+  margin-bottom: 6px;
+}
+.route-tip {
+  padding: 6px 8px 6px 10px;
+  background: #f0f9ff;
+  border-left: 3px solid #0ea5e9;
+  border-radius: 0 4px 4px 0;
+  font-size: 12px;
+  color: #0c4a6e;
+  line-height: 1.5;
+  margin-top: 8px;
+}
