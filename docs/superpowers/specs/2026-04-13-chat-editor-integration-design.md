@@ -171,17 +171,15 @@ AI 生成内容
 │  │ • 修改标题："北疆环线" → "南北疆大环线"             │  │
 │  └──────────────────────────────────────────────────┘  │
 │                                                        │
-│  📝 文本差异                                            │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │  --- 原始内容                                     │  │
-│  │  +++ 当前内容                                     │  │
-│  │  @@ -1,5 +1,5 @@                                 │  │
-│  │   ---                                             │  │
-│  │  -title: 北疆环线                                  │  │
-│  │  +title: 南北疆大环线                              │  │
-│  │   date_range: 5/1 - 5/7                           │  │
-│  │  ...                                              │  │
-│  └──────────────────────────────────────────────────┘  │
+│  📝 文本差异（左右双栏）                                  │
+│  ┌────────────────────────┬─────────────────────────┐  │
+│  │  原始内容 (上次保存)     │  当前内容                │  │
+│  ├────────────────────────┼─────────────────────────┤  │
+│  │  ---                   │  ---                    │  │
+│  │- title: 北疆环线        │+ title: 南北疆大环线     │  │
+│  │  date_range: 5/1 - 5/7 │  date_range: 5/1 - 5/7 │  │
+│  │  ...                   │  ...                    │  │
+│  └────────────────────────┴─────────────────────────┘  │
 │                                                        │
 │                          [取消]  [确认保存]              │
 └────────────────────────────────────────────────────────┘
@@ -221,29 +219,59 @@ function computeSemanticSummary(oldContent, newContent) {
 }
 ```
 
-### 文本 Diff（下半部分）
+### 文本 Diff（下半部分）— 左右双栏布局
 
-安装 `diff` npm 包（轻量，~8KB），使用 `diffLines` 计算行级差异，自定义 React 组件渲染：
+安装 `diff` npm 包（轻量，~8KB），使用 `diffLines` 计算行级差异，以 **side-by-side** 双栏布局展示：
+
+```
+┌─────────────────────────┬─────────────────────────┐
+│  原始内容 (上次保存)      │  当前内容                │
+├─────────────────────────┼─────────────────────────┤
+│  ---                    │  ---                    │
+│- title: 北疆环线         │+ title: 南北疆大环线      │
+│  date_range: 5/1 - 5/7  │  date_range: 5/1 - 5/7  │
+│  vehicle: 自驾           │  vehicle: 自驾           │
+│                         │+ total_km: 3200          │
+│  days:                  │  days:                   │
+│    ...                  │    ...                   │
+│                         │+ - day: 4                │
+│                         │+   title: 库尔勒 → 若羌   │
+└─────────────────────────┴─────────────────────────┘
+```
+
+左栏显示上次保存的内容，右栏显示当前编辑器内容。删除的行在左栏红色高亮，新增的行在右栏绿色高亮，修改的行两侧都高亮。未变更的行两栏同步显示，提供上下文。
 
 ```javascript
 import { diffLines } from 'diff'
 
-function TextDiff({ oldText, newText }) {
+function SideBySideDiff({ oldText, newText }) {
   const changes = diffLines(oldText, newText)
+  // 将 changes 拆分为 left/right 两列行数组
+  // removed → 只出现在左栏（红色背景）
+  // added → 只出现在右栏（绿色背景）
+  // unchanged → 两栏同步显示
+  const { leftLines, rightLines } = buildSideBySideLines(changes)
+
   return (
-    <pre>
-      {changes.map((part, i) => (
-        <span key={i} style={{
-          backgroundColor: part.added ? '#e6ffec' : part.removed ? '#ffebe9' : 'transparent',
-          color: part.added ? '#1a7f37' : part.removed ? '#cf222e' : 'inherit',
-        }}>
-          {part.value}
-        </span>
-      ))}
-    </pre>
+    <div style={{ display: 'flex', gap: 0, fontFamily: 'monospace', fontSize: '0.8rem' }}>
+      <div style={{ flex: 1, borderRight: '1px solid var(--mantine-color-gray-3)' }}>
+        <div style={{ padding: '4px 8px', fontWeight: 600, borderBottom: '1px solid ...' }}>
+          原始内容
+        </div>
+        {leftLines.map((line, i) => <DiffLine key={i} {...line} />)}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ padding: '4px 8px', fontWeight: 600, borderBottom: '1px solid ...' }}>
+          当前内容
+        </div>
+        {rightLines.map((line, i) => <DiffLine key={i} {...line} />)}
+      </div>
+    </div>
   )
 }
 ```
+
+两栏同步滚动：外层 `ScrollArea` 包裹整个 diff 区域，左右两栏等高对齐（删除行对面插入空行占位，保持行号对齐）。
 
 ### 保存时的 lastSavedContent 追踪
 
