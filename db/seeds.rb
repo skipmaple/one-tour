@@ -18,6 +18,8 @@ if File.exist?(markdown_path)
     vehicle: "理想 L8"
     team_size: 5
     total_km: 1300
+    trip_style: "🌟 少即是多，以自然景观为主"
+    budget_per_person: "~5k"
     route_coordinates:
       - [43.825, 87.617]
       - [44.00, 86.80]

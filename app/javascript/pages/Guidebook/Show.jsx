@@ -217,9 +217,11 @@ export default function Show({ guidebook }) {
             </div>
 
             {/* Trip style card */}
-            <div style={{ ...sidebarStyles.tripStyle, marginTop: 12 }}>
-              🌟 少即是多，以自然景观为主
-            </div>
+            {fm.trip_style && (
+              <div style={{ ...sidebarStyles.tripStyle, marginTop: 12 }}>
+                {fm.trip_style}
+              </div>
+            )}
 
             {/* Legend */}
             <div style={sidebarStyles.legend}>
@@ -263,10 +265,12 @@ export default function Show({ guidebook }) {
                 <div style={sidebarStyles.statValue}>{totalSpots}</div>
                 <div style={sidebarStyles.statLabel}>景点</div>
               </div>
-              <div style={sidebarStyles.statItem}>
-                <div style={sidebarStyles.statValue}>~5k</div>
-                <div style={sidebarStyles.statLabel}>人均 ¥</div>
-              </div>
+              {fm.budget_per_person && (
+                <div style={sidebarStyles.statItem}>
+                  <div style={sidebarStyles.statValue}>{fm.budget_per_person}</div>
+                  <div style={sidebarStyles.statLabel}>人均 ¥</div>
+                </div>
+              )}
             </div>
           </div>
         </ScrollArea>
