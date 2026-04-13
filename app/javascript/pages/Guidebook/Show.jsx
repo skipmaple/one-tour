@@ -120,7 +120,10 @@ export default function Show({ guidebook }) {
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* Map */}
       <div style={{ flex: 1 }}>
-        <MapPreview frontmatter={fm} />
+        <MapPreview
+          frontmatter={fm}
+          activeDayId={activeDayIndex != null ? days[activeDayIndex]?.day : null}
+        />
       </div>
 
       {/* Toggle button */}

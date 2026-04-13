@@ -1,6 +1,6 @@
-import { MapContainer, TileLayer, Polyline, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet'
 import { Text } from '@mantine/core'
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import L from 'leaflet'
 import '../styles/popup.css'
 
@@ -25,15 +25,16 @@ const ROUTE_COLORS = {
   red: '#ef4444',
 }
 
-function createMarkerIcon(label, emoji, color, size = 'main') {
+function createMarkerIcon(label, emoji, color, size = 'main', dayId = null) {
   const isMain = size === 'main'
   const px = isMain ? 34 : 28
   const fontSize = isMain ? 13 : 11
   const emojiSize = isMain ? 14 : 12
   const borderWidth = 2.5
+  const dataAttr = dayId != null ? `data-day-id="${dayId}"` : ''
 
   const html = `
-    <div style="
+    <div ${dataAttr} style="
       width: ${px}px;
       height: ${px}px;
       border-radius: 50%;
@@ -45,6 +46,7 @@ function createMarkerIcon(label, emoji, color, size = 'main') {
       align-items: center;
       justify-content: center;
       line-height: 1;
+      transition: opacity 0.3s ease;
     ">
       <span style="font-size: ${fontSize}px; font-weight: 700; color: #0f172a;">${label}</span>
       <span style="font-size: ${emojiSize}px; line-height: 1;">${emoji}</span>
@@ -118,7 +120,47 @@ function RoutePopupContent({ segment }) {
   )
 }
 
-export default function MapPreview({ frontmatter }) {
+function MapController({ activeDayId, days }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (activeDayId != null) {
+      const day = days.find((d) => d.day === activeDayId)
+      if (day) {
+        const coords = []
+        if (day.coordinates && Array.isArray(day.coordinates)) {
+          coords.push(day.coordinates)
+        }
+        const points = day.points || day.highlights || []
+        points.forEach((p) => {
+          if (p.coordinates && Array.isArray(p.coordinates)) {
+            coords.push(p.coordinates)
+          }
+        })
+        if (coords.length > 0) {
+          const bounds = L.latLngBounds(coords)
+          map.flyToBounds(bounds, { padding: [60, 400] })
+        }
+      }
+    }
+
+    // Update marker opacity
+    const container = map.getContainer()
+    const markerEls = container.querySelectorAll('[data-day-id]')
+    markerEls.forEach((el) => {
+      const elDayId = parseInt(el.getAttribute('data-day-id'), 10)
+      if (activeDayId == null) {
+        el.style.opacity = '1'
+      } else {
+        el.style.opacity = elDayId === activeDayId ? '1' : '0.3'
+      }
+    })
+  }, [activeDayId, days, map])
+
+  return null
+}
+
+export default function MapPreview({ frontmatter, activeDayId }) {
   const hasData = frontmatter && Array.isArray(frontmatter.days) && frontmatter.days.length > 0
 
   const center = useMemo(() => {
@@ -147,6 +189,7 @@ export default function MapPreview({ frontmatter }) {
 
   return (
     <MapContainer center={center} zoom={7} style={{ height: '100%', width: '100%' }}>
+      <MapController activeDayId={activeDayId ?? null} days={days} />
       <TileLayer
         url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
         subdomains="1234"
@@ -182,7 +225,7 @@ export default function MapPreview({ frontmatter }) {
         // Main day marker
         if (day.coordinates && Array.isArray(day.coordinates)) {
           const mainType = day.points?.[0]?.tags?.[0] || 'city'
-          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI[mainType] || '🏙️', dayColor, 'main')
+          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI[mainType] || '🏙️', dayColor, 'main', day.day)
           const detailKey = day.title
           const detail = pointDetails[detailKey]
           const photos = pointPhotos[detailKey]
@@ -205,7 +248,7 @@ export default function MapPreview({ frontmatter }) {
         points.forEach((point, i) => {
           if (!point.coordinates || !Array.isArray(point.coordinates)) return
           const pointType = point.tags?.[0] || 'scenic'
-          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI[pointType] || '📍', dayColor, 'secondary')
+          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI[pointType] || '📍', dayColor, 'secondary', day.day)
           const detailKey = point.name
           const detail = pointDetails[detailKey]
           const photos = pointPhotos[detailKey]
