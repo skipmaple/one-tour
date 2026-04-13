@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_13_013743) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_13_083908) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -42,6 +42,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_13_013743) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "conversations", force: :cascade do |t|
+    t.bigint "guidebook_id", null: false
+    t.bigint "user_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["guidebook_id", "user_id"], name: "index_conversations_on_guidebook_id_and_user_id", unique: true
+    t.index ["guidebook_id"], name: "index_conversations_on_guidebook_id"
+    t.index ["user_id"], name: "index_conversations_on_user_id"
+  end
+
   create_table "guidebook_memberships", force: :cascade do |t|
     t.bigint "guidebook_id", null: false
     t.bigint "user_id", null: false
@@ -62,6 +72,17 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_13_013743) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["author_id"], name: "index_guidebooks_on_author_id"
+  end
+
+  create_table "messages", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.integer "role", null: false
+    t.text "content"
+    t.jsonb "tool_calls"
+    t.jsonb "metadata"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id"], name: "index_messages_on_conversation_id"
   end
 
   create_table "oauth_identities", force: :cascade do |t|
@@ -86,8 +107,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_13_013743) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "conversations", "guidebooks"
+  add_foreign_key "conversations", "users"
   add_foreign_key "guidebook_memberships", "guidebooks"
   add_foreign_key "guidebook_memberships", "users"
   add_foreign_key "guidebooks", "users", column: "author_id"
+  add_foreign_key "messages", "conversations"
   add_foreign_key "oauth_identities", "users"
 end

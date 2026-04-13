@@ -48,14 +48,26 @@ class SessionsController < ApplicationController
     end
 
     def find_or_create_user(auth)
-      if user = User.find_by(email: auth.info.email)
+      email = auth.info.email.presence || fallback_email(auth)
+      if user = User.find_by(email: email)
         user
       else
         User.create!(
-          email: auth.info.email,
-          name: auth.info.name,
+          email: email,
+          name: auth.info.name.presence || auth.info.nickname || "User",
           avatar_url: auth.info.image
         )
+      end
+    end
+
+    def fallback_email(auth)
+      case auth.provider
+      when "github"
+        "#{auth.uid}+#{auth.info.nickname}@users.noreply.github.com"
+      when "feishu"
+        "#{auth.uid}@feishu.noreply.lark.com"
+      else
+        raise "No email returned from #{auth.provider}"
       end
     end
 end

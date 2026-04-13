@@ -20,6 +20,10 @@ export default function AppLayout({ children }) {
                 </Menu.Target>
                 <Menu.Dropdown>
                   <Menu.Label>{current_user.name}</Menu.Label>
+                  {current_user.email && (
+                    <Menu.Label c="dimmed" fz="xs" style={{ fontWeight: 'normal' }}>{current_user.email}</Menu.Label>
+                  )}
+                  <Menu.Divider />
                   <Menu.Item component={Link} href="/logout" method="delete" as="button">
                     退出
                   </Menu.Item>

@@ -112,7 +112,7 @@ class GuidebooksController < ApplicationController
 
     def user_props
       if current_user
-        { id: current_user.id, name: current_user.name, avatar_url: current_user.avatar_url }
+        { id: current_user.id, name: current_user.name, email: current_user.email, avatar_url: current_user.avatar_url }
       end
     end
 end

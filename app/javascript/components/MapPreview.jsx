@@ -199,11 +199,28 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
   const pointPhotos = frontmatter.point_photos || {}
   const days = frontmatter.days || []
 
+  // Fallback: when route_coordinates is empty, build a simple route from day/point coords
+  const fallbackRoute = useMemo(() => {
+    if (routeCoords.length > 0) return null
+    const coords = []
+    for (const day of days) {
+      const points = day.points || []
+      if (points.length > 0) {
+        for (const p of points) {
+          if (p.lat && p.lng) coords.push([p.lat, p.lng])
+        }
+      } else if (day.coordinates && Array.isArray(day.coordinates) && day.coordinates.length === 2) {
+        coords.push(day.coordinates)
+      }
+    }
+    return coords.length >= 2 ? coords : null
+  }, [routeCoords, days])
+
   return (
     <MapContainer center={center} zoom={7} style={{ height: '100%', width: '100%' }}>
       <MapController activeDayId={activeDayId ?? null} days={days} />
       <PopupCloseWatcher onPopupClose={onGalleryClose} />
-      <FitBounds coords={routeCoords} />
+      <FitBounds coords={routeCoords.length > 0 ? routeCoords : fallbackRoute} />
       <TileLayer
         url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
         subdomains="1234"
@@ -254,6 +271,19 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
           </Polyline>
         ]
       })}
+
+      {/* Fallback route line when route_coordinates is absent */}
+      {fallbackRoute && (
+        <Polyline
+          positions={fallbackRoute}
+          color="#6366f1"
+          weight={3}
+          opacity={0.6}
+          dashArray="8 6"
+          lineCap="round"
+          lineJoin="round"
+        />
+      )}
 
       {/* One marker per spot — day marker only when no points exist */}
       {days.map((day) => {

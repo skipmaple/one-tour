@@ -43,8 +43,10 @@ gem "omniauth", "~> 2.1"
 gem "omniauth-rails_csrf_protection"
 gem "omniauth-github", "~> 2.0"
 gem "omniauth-google-oauth2", "~> 1.2"
-gem "omniauth-wechat-oauth2", "~> 0.2"
 gem "omniauth-feishu", "~> 0.1"
+
+# LLM
+gem "ruby_llm"
 
 gem "dotenv-rails", groups: [:development, :test]
 
@@ -60,6 +62,8 @@ group :development, :test do
 
   gem "rspec-rails", "~> 7.0"
   gem "factory_bot_rails"
+  gem "webmock"
+  gem "climate_control"
 end
 
 group :development do

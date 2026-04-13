@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Button, Group, Stack, Alert } from '@mantine/core'
+import { useState, useCallback, useRef } from 'react'
+import { Button, Group, Stack, Alert, ActionIcon } from '@mantine/core'
 import { router } from '@inertiajs/react'
 import MarkdownEditor from '../../components/MarkdownEditor'
 import MarkdownPreview from '../../components/MarkdownPreview'
@@ -7,8 +7,12 @@ import MapPreview from '../../components/MapPreview'
 import PreviewToggle from '../../components/PreviewToggle'
 import StatusBar from '../../components/StatusBar'
 import ImageUploader from '../../components/ImageUploader'
+import ChatPanel from '../../components/ChatPanel'
+import DiffModal from '../../components/DiffModal'
 import { useFrontmatter } from '../../hooks/useFrontmatter'
 import { useAutoSave } from '../../hooks/useAutoSave'
+import { useChat } from '../../hooks/useChat'
+import { ensureMarkdownBody } from '../../utils/generateMarkdownBody'
 
 export default function Edit({ guidebook }) {
   const isNew = !guidebook
@@ -16,11 +20,55 @@ export default function Edit({ guidebook }) {
 
   const { rawContent, setRawContent, frontmatter, body, parseError } = useFrontmatter(initialContent)
   const [previewMode, setPreviewMode] = useState('markdown')
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatWidth, setChatWidth] = useState(360)
+  const [chatMode, setChatMode] = useState('ask')
+  const [diffModalOpen, setDiffModalOpen] = useState(false)
+  const chatModeRef = useRef('ask')
+  const editorRef = useRef(null)
+  const dragRef = useRef(null)
 
-  const { saving, lastSaved, error: saveError, save, dirty } = useAutoSave(
+  const handleDragStart = useCallback((e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startWidth = chatWidth
+
+    const onMouseMove = (e) => {
+      const delta = startX - e.clientX
+      setChatWidth(Math.min(600, Math.max(280, startWidth + delta)))
+    }
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [chatWidth])
+
+  const { saving, lastSaved, error: saveError, save, lastSavedContent, confirmBaseline } = useAutoSave(
     guidebook?.id,
     rawContent
   )
+
+  const handleApplyContent = useCallback((content) => {
+    editorRef.current?.replaceContent(ensureMarkdownBody(content.trim()))
+  }, [])
+
+  const handleChatModeChange = (newMode) => {
+    setChatMode(newMode)
+    chatModeRef.current = newMode
+  }
+
+  const { messages, streaming, streamingContent, sendMessage, error: chatError } = useChat(guidebook?.id, {
+    modeRef: chatModeRef,
+    onAutoApply: handleApplyContent,
+  })
 
   const handleCreate = () => {
     router.post('/guidebooks', {
@@ -28,12 +76,22 @@ export default function Edit({ guidebook }) {
     })
   }
 
+  const hasChanges = rawContent !== lastSavedContent
+
   const handleManualSave = () => {
     if (isNew) {
       handleCreate()
+    } else if (hasChanges) {
+      setDiffModalOpen(true)
     } else {
       save()
     }
+  }
+
+  const handleConfirmSave = () => {
+    setDiffModalOpen(false)
+    confirmBaseline()
+    save({ force: true })
   }
 
   return (
@@ -42,6 +100,16 @@ export default function Edit({ guidebook }) {
       <Group px="md" py="xs" justify="space-between" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
         <PreviewToggle value={previewMode} onChange={setPreviewMode} />
         <Group>
+          {!isNew && (
+            <ActionIcon
+              size="md"
+              variant={chatOpen ? 'filled' : 'light'}
+              onClick={() => setChatOpen(o => !o)}
+              title="AI 助手"
+            >
+              💬
+            </ActionIcon>
+          )}
           {guidebook?.owned && guidebook?.publishable && !guidebook?.published && (
             <Button
               size="xs"
@@ -65,7 +133,7 @@ export default function Edit({ guidebook }) {
         </Alert>
       )}
 
-      {/* Editor + Preview split */}
+      {/* Editor + Preview + Chat split */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Left: Preview */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -76,13 +144,53 @@ export default function Edit({ guidebook }) {
           )}
         </div>
 
-        {/* Right: Editor + Upload */}
+        {/* Middle: Editor + Upload */}
         <div style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-gray-3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <MarkdownEditor value={initialContent} onChange={setRawContent} />
+            <MarkdownEditor ref={editorRef} value={initialContent} onChange={setRawContent} />
           </div>
           <ImageUploader guidebookId={guidebook?.id} />
         </div>
+
+        {/* Right: Chat Panel */}
+        {chatOpen && (
+          <div style={{ width: chatWidth, display: 'flex', flexShrink: 0 }}>
+            {/* Drag handle */}
+            <div
+              ref={dragRef}
+              onMouseDown={handleDragStart}
+              style={{
+                width: 4,
+                cursor: 'col-resize',
+                backgroundColor: 'transparent',
+                flexShrink: 0,
+                borderLeft: '1px solid var(--mantine-color-gray-3)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--mantine-color-blue-2)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+            />
+            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <Group px="sm" py="xs" justify="space-between" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>AI 旅行助手</span>
+              <ActionIcon size="sm" variant="subtle" onClick={() => setChatOpen(false)}>
+                ✕
+              </ActionIcon>
+            </Group>
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <ChatPanel
+                messages={messages}
+                streaming={streaming}
+                streamingContent={streamingContent}
+                sendMessage={sendMessage}
+                error={chatError}
+                onApplyContent={handleApplyContent}
+                mode={chatMode}
+                onModeChange={handleChatModeChange}
+              />
+            </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Status bar */}
@@ -91,6 +199,15 @@ export default function Edit({ guidebook }) {
         lastSaved={lastSaved}
         saving={saving}
         error={saveError}
+      />
+
+      {/* Diff Modal */}
+      <DiffModal
+        opened={diffModalOpen}
+        onClose={() => setDiffModalOpen(false)}
+        oldContent={lastSavedContent}
+        newContent={rawContent}
+        onConfirm={handleConfirmSave}
       />
     </Stack>
   )

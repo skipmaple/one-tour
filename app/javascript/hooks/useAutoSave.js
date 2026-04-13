@@ -8,6 +8,7 @@ export function useAutoSave(guidebookId, content, delay = 5000) {
   const dirtyRef = useRef(false)
   const timerRef = useRef(null)
   const contentRef = useRef(content)
+  const [lastSavedContent, setLastSavedContent] = useState(content)
 
   useEffect(() => {
     contentRef.current = content
@@ -26,8 +27,8 @@ export function useAutoSave(guidebookId, content, delay = 5000) {
     }
   }, [content])
 
-  const save = useCallback(() => {
-    if (!guidebookId || !dirtyRef.current) return
+  const save = useCallback(({ force = false } = {}) => {
+    if (!guidebookId || (!force && !dirtyRef.current)) return
 
     setSaving(true)
     setError(null)
@@ -60,5 +61,9 @@ export function useAutoSave(guidebookId, content, delay = 5000) {
     return () => window.removeEventListener('beforeunload', handler)
   }, [])
 
-  return { saving, lastSaved, error, save, dirty: dirtyRef.current }
+  const confirmBaseline = useCallback(() => {
+    setLastSavedContent(contentRef.current)
+  }, [])
+
+  return { saving, lastSaved, error, save, dirty: dirtyRef.current, lastSavedContent, confirmBaseline }
 }

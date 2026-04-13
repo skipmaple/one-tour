@@ -1,12 +1,22 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { EditorView, basicSetup } from 'codemirror'
 import { EditorState } from '@codemirror/state'
 import { markdown } from '@codemirror/lang-markdown'
 import { yaml } from '@codemirror/lang-yaml'
 
-export default function MarkdownEditor({ value, onChange }) {
+const MarkdownEditor = forwardRef(function MarkdownEditor({ value, onChange }, ref) {
   const containerRef = useRef(null)
   const viewRef = useRef(null)
+
+  useImperativeHandle(ref, () => ({
+    replaceContent(newContent) {
+      const view = viewRef.current
+      if (!view) return
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: newContent }
+      })
+    }
+  }))
 
   // Intentionally initialized once on mount — CodeMirror manages its own document state.
   // External value changes after mount are not synced back to the editor.
@@ -44,4 +54,6 @@ export default function MarkdownEditor({ value, onChange }) {
   }, [])
 
   return <div ref={containerRef} style={{ height: '100%' }} />
-}
+})
+
+export default MarkdownEditor

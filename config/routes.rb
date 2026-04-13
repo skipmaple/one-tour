@@ -5,12 +5,18 @@ Rails.application.routes.draw do
   # OmniAuth developer strategy serves a form at GET /auth/developer (handled by middleware)
   delete "/logout", to: "sessions#destroy"
 
+  # ActionCable
+  mount ActionCable.server => "/cable"
+
   # Guidebooks
   resources :guidebooks do
     scope module: :guidebooks do
       resource :publication, only: [:create, :destroy]
       resources :memberships, only: [:index, :create, :update, :destroy]
       resources :images, only: [:create]
+      resources :conversations, only: [:create, :show] do
+        resources :messages, only: [:create]
+      end
     end
   end
 

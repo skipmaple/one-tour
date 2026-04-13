@@ -110,4 +110,49 @@ RSpec.describe Guidebook, type: :model do
       expect(guidebook.title).to eq "Updated"
     end
   end
+
+  describe "#frontmatter_diff" do
+    it "returns nil when frontmatter_cache did not change" do
+      guidebook = create(:guidebook, content: "---\ntitle: Trip\ndays: []\n---\n\n# Body")
+      guidebook.update!(published: true)
+      expect(guidebook.frontmatter_diff).to be_nil
+    end
+
+    it "detects added days" do
+      guidebook = create(:guidebook, content: "---\ntitle: Trip\ndays: []\n---\n\n# Body")
+      guidebook.update!(content: "---\ntitle: Trip\ndays:\n  - day: 1\n    title: Day One\n    coordinates: [43.83, 87.62]\n---\n\n# Body")
+
+      diff = guidebook.frontmatter_diff
+      expect(diff[:added_days]).to eq [1]
+      expect(diff[:removed_days]).to be_empty
+      expect(diff[:modified_days]).to be_empty
+    end
+
+    it "detects removed days" do
+      guidebook = create(:guidebook, content: "---\ntitle: Trip\ndays:\n  - day: 1\n    title: Day One\n    coordinates: [43.83, 87.62]\n---\n\n# Body")
+      guidebook.update!(content: "---\ntitle: Trip\ndays: []\n---\n\n# Body")
+
+      diff = guidebook.frontmatter_diff
+      expect(diff[:removed_days]).to eq [1]
+      expect(diff[:added_days]).to be_empty
+    end
+
+    it "detects modified days" do
+      guidebook = create(:guidebook, content: "---\ntitle: Trip\ndays:\n  - day: 1\n    title: Day One\n    coordinates: [43.83, 87.62]\n---\n\n# Body")
+      guidebook.update!(content: "---\ntitle: Trip\ndays:\n  - day: 1\n    title: Day One Modified\n    coordinates: [43.83, 87.62]\n---\n\n# Body")
+
+      diff = guidebook.frontmatter_diff
+      expect(diff[:modified_days]).to eq [1]
+      expect(diff[:added_days]).to be_empty
+      expect(diff[:removed_days]).to be_empty
+    end
+
+    it "detects changed top-level fields" do
+      guidebook = create(:guidebook, content: "---\ntitle: Trip\nvehicle: SUV\ndays: []\n---\n\n# Body")
+      guidebook.update!(content: "---\ntitle: Trip\nvehicle: Sedan\ndays: []\n---\n\n# Body")
+
+      diff = guidebook.frontmatter_diff
+      expect(diff[:changed_top_level_fields]).to include("vehicle")
+    end
+  end
 end
