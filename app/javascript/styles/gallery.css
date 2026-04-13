@@ -100,6 +100,8 @@
 
 /* Gallery Card */
 .gallery-card {
+  display: flex;
+  flex-direction: row;
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   overflow: hidden;
@@ -115,7 +117,9 @@
 
 .gallery-card-thumb-wrap {
   position: relative;
-  height: 180px;
+  width: 120px;
+  height: 90px;
+  flex-shrink: 0;
   overflow: hidden;
 }
 
@@ -140,7 +144,7 @@
   opacity: 0;
   transition: opacity 300ms ease;
   color: #fff;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -149,7 +153,12 @@
 }
 
 .gallery-card-info {
-  padding: 10px 12px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .gallery-card-title {
@@ -160,9 +169,13 @@
 }
 
 .gallery-card-reason {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 400;
-  color: #475569;
-  line-height: 1.5;
+  color: #64748b;
+  line-height: 1.45;
   margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
