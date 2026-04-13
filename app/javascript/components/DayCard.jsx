@@ -181,13 +181,15 @@ export default function DayCard({ day, active, onClick }) {
           {/* Schedule */}
           {day.schedule && day.schedule.length > 0 && (
             <div style={styles.detailSection}>
-              <div style={styles.detailLabel}>Schedule</div>
-              {day.schedule.map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
-                  <span style={styles.scheduleTime}>{item.time}</span>
-                  <span style={styles.scheduleText}>{item.label}</span>
-                </div>
-              ))}
+              {day.schedule.map((item, i) => {
+                const [time, text] = Array.isArray(item) ? item : [item.time, item.label]
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 3 }}>
+                    <span style={styles.scheduleTime}>{time}</span>
+                    <span style={styles.scheduleText}>{text}</span>
+                  </div>
+                )
+              })}
             </div>
           )}
 

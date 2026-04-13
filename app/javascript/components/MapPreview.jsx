@@ -130,6 +130,8 @@ function MapController({ activeDayId, days }) {
         points.forEach((p) => {
           if (p.coordinates && Array.isArray(p.coordinates)) {
             coords.push(p.coordinates)
+          } else if (p.lat && p.lng) {
+            coords.push([p.lat, p.lng])
           }
         })
         if (coords.length > 0) {
@@ -279,15 +281,16 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
         // Secondary point markers for each highlight/point in the day
         const points = day.points || day.highlights || []
         points.forEach((point, i) => {
-          if (!point.coordinates || !Array.isArray(point.coordinates)) return
-          const pointType = point.tags?.[0] || 'scenic'
+          const pointCoords = point.coordinates || (point.lat && point.lng ? [point.lat, point.lng] : null)
+          if (!pointCoords) return
+          const pointType = point.type || point.tags?.[0] || 'scenic'
           const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI[pointType] || '📍', dayColor, 'secondary', day.day)
           const detailKey = point.name
           const detail = pointDetails[detailKey]
           const photos = pointPhotos[detailKey]
 
           markers.push(
-            <Marker key={`pt-${day.day}-${i}`} position={point.coordinates} icon={icon}>
+            <Marker key={`pt-${day.day}-${i}`} position={pointCoords} icon={icon}>
               <Popup className="popup-custom" maxWidth={380}>
                 <SpotPopup
                   spot={point}
