@@ -6,6 +6,7 @@ import MarkdownPreview from '../../components/MarkdownPreview'
 import MapPreview from '../../components/MapPreview'
 import PreviewToggle from '../../components/PreviewToggle'
 import StatusBar from '../../components/StatusBar'
+import ImageUploader from '../../components/ImageUploader'
 import { useFrontmatter } from '../../hooks/useFrontmatter'
 import { useAutoSave } from '../../hooks/useAutoSave'
 
@@ -75,9 +76,12 @@ export default function Edit({ guidebook }) {
           )}
         </div>
 
-        {/* Right: Editor */}
-        <div style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-gray-3)', overflow: 'hidden' }}>
-          <MarkdownEditor value={initialContent} onChange={setRawContent} />
+        {/* Right: Editor + Upload */}
+        <div style={{ flex: 1, borderLeft: '1px solid var(--mantine-color-gray-3)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <MarkdownEditor value={initialContent} onChange={setRawContent} />
+          </div>
+          <ImageUploader guidebookId={guidebook?.id} />
         </div>
       </div>
 
