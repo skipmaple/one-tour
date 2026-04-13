@@ -1,89 +1,202 @@
-import { useState } from 'react'
-import { Paper, Title, Text, Group, Badge, Stack, ScrollArea, Collapse } from '@mantine/core'
+import { useState, useMemo } from 'react'
+import { MantineProvider, createTheme, ScrollArea } from '@mantine/core'
+import '@mantine/core/styles.css'
 import MapPreview from '../../components/MapPreview'
+import DayCard from '../../components/DayCard'
+
+const theme = createTheme({
+  primaryColor: 'blue',
+  fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+})
+
+const sidebarStyles = {
+  container: (collapsed) => ({
+    width: 370,
+    height: '100%',
+    position: 'relative',
+    flexShrink: 0,
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.97) 100%)',
+    backdropFilter: 'blur(12px)',
+    borderLeft: '1px solid #e2e8f0',
+    boxShadow: '-4px 0 20px rgba(0,0,0,0.08)',
+    transform: collapsed ? 'translateX(370px)' : 'translateX(0)',
+    transition: 'transform 300ms ease',
+    overflow: 'hidden',
+  }),
+  toggleBtn: (collapsed) => ({
+    position: 'fixed',
+    top: 16,
+    right: collapsed ? 16 : 380,
+    zIndex: 1001,
+    background: '#fff',
+    border: '1px solid #e2e8f0',
+    color: '#1e293b',
+    padding: '8px 14px',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontSize: 14,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    transition: 'right 0.3s ease',
+  }),
+  title: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: '#0f172a',
+    margin: 0,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  tripStyle: {
+    fontSize: 13,
+    color: '#475569',
+    lineHeight: 1.5,
+    padding: '10px 14px',
+    marginBottom: 16,
+    background: '#f0fdf4',
+    borderRadius: 8,
+    border: '1px solid #bbf7d0',
+  },
+  legend: {
+    display: 'flex',
+    gap: 14,
+    marginBottom: 16,
+    padding: '10px 0',
+    borderBottom: '1px solid #e2e8f0',
+  },
+  legendItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    fontSize: 12,
+    color: '#64748b',
+  },
+  legendDot: (color) => ({
+    width: 10,
+    height: 10,
+    borderRadius: '50%',
+    background: color,
+    display: 'inline-block',
+  }),
+  statsBar: {
+    display: 'flex',
+    gap: 12,
+    padding: '14px 16px',
+    background: '#f1f5f9',
+    borderRadius: 10,
+    marginTop: 16,
+  },
+  statItem: {
+    textAlign: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: '#0369a1',
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 2,
+  },
+}
 
 export default function Show({ guidebook }) {
   const fm = guidebook.frontmatter || {}
   const days = fm.days || []
   const [activeDayIndex, setActiveDayIndex] = useState(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  const totalSpots = useMemo(() => {
+    return days.reduce((sum, d) => sum + (d.highlights?.length || 0), 0)
+  }, [days])
+
+  const toggleSidebar = () => setSidebarCollapsed((prev) => !prev)
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 56px - 32px)' }}>
-      {/* Left: Map */}
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      {/* Map */}
       <div style={{ flex: 1 }}>
         <MapPreview frontmatter={fm} />
       </div>
 
-      {/* Right: Sidebar */}
-      <Paper
-        shadow="md"
-        style={{
-          width: 380,
-          height: '100%',
-          overflow: 'hidden',
-          borderLeft: '1px solid var(--mantine-color-gray-3)',
-        }}
-      >
+      {/* Toggle button */}
+      <button onClick={toggleSidebar} style={sidebarStyles.toggleBtn(sidebarCollapsed)}>
+        {sidebarCollapsed ? '☰' : '✕'}
+      </button>
+
+      {/* Sidebar */}
+      <div style={sidebarStyles.container(sidebarCollapsed)}>
         <ScrollArea h="100%" type="auto" offsetScrollbars>
-          <Stack p="md" gap="sm">
-            <Title order={3}>{guidebook.title}</Title>
-            {fm.date_range && <Text size="sm" c="dimmed">{fm.date_range}</Text>}
+          <div style={{ padding: 20 }}>
+            {/* Title */}
+            <h1 style={sidebarStyles.title}>{guidebook.title}</h1>
 
-            <Group gap="xs">
-              {fm.total_km && <Badge variant="light">{fm.total_km} km</Badge>}
-              {fm.team_size && <Badge variant="light">{fm.team_size} people</Badge>}
-              {fm.vehicle && <Badge variant="light">{fm.vehicle}</Badge>}
-            </Group>
+            {/* Subtitle - date range */}
+            {fm.date_range && (
+              <div style={sidebarStyles.subtitle}>{fm.date_range}</div>
+            )}
 
-            {days.map((day, idx) => (
-              <DayCard
-                key={day.day}
-                day={day}
-                active={activeDayIndex === idx}
-                onClick={() => setActiveDayIndex(activeDayIndex === idx ? null : idx)}
-              />
-            ))}
-          </Stack>
+            {/* Trip style card */}
+            {(fm.vehicle || fm.team_size) && (
+              <div style={{ ...sidebarStyles.tripStyle, marginTop: 12 }}>
+                🚗 {fm.vehicle || '自驾'} · 👥 {fm.team_size || '?'}人 · 每日驾驶≤5h
+              </div>
+            )}
+
+            {/* Legend */}
+            <div style={sidebarStyles.legend}>
+              <div style={sidebarStyles.legendItem}>
+                <span style={sidebarStyles.legendDot('#16a34a')} /> 轻松
+              </div>
+              <div style={sidebarStyles.legendItem}>
+                <span style={sidebarStyles.legendDot('#ca8a04')} /> 中等
+              </div>
+              <div style={sidebarStyles.legendItem}>
+                <span style={sidebarStyles.legendDot('#ef4444')} /> 高强度
+              </div>
+            </div>
+
+            {/* Day list */}
+            <div role="list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {days.map((day, idx) => (
+                <DayCard
+                  key={day.day}
+                  day={day}
+                  active={activeDayIndex === idx}
+                  onClick={() => setActiveDayIndex(activeDayIndex === idx ? null : idx)}
+                />
+              ))}
+            </div>
+
+            {/* Stats bar */}
+            <div style={sidebarStyles.statsBar}>
+              <div style={sidebarStyles.statItem}>
+                <div style={sidebarStyles.statValue}>{days.length}</div>
+                <div style={sidebarStyles.statLabel}>天</div>
+              </div>
+              <div style={sidebarStyles.statItem}>
+                <div style={sidebarStyles.statValue}>{fm.total_km?.toLocaleString() || 0}</div>
+                <div style={sidebarStyles.statLabel}>公里</div>
+              </div>
+              <div style={sidebarStyles.statItem}>
+                <div style={sidebarStyles.statValue}>{totalSpots}</div>
+                <div style={sidebarStyles.statLabel}>景点</div>
+              </div>
+            </div>
+          </div>
         </ScrollArea>
-      </Paper>
+      </div>
     </div>
   )
 }
 
-const INTENSITY_BADGE = {
-  green: { color: 'green', label: 'Easy' },
-  yellow: { color: 'yellow', label: 'Medium' },
-  red: { color: 'red', label: 'Hard' },
-}
-
-function DayCard({ day, active, onClick }) {
-  const badge = INTENSITY_BADGE[day.intensity] || INTENSITY_BADGE.green
-
-  return (
-    <Paper
-      withBorder
-      p="sm"
-      radius="md"
-      style={{ cursor: 'pointer', background: active ? 'var(--mantine-color-blue-0)' : undefined }}
-      onClick={onClick}
-    >
-      <Group justify="space-between">
-        <Group gap="xs">
-          <Badge circle size="lg" color={badge.color}>{day.day}</Badge>
-          <div>
-            <Text size="sm" fw={600}>{day.title}</Text>
-            {day.km > 0 && <Text size="xs" c="dimmed">{day.km} km</Text>}
-          </div>
-        </Group>
-      </Group>
-
-      <Collapse in={active}>
-        <Stack gap="xs" mt="sm">
-          {(day.highlights || []).map((hl, i) => (
-            <Text key={i} size="xs" c="dimmed">• {hl.name}</Text>
-          ))}
-        </Stack>
-      </Collapse>
-    </Paper>
-  )
-}
+// Full-screen layout — no AppLayout wrapper
+Show.layout = (page) => (
+  <MantineProvider theme={theme}>
+    {page}
+  </MantineProvider>
+)
