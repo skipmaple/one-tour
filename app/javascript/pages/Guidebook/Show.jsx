@@ -204,7 +204,7 @@ export default function Show({ guidebook }) {
 
       {/* Floating toolbar */}
       <div style={{
-        position: 'fixed', top: 16, left: 16, zIndex: 500,
+        position: 'fixed', top: 80, left: 16, zIndex: 500,
         display: 'flex', gap: 8, alignItems: 'center',
       }}>
         <Link href="/" style={toolbarBtnStyle}>← 主页</Link>
