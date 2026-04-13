@@ -1,6 +1,6 @@
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet'
 import { Text } from '@mantine/core'
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useCallback } from 'react'
 import L from 'leaflet'
 import '../styles/popup.css'
 
@@ -68,7 +68,7 @@ function getIntensityColor(days, dayId, colorMap) {
   return colorMap[day.intensity] || colorMap.green
 }
 
-function SpotPopup({ spot, pointDetail, photos }) {
+function SpotPopup({ spot, pointDetail, photos, onGalleryToggle }) {
   const tags = spot.tags || []
   const photoCount = photos ? photos.length : 0
 
@@ -91,7 +91,12 @@ function SpotPopup({ spot, pointDetail, photos }) {
         </div>
       )}
       {photoCount > 0 ? (
-        <button className="popup-gallery-toggle">📷 查看推荐机位 ({photoCount})</button>
+        <button
+          className="popup-gallery-toggle"
+          onClick={() => onGalleryToggle?.(spot.name)}
+        >
+          📷 查看推荐机位 ({photoCount})
+        </button>
       ) : (
         <span className="popup-no-photos">📷 暂无推荐机位</span>
       )}
@@ -160,7 +165,19 @@ function MapController({ activeDayId, days }) {
   return null
 }
 
-export default function MapPreview({ frontmatter, activeDayId }) {
+function PopupCloseWatcher({ onPopupClose }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!onPopupClose) return
+    map.on('popupclose', onPopupClose)
+    return () => map.off('popupclose', onPopupClose)
+  }, [map, onPopupClose])
+
+  return null
+}
+
+export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, onGalleryClose }) {
   const hasData = frontmatter && Array.isArray(frontmatter.days) && frontmatter.days.length > 0
 
   const center = useMemo(() => {
@@ -190,6 +207,7 @@ export default function MapPreview({ frontmatter, activeDayId }) {
   return (
     <MapContainer center={center} zoom={7} style={{ height: '100%', width: '100%' }}>
       <MapController activeDayId={activeDayId ?? null} days={days} />
+      <PopupCloseWatcher onPopupClose={onGalleryClose} />
       <TileLayer
         url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
         subdomains="1234"
@@ -237,6 +255,7 @@ export default function MapPreview({ frontmatter, activeDayId }) {
                   spot={{ name: `D${day.day}: ${day.title}`, tags: day.points?.[0]?.tags || [] }}
                   pointDetail={detail}
                   photos={photos}
+                  onGalleryToggle={onGalleryToggle}
                 />
               </Popup>
             </Marker>
@@ -260,6 +279,7 @@ export default function MapPreview({ frontmatter, activeDayId }) {
                   spot={point}
                   pointDetail={detail}
                   photos={photos}
+                  onGalleryToggle={onGalleryToggle}
                 />
               </Popup>
             </Marker>

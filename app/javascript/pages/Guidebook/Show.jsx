@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { MantineProvider, createTheme, ScrollArea } from '@mantine/core'
 import '@mantine/core/styles.css'
 import MapPreview from '../../components/MapPreview'
 import DayCard from '../../components/DayCard'
+import GalleryPanel from '../../components/GalleryPanel'
 
 const theme = createTheme({
   primaryColor: 'blue',
@@ -109,6 +110,21 @@ export default function Show({ guidebook }) {
   const days = fm.days || []
   const [activeDayIndex, setActiveDayIndex] = useState(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [gallerySpot, setGallerySpot] = useState(null)
+  const galleryTriggerRef = useRef(null)
+
+  const pointPhotos = fm.point_photos || {}
+
+  const handleGalleryToggle = useCallback((spotName) => {
+    setGallerySpot(spotName)
+    // Capture the trigger button for focus return
+    const btn = document.querySelector('.popup-gallery-toggle')
+    galleryTriggerRef.current = btn
+  }, [])
+
+  const handleGalleryClose = useCallback(() => {
+    setGallerySpot(null)
+  }, [])
 
   const totalSpots = useMemo(() => {
     return days.reduce((sum, d) => sum + (d.highlights?.length || 0), 0)
@@ -123,6 +139,8 @@ export default function Show({ guidebook }) {
         <MapPreview
           frontmatter={fm}
           activeDayId={activeDayIndex != null ? days[activeDayIndex]?.day : null}
+          onGalleryToggle={handleGalleryToggle}
+          onGalleryClose={handleGalleryClose}
         />
       </div>
 
@@ -193,6 +211,20 @@ export default function Show({ guidebook }) {
           </div>
         </ScrollArea>
       </div>
+
+      {/* Gallery Panel */}
+      {gallerySpot && pointPhotos[gallerySpot] && (
+        <GalleryPanel
+          spotName={gallerySpot}
+          photos={pointPhotos[gallerySpot]}
+          popupElement={document.querySelector('.popup-custom .leaflet-popup-content-wrapper')}
+          sidebarWidth={sidebarCollapsed ? 0 : 370}
+          onClose={handleGalleryClose}
+          onOpenLightbox={() => {}}
+          triggerRef={galleryTriggerRef}
+        />
+      )}
+
     </div>
   )
 }
