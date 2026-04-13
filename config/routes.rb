@@ -10,6 +10,7 @@ Rails.application.routes.draw do
     scope module: :guidebooks do
       resource :publication, only: [:create, :destroy]
       resources :memberships, only: [:index, :create, :update, :destroy]
+      resources :images, only: [:create]
     end
   end
 
