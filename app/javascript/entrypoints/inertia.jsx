@@ -6,7 +6,7 @@ import AppLayout from '../layouts/AppLayout'
 
 const theme = createTheme({
   primaryColor: 'blue',
-  fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+  fontFamily: '"LXGW WenKai", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
 })
 
 createInertiaApp({

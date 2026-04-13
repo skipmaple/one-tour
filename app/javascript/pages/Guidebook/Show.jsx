@@ -13,7 +13,7 @@ import Lightbox from '../../components/Lightbox'
 
 const theme = createTheme({
   primaryColor: 'blue',
-  fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
+  fontFamily: '"LXGW WenKai", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
 })
 
 const topBarStyle = (sidebarCollapsed) => ({
