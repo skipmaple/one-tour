@@ -202,17 +202,18 @@ export default function Show({ guidebook }) {
         跳到行程列表
       </a>
 
-      {/* Floating toolbar */}
+      {/* Top-right action bar (left of sidebar toggle) */}
       <div style={{
-        position: 'fixed', top: 80, left: 16, zIndex: 500,
-        display: 'flex', gap: 8, alignItems: 'center',
+        position: 'fixed', top: 16, right: sidebarCollapsed ? 80 : (isMobile ? 80 : 450), zIndex: 1001,
+        display: 'flex', gap: 6, alignItems: 'center',
+        transition: 'right 0.3s ease',
       }}>
         <Link href="/" style={toolbarBtnStyle}>← 主页</Link>
         {guidebook.editable && (
           <Link href={`/guidebooks/${guidebook.id}/edit`} style={toolbarBtnStyle}>编辑</Link>
         )}
         {guidebook.owned && (
-          <Link href={`/guidebooks/${guidebook.id}/memberships`} style={toolbarBtnStyle}>👥 协作</Link>
+          <Link href={`/guidebooks/${guidebook.id}/memberships`} style={toolbarBtnStyle}>👥</Link>
         )}
         <SegmentedControl
           size="xs"
