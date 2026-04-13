@@ -238,7 +238,7 @@ export default function Show({ guidebook }) {
       </div>
 
       {/* Main content: map or markdown */}
-      <div style={{ flex: 1 }} role="application" aria-label="自驾路线交互式地图">
+      <div style={{ flex: 1, marginRight: sidebarCollapsed ? 0 : (isMobile ? 0 : 370) }} role="application" aria-label="自驾路线交互式地图">
         {viewMode === 'map' ? (
           <MapPreview
             frontmatter={fm}
