@@ -21,6 +21,6 @@ describe('MarkdownPreview', () => {
 
   it('renders empty state for blank content', () => {
     renderWithMantine(<MarkdownPreview content="" />)
-    expect(screen.getByText(/no content/i)).toBeInTheDocument()
+    expect(screen.getByText('暂无内容')).toBeInTheDocument()
   })
 })

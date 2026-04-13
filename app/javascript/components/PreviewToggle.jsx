@@ -7,7 +7,7 @@ export default function PreviewToggle({ value, onChange }) {
       onChange={onChange}
       data={[
         { label: 'Markdown', value: 'markdown' },
-        { label: 'Map', value: 'map' },
+        { label: '地图', value: 'map' },
       ]}
       size="xs"
     />

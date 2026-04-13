@@ -5,10 +5,10 @@ export default function Index({ guidebooks, current_user }) {
   return (
     <Stack gap="lg">
       <Group justify="space-between">
-        <Title order={2}>Guidebooks</Title>
+        <Title order={2}>路书</Title>
         {current_user && (
           <Button component={Link} href="/guidebooks/new">
-            New Guidebook
+            新建路书
           </Button>
         )}
       </Group>
@@ -20,7 +20,7 @@ export default function Index({ guidebooks, current_user }) {
       </SimpleGrid>
 
       {guidebooks.length === 0 && (
-        <Text c="dimmed" ta="center" py="xl">No guidebooks yet.</Text>
+        <Text c="dimmed" ta="center" py="xl">暂无路书</Text>
       )}
     </Stack>
   )
@@ -34,25 +34,25 @@ function GuidebookCard({ guidebook }) {
       <Group justify="space-between" mb="xs">
         <Text fw={600} lineClamp={1}>{guidebook.title}</Text>
         {guidebook.published ? (
-          <Badge color="green" variant="light">Published</Badge>
+          <Badge color="green" variant="light">已发布</Badge>
         ) : (
-          <Badge color="gray" variant="light">Draft</Badge>
+          <Badge color="gray" variant="light">草稿</Badge>
         )}
       </Group>
 
       <Stack gap="xs">
         {fm.date_range && <Text size="sm" c="dimmed">{fm.date_range}</Text>}
         {fm.total_km && <Text size="sm" c="dimmed">{fm.total_km} km</Text>}
-        <Text size="xs" c="dimmed">by {guidebook.author.name}</Text>
+        <Text size="xs" c="dimmed">{guidebook.author.name}</Text>
       </Stack>
 
       <Group mt="md">
         <Button component={Link} href={`/guidebooks/${guidebook.id}`} variant="light" size="xs">
-          View
+          查看
         </Button>
         {guidebook.editable && (
           <Button component={Link} href={`/guidebooks/${guidebook.id}/edit`} variant="subtle" size="xs">
-            Edit
+            编辑
           </Button>
         )}
       </Group>

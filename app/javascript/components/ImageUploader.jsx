@@ -34,7 +34,7 @@ export default function ImageUploader({ guidebookId }) {
       } else {
         setUploads(prev => prev.map(u =>
           u.name === file.name && u.status === 'uploading'
-            ? { ...u, status: 'error', error: `Upload failed (${res.status})` }
+            ? { ...u, status: 'error', error: `上传失败 (${res.status})` }
             : u
         ))
       }

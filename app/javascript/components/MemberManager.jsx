@@ -27,30 +27,30 @@ export default function MemberManager({ guidebookId, memberships }) {
       <form onSubmit={handleInvite}>
         <Group mb="md">
           <TextInput
-            placeholder="Email address"
+            placeholder="邮箱地址"
             value={form.data.email}
             onChange={(e) => form.setData('email', e.target.value)}
             style={{ flex: 1 }}
           />
           <Select
             data={[
-              { value: 'reader', label: 'Reader' },
-              { value: 'editor', label: 'Editor' },
+              { value: 'reader', label: '读者' },
+              { value: 'editor', label: '编辑者' },
             ]}
             value={form.data.role}
             onChange={(val) => form.setData('role', val)}
             w={120}
           />
-          <Button type="submit" loading={form.processing}>Invite</Button>
+          <Button type="submit" loading={form.processing}>邀请</Button>
         </Group>
       </form>
 
       <Table>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th>User</Table.Th>
-            <Table.Th>Role</Table.Th>
-            <Table.Th>Actions</Table.Th>
+            <Table.Th>用户</Table.Th>
+            <Table.Th>角色</Table.Th>
+            <Table.Th>操作</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -76,7 +76,7 @@ export default function MemberManager({ guidebookId, memberships }) {
               </Table.Td>
               <Table.Td>
                 <Button variant="subtle" color="red" size="xs" onClick={() => handleRemove(m.id)}>
-                  Remove
+                  移除
                 </Button>
               </Table.Td>
             </Table.Tr>
@@ -85,7 +85,7 @@ export default function MemberManager({ guidebookId, memberships }) {
       </Table>
 
       {memberships.length === 0 && (
-        <Text c="dimmed" ta="center" py="md">No members yet. Invite someone above.</Text>
+        <Text c="dimmed" ta="center" py="md">暂无成员，通过上方邮箱邀请</Text>
       )}
     </div>
   )

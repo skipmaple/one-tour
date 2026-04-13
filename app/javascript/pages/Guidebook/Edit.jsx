@@ -49,11 +49,11 @@ export default function Edit({ guidebook }) {
               color="green"
               onClick={() => router.post(`/guidebooks/${guidebook.id}/publication`)}
             >
-              Publish
+              发布
             </Button>
           )}
           <Button size="xs" onClick={handleManualSave} loading={saving}>
-            {isNew ? 'Create' : 'Save'}
+            {isNew ? '创建' : '保存'}
           </Button>
         </Group>
       </Group>

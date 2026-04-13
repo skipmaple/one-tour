@@ -190,7 +190,7 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
   }, [frontmatter, hasData])
 
   if (!hasData) {
-    return <Text c="dimmed" ta="center" py="xl">No map data available</Text>
+    return <Text c="dimmed" ta="center" py="xl">暂无地图数据</Text>
   }
 
   const routeCoords = frontmatter.route_coordinates || []

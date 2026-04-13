@@ -9,7 +9,7 @@ export default function AppLayout({ children }) {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Link href="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <Text fw={700} size="lg">Guidebook</Text>
+            <Text fw={700} size="lg">路书</Text>
           </Link>
 
           <Group>
@@ -21,13 +21,13 @@ export default function AppLayout({ children }) {
                 <Menu.Dropdown>
                   <Menu.Label>{current_user.name}</Menu.Label>
                   <Menu.Item component={Link} href="/logout" method="delete" as="button">
-                    Logout
+                    退出
                   </Menu.Item>
                 </Menu.Dropdown>
               </Menu>
             ) : (
               <Button component={Link} href="/login" variant="light" size="sm">
-                Login
+                登录
               </Button>
             )}
           </Group>

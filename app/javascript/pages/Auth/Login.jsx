@@ -19,8 +19,8 @@ export default function Login() {
     <Center mih="80vh">
       <Paper shadow="sm" p="xl" radius="md" w={400}>
         <Stack align="center" gap="lg">
-          <Title order={2}>Login</Title>
-          <Text size="sm" c="dimmed">Choose a provider to continue</Text>
+          <Title order={2}>登录</Title>
+          <Text size="sm" c="dimmed">选择登录方式</Text>
 
           {flash?.alert && (
             <Alert color="red" variant="light" w="100%">
@@ -34,7 +34,7 @@ export default function Login() {
             <OAuthButton provider="wechat" label="WeChat" />
             <OAuthButton provider="feishu" label="Feishu" />
 
-            <Divider label="Development" labelPosition="center" />
+            <Divider label="开发环境" labelPosition="center" />
 
             <Button
               component="a"
@@ -44,7 +44,7 @@ export default function Login() {
               fullWidth
               size="md"
             >
-              Developer Login
+              开发者登录
             </Button>
           </Stack>
         </Stack>

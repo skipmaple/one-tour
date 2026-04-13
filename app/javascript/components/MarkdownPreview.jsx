@@ -5,7 +5,7 @@ import { ScrollArea, Text } from '@mantine/core'
 
 export default function MarkdownPreview({ content }) {
   if (!content || content.trim() === '') {
-    return <Text c="dimmed" ta="center" py="xl">No content to preview</Text>
+    return <Text c="dimmed" ta="center" py="xl">暂无内容</Text>
   }
 
   return (

@@ -5,11 +5,11 @@ export default function StatusBar({ content, lastSaved, saving, error }) {
 
   return (
     <Group gap="lg" px="md" py={4} style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
-      <Text size="xs" c="dimmed">{wordCount} words</Text>
-      {saving && <Text size="xs" c="blue">Saving...</Text>}
-      {error && <Text size="xs" c="red">Save failed</Text>}
+      <Text size="xs" c="dimmed">{wordCount} 字</Text>
+      {saving && <Text size="xs" c="blue">保存中...</Text>}
+      {error && <Text size="xs" c="red">保存失败</Text>}
       {lastSaved && !saving && !error && (
-        <Text size="xs" c="dimmed">Saved {lastSaved}</Text>
+        <Text size="xs" c="dimmed">已保存 {lastSaved}</Text>
       )}
     </Group>
   )

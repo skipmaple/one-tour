@@ -10,11 +10,11 @@ function renderWithMantine(ui) {
 describe('MapPreview', () => {
   it('renders error message when frontmatter is null', () => {
     renderWithMantine(<MapPreview frontmatter={null} />)
-    expect(screen.getByText(/no map data/i)).toBeInTheDocument()
+    expect(screen.getByText('暂无地图数据')).toBeInTheDocument()
   })
 
   it('renders error message when frontmatter has no days', () => {
     renderWithMantine(<MapPreview frontmatter={{ title: 'Test' }} />)
-    expect(screen.getByText(/no map data/i)).toBeInTheDocument()
+    expect(screen.getByText('暂无地图数据')).toBeInTheDocument()
   })
 })

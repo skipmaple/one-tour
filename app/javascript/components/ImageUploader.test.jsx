@@ -52,7 +52,7 @@ describe('ImageUploader', () => {
     fireEvent.drop(dropZone, { dataTransfer: { files: [file] } })
 
     await waitFor(() => {
-      expect(screen.getByText('Upload failed (500)')).toBeInTheDocument()
+      expect(screen.getByText('上传失败 (500)')).toBeInTheDocument()
     })
   })
 
