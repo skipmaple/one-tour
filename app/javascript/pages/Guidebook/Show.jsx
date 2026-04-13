@@ -222,13 +222,13 @@ export default function Show({ guidebook }) {
 
       {/* Unified top bar */}
       <div style={topBarStyle(sidebarCollapsed)}>
-        <Link href="/" style={topBarItem(false)}>←</Link>
+        <Link href="/" style={topBarItem(false)}>主页</Link>
         <span style={topBarDivider} />
         {guidebook.editable && (
           <Link href={`/guidebooks/${guidebook.id}/edit`} style={topBarItem(false)}>编辑</Link>
         )}
         {guidebook.owned && (
-          <Link href={`/guidebooks/${guidebook.id}/memberships`} style={topBarItem(false)}>👥</Link>
+          <Link href={`/guidebooks/${guidebook.id}/memberships`} style={topBarItem(false)}>协作</Link>
         )}
         {(guidebook.editable || guidebook.owned) && <span style={topBarDivider} />}
         <button onClick={() => setViewMode('map')} style={topBarItem(viewMode === 'map')}>地图</button>
