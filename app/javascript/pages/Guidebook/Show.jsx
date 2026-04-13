@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef } from 'react'
-import { MantineProvider, createTheme, ScrollArea, SegmentedControl } from '@mantine/core'
+import { MantineProvider, createTheme, ScrollArea } from '@mantine/core'
 import { Link } from '@inertiajs/react'
 import { useMediaQuery } from '@mantine/hooks'
 import '@mantine/core/styles.css'
@@ -16,16 +16,33 @@ const theme = createTheme({
   fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
 })
 
-const toolbarBtnStyle = {
-  background: '#fff',
+const topBarStyle = {
+  position: 'fixed', top: 16, right: 16, zIndex: 1001,
+  display: 'flex', alignItems: 'center',
+  background: 'rgba(255,255,255,0.95)',
+  backdropFilter: 'blur(12px)',
   border: '1px solid #e2e8f0',
-  borderRadius: 8,
-  padding: '6px 12px',
+  borderRadius: 10,
+  boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+  padding: '3px 4px',
+}
+
+const topBarItem = (active) => ({
+  background: active ? '#e0f2fe' : 'transparent',
+  border: 'none',
+  borderRadius: 6,
+  padding: '5px 10px',
   fontSize: 13,
-  color: '#1e293b',
+  color: active ? '#0369a1' : '#1e293b',
+  fontWeight: active ? 600 : 400,
   textDecoration: 'none',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
   cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+})
+
+const topBarDivider = {
+  width: 1, height: 20, background: '#e2e8f0', margin: '0 2px', flexShrink: 0,
 }
 
 const sidebarStyles = {
@@ -202,28 +219,21 @@ export default function Show({ guidebook }) {
         跳到行程列表
       </a>
 
-      {/* Top-right action bar (left of sidebar toggle) */}
-      <div style={{
-        position: 'fixed', top: 16, right: sidebarCollapsed ? 80 : (isMobile ? 80 : 450), zIndex: 1001,
-        display: 'flex', gap: 6, alignItems: 'center',
-        transition: 'right 0.3s ease',
-      }}>
-        <Link href="/" style={toolbarBtnStyle}>← 主页</Link>
+      {/* Unified top bar */}
+      <div style={topBarStyle}>
+        <Link href="/" style={topBarItem(false)}>←</Link>
+        <span style={topBarDivider} />
         {guidebook.editable && (
-          <Link href={`/guidebooks/${guidebook.id}/edit`} style={toolbarBtnStyle}>编辑</Link>
+          <Link href={`/guidebooks/${guidebook.id}/edit`} style={topBarItem(false)}>编辑</Link>
         )}
         {guidebook.owned && (
-          <Link href={`/guidebooks/${guidebook.id}/memberships`} style={toolbarBtnStyle}>👥</Link>
+          <Link href={`/guidebooks/${guidebook.id}/memberships`} style={topBarItem(false)}>👥</Link>
         )}
-        <SegmentedControl
-          size="xs"
-          value={viewMode}
-          onChange={setViewMode}
-          data={[
-            { label: '地图', value: 'map' },
-            { label: '文档', value: 'markdown' },
-          ]}
-        />
+        {(guidebook.editable || guidebook.owned) && <span style={topBarDivider} />}
+        <button onClick={() => setViewMode('map')} style={topBarItem(viewMode === 'map')}>地图</button>
+        <button onClick={() => setViewMode('markdown')} style={topBarItem(viewMode === 'markdown')}>文档</button>
+        <span style={topBarDivider} />
+        <button onClick={toggleSidebar} style={topBarItem(false)} aria-label="展开或收起行程面板">☰ 行程</button>
       </div>
 
       {/* Main content: map or markdown */}
@@ -239,15 +249,6 @@ export default function Show({ guidebook }) {
           <MarkdownPreview content={(guidebook.content || '').replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, '')} />
         )}
       </div>
-
-      {/* Toggle button */}
-      <button
-        onClick={toggleSidebar}
-        style={sidebarStyles.toggleBtn(sidebarCollapsed, isMobile)}
-        aria-label="展开或收起行程面板"
-      >
-        ☰ 行程
-      </button>
 
       {/* Sidebar */}
       <nav role="navigation" aria-label="行程导航" style={sidebarStyles.container(sidebarCollapsed, isMobile)}>
