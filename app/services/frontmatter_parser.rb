@@ -5,11 +5,7 @@ class FrontmatterParser
     end
 
     def publishable?
-      if valid? && frontmatter["title"].present? && has_days_with_coordinates?
-        true
-      else
-        false
-      end
+      valid? && frontmatter["title"].present? && has_days_with_coordinates?
     end
 
     private

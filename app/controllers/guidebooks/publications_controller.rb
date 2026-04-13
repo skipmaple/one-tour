@@ -5,7 +5,7 @@ class Guidebooks::PublicationsController < ApplicationController
 
   def create
     if @guidebook.publishable?
-      @guidebook.update!(published: true)
+      @guidebook.update(published: true)
       redirect_to guidebook_path(@guidebook)
     else
       head :unprocessable_entity
@@ -13,7 +13,7 @@ class Guidebooks::PublicationsController < ApplicationController
   end
 
   def destroy
-    @guidebook.update!(published: false)
+    @guidebook.update(published: false)
     redirect_to edit_guidebook_path(@guidebook)
   end
 

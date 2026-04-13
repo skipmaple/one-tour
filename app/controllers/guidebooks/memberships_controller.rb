@@ -40,7 +40,7 @@ class Guidebooks::MembershipsController < ApplicationController
 
     if ALLOWED_ROLES.include?(role)
       membership = @guidebook.guidebook_memberships.find(params[:id])
-      membership.update!(role: role)
+      membership.update(role: role)
       redirect_to guidebook_memberships_path(@guidebook)
     else
       head :unprocessable_entity
