@@ -12,6 +12,14 @@ const INTENSITY_LABEL = {
   red: '高强度',
 }
 
+const TAG_COLORS = {
+  scenic: '#15803d',
+  food: '#c2410c',
+  fuel: '#92400e',
+  hike: '#7e22ce',
+  stay: '#0369a1',
+}
+
 const styles = {
   card: (active, hovered) => ({
     padding: '10px 12px',
@@ -49,13 +57,10 @@ const styles = {
     fontSize: 12,
     color: '#64748b',
   },
-  tag: {
-    fontSize: 11,
-    background: '#e2e8f0',
-    borderRadius: 4,
-    padding: '1px 6px',
-    color: '#475569',
-  },
+  tag: (color) => ({
+    fontSize: 12,
+    color: color || '#475569',
+  }),
   detailSection: {
     marginTop: 8,
   },
@@ -101,7 +106,7 @@ const styles = {
   },
   separator: {
     border: 'none',
-    borderTop: '1px solid #e2e8f0',
+    borderTop: '1px dashed #e2e8f0',
     margin: '8px 0',
   },
 }
@@ -155,9 +160,10 @@ export default function DayCard({ day, active, onClick }) {
       <div style={styles.meta}>
         {day.km > 0 && <span>📏 {day.km}km</span>}
         {day.drive && <span>🕐 {day.drive}</span>}
-        {(day.tags || []).map((tag, i) => (
-          <span key={i} style={styles.tag}>{tag}</span>
-        ))}
+        {(day.tags || []).map((tag, i) => {
+          const [type, label] = Array.isArray(tag) ? tag : [null, tag]
+          return <span key={i} style={styles.tag(TAG_COLORS[type])}>{label}</span>
+        })}
       </div>
 
       {/* Collapsible detail */}

@@ -1,6 +1,6 @@
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet'
 import { Text } from '@mantine/core'
-import { useMemo, useEffect, useCallback } from 'react'
+import { useMemo, useEffect } from 'react'
 import L from 'leaflet'
 import '../styles/popup.css'
 
@@ -19,46 +19,36 @@ const INTENSITY_COLORS = {
   red: '#ef4444',
 }
 
-const ROUTE_COLORS = {
-  green: '#22c55e',
-  yellow: '#eab308',
-  red: '#ef4444',
-}
+// Fix A: Use same colors for routes as markers (per HTML constitution)
+// ROUTE_COLORS removed — use INTENSITY_COLORS for everything
 
 function createMarkerIcon(label, emoji, color, size = 'main', dayId = null) {
   const isMain = size === 'main'
   const px = isMain ? 34 : 28
   const fontSize = isMain ? 13 : 11
   const emojiSize = isMain ? 14 : 12
-  const borderWidth = 2.5
   const dataAttr = dayId != null ? `data-day-id="${dayId}"` : ''
 
   const html = `
-    <div ${dataAttr} style="
-      width: ${px}px;
-      height: ${px}px;
-      border-radius: 50%;
-      background: ${color};
-      border: ${borderWidth}px solid rgba(255,255,255,0.9);
-      box-shadow: 0 0 8px ${color}60, 0 2px 6px rgba(0,0,0,0.2);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      line-height: 1;
-      transition: opacity 0.3s ease;
-    ">
-      <span style="font-size: ${fontSize}px; font-weight: 700; color: #0f172a;">${label}</span>
-      <span style="font-size: ${emojiSize}px; line-height: 1;">${emoji}</span>
+    <div ${dataAttr} style="display:flex; align-items:center; gap:2px; transition: opacity 0.3s ease;">
+      <div style="
+        width:${px}px; height:${px}px; border-radius:50%;
+        background:${color}; border:2.5px solid rgba(255,255,255,0.9);
+        display:flex; align-items:center; justify-content:center;
+        font-size:${fontSize}px; font-weight:700; color:#0f172a;
+        box-shadow: 0 0 8px ${color}60, 0 2px 6px rgba(0,0,0,0.2);
+        flex-shrink:0;
+      "><span style="font-size:${fontSize}px;">${label}</span></div>
+      <span role="img" style="font-size:${emojiSize}px; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.3));">${emoji}</span>
     </div>
   `
 
   return L.divIcon({
     html,
     className: '',
-    iconSize: [px, px],
-    iconAnchor: [px / 2, px / 2],
-    popupAnchor: [0, -(px / 2)],
+    iconSize: [px + 16, px + 10],
+    iconAnchor: [(px + 16) / 2, (px + 10) / 2],
+    popupAnchor: [0, -(px + 10) / 2 - 4],
   })
 }
 
@@ -165,6 +155,17 @@ function MapController({ activeDayId, days }) {
   return null
 }
 
+function FitBounds({ coords }) {
+  const map = useMap()
+  useEffect(() => {
+    if (coords && coords.length > 1) {
+      const bounds = L.latLngBounds(coords)
+      setTimeout(() => map.fitBounds(bounds.pad(0.08)), 300)
+    }
+  }, [])
+  return null
+}
+
 function PopupCloseWatcher({ onPopupClose }) {
   const map = useMap()
 
@@ -208,31 +209,44 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
     <MapContainer center={center} zoom={7} style={{ height: '100%', width: '100%' }}>
       <MapController activeDayId={activeDayId ?? null} days={days} />
       <PopupCloseWatcher onPopupClose={onGalleryClose} />
+      <FitBounds coords={routeCoords} />
       <TileLayer
         url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
         subdomains="1234"
+        maxZoom={18}
+        attribution="&copy; 高德地图"
       />
 
       {/* Route segments as individual colored polylines */}
       {routeSegments.map((segment, idx) => {
         const segCoords = routeCoords.slice(segment.startIdx, segment.endIdx + 1)
         if (segCoords.length < 2) return null
-        const color = getIntensityColor(days, segment.dayId, ROUTE_COLORS)
+        const color = getIntensityColor(days, segment.dayId, INTENSITY_COLORS)
 
-        return (
+        return [
+          <Polyline
+            key={`route-glow-${idx}`}
+            positions={segCoords}
+            color={color}
+            weight={10}
+            opacity={0.12}
+            interactive={false}
+          />,
           <Polyline
             key={`route-${idx}`}
             positions={segCoords}
             color={color}
-            weight={5}
-            opacity={0.85}
-            eventHandlers={{}}
+            weight={4}
+            opacity={0.8}
+            dashArray="10 5"
+            lineCap="round"
+            lineJoin="round"
           >
             <Popup className="route-popup">
               <RoutePopupContent segment={segment} />
             </Popup>
           </Polyline>
-        )
+        ]
       })}
 
       {/* Day markers and highlight markers */}

@@ -199,9 +199,9 @@ export default function Show({ guidebook }) {
       <button
         onClick={toggleSidebar}
         style={sidebarStyles.toggleBtn(sidebarCollapsed, isMobile)}
-        aria-label={sidebarCollapsed ? '展开侧栏' : '收起侧栏'}
+        aria-label="展开或收起行程面板"
       >
-        {sidebarCollapsed ? '☰' : '✕'}
+        ☰ 行程
       </button>
 
       {/* Sidebar */}
@@ -211,17 +211,15 @@ export default function Show({ guidebook }) {
             {/* Title */}
             <h1 style={sidebarStyles.title}>{guidebook.title}</h1>
 
-            {/* Subtitle - date range */}
-            {fm.date_range && (
-              <div style={sidebarStyles.subtitle}>{fm.date_range}</div>
-            )}
+            {/* Subtitle */}
+            <div style={sidebarStyles.subtitle}>
+              {[fm.date_range, fm.vehicle, fm.team_size ? `${fm.team_size}人` : null].filter(Boolean).join(' · ')}
+            </div>
 
             {/* Trip style card */}
-            {(fm.vehicle || fm.team_size) && (
-              <div style={{ ...sidebarStyles.tripStyle, marginTop: 12 }}>
-                🚗 {fm.vehicle || '自驾'} · 👥 {fm.team_size || '?'}人 · 每日驾驶≤5h
-              </div>
-            )}
+            <div style={{ ...sidebarStyles.tripStyle, marginTop: 12 }}>
+              🌟 少即是多，以自然景观为主
+            </div>
 
             {/* Legend */}
             <div style={sidebarStyles.legend}>
@@ -229,10 +227,13 @@ export default function Show({ guidebook }) {
                 <span role="img" aria-label="绿色圆点" style={sidebarStyles.legendDot('#16a34a')} /> 轻松
               </div>
               <div style={sidebarStyles.legendItem}>
-                <span role="img" aria-label="黄色圆点" style={sidebarStyles.legendDot('#ca8a04')} /> 中等
+                <span role="img" aria-label="黄色圆点" style={{ ...sidebarStyles.legendDot('#ca8a04'), border: '1px solid #92400e' }} /> 中等
               </div>
               <div style={sidebarStyles.legendItem}>
                 <span role="img" aria-label="红色圆点" style={sidebarStyles.legendDot('#ef4444')} /> 高强度
+              </div>
+              <div style={sidebarStyles.legendItem}>
+                <span role="img" aria-label="蓝色圆点" style={sidebarStyles.legendDot('#0284c7')} /> 路线
               </div>
             </div>
 
@@ -261,6 +262,10 @@ export default function Show({ guidebook }) {
               <div style={sidebarStyles.statItem}>
                 <div style={sidebarStyles.statValue}>{totalSpots}</div>
                 <div style={sidebarStyles.statLabel}>景点</div>
+              </div>
+              <div style={sidebarStyles.statItem}>
+                <div style={sidebarStyles.statValue}>~5k</div>
+                <div style={sidebarStyles.statLabel}>人均 ¥</div>
               </div>
             </div>
           </div>
