@@ -1,8 +1,5 @@
-/* 霞鹜文楷 Web Font */
-@import url('https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css');
-
 .markdown-body {
-  font-family: 'LXGW WenKai', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: inherit;
   font-size: 15px;
   line-height: 1.8;
   color: #1e293b;
