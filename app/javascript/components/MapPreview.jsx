@@ -58,22 +58,21 @@ function getIntensityColor(days, dayId, colorMap) {
   return colorMap[day.intensity] || colorMap.green
 }
 
-function SpotPopup({ spot, pointDetail, photos, onGalleryToggle }) {
-  const tags = spot.tags || []
+const TYPE_LABELS = {
+  scenic: '景点', food: '美食', fuel: '加油', hike: '徒步', stay: '住宿', city: '城市',
+}
+
+function SpotPopup({ spot, pointDetail, photos, onGalleryToggle, dayLabel }) {
   const photoCount = photos ? photos.length : 0
+  const spotType = spot.type || 'scenic'
 
   return (
     <div className="popup-info">
       <h3>{spot.name}</h3>
-      {tags.length > 0 && (
-        <div className="tags">
-          {tags.map((tag, i) => (
-            <span key={i} className="tag">
-              {TAG_EMOJI[tag] || ''} {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      <div style={{ marginBottom: 6 }}>
+        <span className="tag">{TAG_EMOJI[spotType] || '📍'} {TYPE_LABELS[spotType] || spotType}</span>
+        {dayLabel && <span style={{ fontSize: 12, color: '#475569', marginLeft: 6 }}>{dayLabel}</span>}
+      </div>
       {pointDetail?.desc && <p className="popup-desc">{pointDetail.desc}</p>}
       {pointDetail?.tip && (
         <div className="popup-tip">
@@ -85,7 +84,7 @@ function SpotPopup({ spot, pointDetail, photos, onGalleryToggle }) {
           className="popup-gallery-toggle"
           onClick={() => onGalleryToggle?.(spot.name)}
         >
-          📷 查看推荐机位 ({photoCount})
+          📷 推荐机位 ({photoCount}张) ▶
         </button>
       ) : (
         <span className="popup-no-photos">📷 暂无推荐机位</span>
@@ -265,10 +264,11 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
             <Marker key={`day-${day.day}`} position={day.coordinates} icon={icon}>
               <Popup className="popup-custom" maxWidth={380}>
                 <SpotPopup
-                  spot={{ name: `D${day.day}: ${day.title}`, tags: [] }}
+                  spot={{ name: day.title, type: 'city' }}
                   pointDetail={null}
                   photos={null}
                   onGalleryToggle={onGalleryToggle}
+                  dayLabel={`D${day.day} · ${day.date || ''}`}
                 />
               </Popup>
             </Marker>
@@ -294,6 +294,7 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
                   pointDetail={detail}
                   photos={photos}
                   onGalleryToggle={onGalleryToggle}
+                  dayLabel={`D${day.day} · ${day.date || ''}`}
                 />
               </Popup>
             </Marker>
