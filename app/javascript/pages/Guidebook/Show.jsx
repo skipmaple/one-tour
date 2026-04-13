@@ -175,7 +175,7 @@ export default function Show({ guidebook }) {
   }, [])
 
   const totalSpots = useMemo(() => {
-    return days.reduce((sum, d) => sum + (d.highlights?.length || 0), 0)
+    return days.reduce((sum, d) => sum + (d.points?.length || d.highlights?.length || 0), 0)
   }, [days])
 
   const toggleSidebar = () => setSidebarCollapsed((prev) => !prev)

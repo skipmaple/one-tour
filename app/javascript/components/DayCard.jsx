@@ -158,7 +158,7 @@ export default function DayCard({ day, active, onClick }) {
 
       {/* Meta line */}
       <div style={styles.meta}>
-        {day.km > 0 && <span>📏 {day.km}km</span>}
+        {day.km && day.km !== '—' && <span>📏 {day.km}</span>}
         {day.drive && <span>🕐 {day.drive}</span>}
         {(day.tags || []).map((tag, i) => {
           const [type, label] = Array.isArray(tag) ? tag : [null, tag]
