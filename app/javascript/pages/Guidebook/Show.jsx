@@ -4,6 +4,7 @@ import '@mantine/core/styles.css'
 import MapPreview from '../../components/MapPreview'
 import DayCard from '../../components/DayCard'
 import GalleryPanel from '../../components/GalleryPanel'
+import Lightbox from '../../components/Lightbox'
 
 const theme = createTheme({
   primaryColor: 'blue',
@@ -111,6 +112,7 @@ export default function Show({ guidebook }) {
   const [activeDayIndex, setActiveDayIndex] = useState(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [gallerySpot, setGallerySpot] = useState(null)
+  const [lightboxState, setLightboxState] = useState(null)
   const galleryTriggerRef = useRef(null)
 
   const pointPhotos = fm.point_photos || {}
@@ -124,6 +126,16 @@ export default function Show({ guidebook }) {
 
   const handleGalleryClose = useCallback(() => {
     setGallerySpot(null)
+  }, [])
+
+  const handleOpenLightbox = useCallback((index) => {
+    if (gallerySpot) {
+      setLightboxState({ spot: gallerySpot, index })
+    }
+  }, [gallerySpot])
+
+  const handleCloseLightbox = useCallback(() => {
+    setLightboxState(null)
   }, [])
 
   const totalSpots = useMemo(() => {
@@ -220,11 +232,21 @@ export default function Show({ guidebook }) {
           popupElement={document.querySelector('.popup-custom .leaflet-popup-content-wrapper')}
           sidebarWidth={sidebarCollapsed ? 0 : 370}
           onClose={handleGalleryClose}
-          onOpenLightbox={() => {}}
+          onOpenLightbox={handleOpenLightbox}
           triggerRef={galleryTriggerRef}
         />
       )}
 
+      {/* Lightbox */}
+      {lightboxState && pointPhotos[lightboxState.spot] && (
+        <Lightbox
+          photos={pointPhotos[lightboxState.spot]}
+          spotName={lightboxState.spot}
+          initialIndex={lightboxState.index}
+          onClose={handleCloseLightbox}
+          triggerIndex={lightboxState.index}
+        />
+      )}
     </div>
   )
 }
