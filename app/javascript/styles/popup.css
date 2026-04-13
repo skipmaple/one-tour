@@ -1,3 +1,9 @@
+/* Override Leaflet default div-icon styles */
+.leaflet-div-icon {
+  background: none;
+  border: none;
+}
+
 /* Spot popup (marker click) */
 .popup-custom .leaflet-popup-content-wrapper {
   background: #fff;
