@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Polyline, Marker, Popup, Tooltip, useMap } from 'react-leaflet'
 import { Text } from '@mantine/core'
 import { useMemo, useEffect } from 'react'
 import L from 'leaflet'
@@ -236,9 +236,21 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
             lineCap="round"
             lineJoin="round"
           >
-            <Popup className="route-popup">
+            <Tooltip className="route-popup" sticky>
               <RoutePopupContent segment={segment} />
-            </Popup>
+            </Tooltip>
+          </Polyline>,
+          /* Invisible wider hit area for easier hover */
+          <Polyline
+            key={`route-hit-${idx}`}
+            positions={segCoords}
+            color="transparent"
+            weight={20}
+            opacity={0}
+          >
+            <Tooltip className="route-popup" sticky>
+              <RoutePopupContent segment={segment} />
+            </Tooltip>
           </Polyline>
         ]
       })}

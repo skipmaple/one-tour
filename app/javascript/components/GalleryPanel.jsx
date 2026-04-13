@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import '../styles/gallery.css'
 
 function GalleryCard({ photo, index, onOpen }) {
@@ -48,35 +48,51 @@ export default function GalleryPanel({
   const panelRef = useRef(null)
   const closeRef = useRef(null)
 
-  // Calculate position relative to popup
-  const position = useCallback(() => {
-    if (!popupElement) return { top: 100, left: 100, flip: false }
+  // Track popup position with rAF so the panel follows map zoom/pan
+  const [pos, setPos] = useState({ top: -9999, left: -9999, flip: false })
 
-    const popupRect = popupElement.getBoundingClientRect()
-    const panelWidth = 320
-    const gap = 12
-    const viewportWidth = window.innerWidth
-    const sidebarRight = sidebarWidth || 370
+  useEffect(() => {
+    if (!popupElement) return
 
-    // Try right side first
-    const rightEdge = popupRect.right + gap + panelWidth
-    const wouldOverlapSidebar = rightEdge > viewportWidth - sidebarRight
+    let rafId
+    let prevTop = null
+    let prevLeft = null
 
-    let left, flip
-    if (wouldOverlapSidebar) {
-      // Flip to left
-      left = popupRect.left - gap - panelWidth
-      flip = true
-    } else {
-      left = popupRect.right + gap
-      flip = false
+    function sync() {
+      const popupRect = popupElement.getBoundingClientRect()
+      const panelWidth = 320
+      const gap = 12
+      const viewportWidth = window.innerWidth
+      const sidebarRight = sidebarWidth || 370
+
+      const rightEdge = popupRect.right + gap + panelWidth
+      const wouldOverlapSidebar = rightEdge > viewportWidth - sidebarRight
+
+      let left, flip
+      if (wouldOverlapSidebar) {
+        left = popupRect.left - gap - panelWidth
+        flip = true
+      } else {
+        left = popupRect.right + gap
+        flip = false
+      }
+
+      const maxTop = window.innerHeight - 500
+      let top = Math.max(16, Math.min(popupRect.top, maxTop))
+      left = Math.max(8, left)
+
+      // Only update state when position actually changed
+      if (top !== prevTop || left !== prevLeft) {
+        prevTop = top
+        prevLeft = left
+        setPos({ top, left, flip })
+      }
+
+      rafId = requestAnimationFrame(sync)
     }
 
-    // Vertical: align top with popup, clamp to viewport
-    const maxTop = window.innerHeight - 500 // rough max-height guard
-    let top = Math.max(16, Math.min(popupRect.top, maxTop))
-
-    return { top, left: Math.max(8, left), flip }
+    rafId = requestAnimationFrame(sync)
+    return () => cancelAnimationFrame(rafId)
   }, [popupElement, sidebarWidth])
 
   // Focus trap
@@ -122,8 +138,6 @@ export default function GalleryPanel({
   }, [onClose, triggerRef])
 
   if (!photos || photos.length === 0) return null
-
-  const pos = position()
 
   return (
     <div
