@@ -130,8 +130,8 @@ export default function GalleryPanel({
       ref={panelRef}
       className={`gallery-panel${pos.flip ? ' gallery-panel--flip' : ''}`}
       style={{ top: pos.top, left: pos.left }}
-      role="dialog"
-      aria-label={`${spotName} 推荐机位`}
+      role="complementary"
+      aria-label="推荐机位"
     >
       <div className="gallery-header">
         <div className="gallery-header-info">

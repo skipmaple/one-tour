@@ -6,6 +6,12 @@ const INTENSITY_BG = {
   red: '#ef4444',
 }
 
+const INTENSITY_LABEL = {
+  green: '轻松',
+  yellow: '中等',
+  red: '高强度',
+}
+
 const styles = {
   card: (active, hovered) => ({
     padding: '10px 12px',
@@ -132,7 +138,7 @@ export default function DayCard({ day, active, onClick }) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={styles.badge(day.intensity)}>
-          D{day.day}
+          <span role="img" aria-label={`强度：${INTENSITY_LABEL[day.intensity] || '轻松'}`}>D{day.day}</span>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>

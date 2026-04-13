@@ -3,6 +3,7 @@ import { MantineProvider, createTheme, ScrollArea } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import '@mantine/core/styles.css'
 import '../../styles/responsive.css'
+import '../../styles/accessibility.css'
 import MapPreview from '../../components/MapPreview'
 import DayCard from '../../components/DayCard'
 import GalleryPanel from '../../components/GalleryPanel'
@@ -179,8 +180,13 @@ export default function Show({ guidebook }) {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      {/* Skip link */}
+      <a href="#day-list" className="skip-link">
+        跳到行程列表
+      </a>
+
       {/* Map */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1 }} role="application" aria-label="自驾路线交互式地图">
         <MapPreview
           frontmatter={fm}
           activeDayId={activeDayIndex != null ? days[activeDayIndex]?.day : null}
@@ -190,12 +196,16 @@ export default function Show({ guidebook }) {
       </div>
 
       {/* Toggle button */}
-      <button onClick={toggleSidebar} style={sidebarStyles.toggleBtn(sidebarCollapsed, isMobile)}>
+      <button
+        onClick={toggleSidebar}
+        style={sidebarStyles.toggleBtn(sidebarCollapsed, isMobile)}
+        aria-label={sidebarCollapsed ? '展开侧栏' : '收起侧栏'}
+      >
         {sidebarCollapsed ? '☰' : '✕'}
       </button>
 
       {/* Sidebar */}
-      <div style={sidebarStyles.container(sidebarCollapsed, isMobile)}>
+      <nav role="navigation" aria-label="行程导航" style={sidebarStyles.container(sidebarCollapsed, isMobile)}>
         <ScrollArea h="100%" type="auto" offsetScrollbars>
           <div style={{ padding: 20 }}>
             {/* Title */}
@@ -216,18 +226,18 @@ export default function Show({ guidebook }) {
             {/* Legend */}
             <div style={sidebarStyles.legend}>
               <div style={sidebarStyles.legendItem}>
-                <span style={sidebarStyles.legendDot('#16a34a')} /> 轻松
+                <span role="img" aria-label="绿色圆点" style={sidebarStyles.legendDot('#16a34a')} /> 轻松
               </div>
               <div style={sidebarStyles.legendItem}>
-                <span style={sidebarStyles.legendDot('#ca8a04')} /> 中等
+                <span role="img" aria-label="黄色圆点" style={sidebarStyles.legendDot('#ca8a04')} /> 中等
               </div>
               <div style={sidebarStyles.legendItem}>
-                <span style={sidebarStyles.legendDot('#ef4444')} /> 高强度
+                <span role="img" aria-label="红色圆点" style={sidebarStyles.legendDot('#ef4444')} /> 高强度
               </div>
             </div>
 
             {/* Day list */}
-            <div role="list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div id="day-list" role="list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {days.map((day, idx) => (
                 <DayCard
                   key={day.day}
@@ -255,7 +265,7 @@ export default function Show({ guidebook }) {
             </div>
           </div>
         </ScrollArea>
-      </div>
+      </nav>
 
       {/* Gallery Panel */}
       {gallerySpot && pointPhotos[gallerySpot] && (
