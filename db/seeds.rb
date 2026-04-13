@@ -20,6 +20,13 @@ if File.exist?(markdown_path)
     total_km: 1300
     trip_style: "🌟 少即是多，以自然景观为主"
     budget_per_person: "~5k"
+    type_labels:
+      scenic: "📍景点"
+      food: "🍜美食"
+      fuel: "⛽加油"
+      hike: "🥾徒步"
+      stay: "🏨住宿"
+      city: "🏙️城市"
     route_coordinates:
       - [43.825, 87.617]
       - [44.00, 86.80]

@@ -12,13 +12,6 @@ const INTENSITY_LABEL = {
   red: '高强度',
 }
 
-const TAG_COLORS = {
-  scenic: '#15803d',
-  food: '#c2410c',
-  fuel: '#92400e',
-  hike: '#7e22ce',
-  stay: '#0369a1',
-}
 
 const styles = {
   card: (active, hovered) => ({
@@ -57,9 +50,9 @@ const styles = {
     fontSize: 12,
     color: '#64748b',
   },
-  tag: (color) => ({
+  tag: () => ({
     fontSize: 12,
-    color: color || '#475569',
+    color: '#475569',
   }),
   detailSection: {
     marginTop: 8,
@@ -161,8 +154,8 @@ export default function DayCard({ day, active, onClick }) {
         {day.km && day.km !== '—' && <span>📏 {day.km}</span>}
         {day.drive && <span>🕐 {day.drive}</span>}
         {(day.tags || []).map((tag, i) => {
-          const [type, label] = Array.isArray(tag) ? tag : [null, tag]
-          return <span key={i} style={styles.tag(TAG_COLORS[type])}>{label}</span>
+          const label = Array.isArray(tag) ? tag[1] : tag
+          return <span key={i} style={styles.tag()}>{label}</span>
         })}
       </div>
 

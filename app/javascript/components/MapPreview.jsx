@@ -4,13 +4,9 @@ import { useMemo, useEffect } from 'react'
 import L from 'leaflet'
 import '../styles/popup.css'
 
-const TAG_EMOJI = {
-  scenic: '📍',
-  food: '🍜',
-  fuel: '⛽',
-  hike: '🥾',
-  stay: '🏨',
-  city: '🏙️',
+function getTypeLabel(type, frontmatter) {
+  const labels = frontmatter?.type_labels || {}
+  return labels[type] || type
 }
 
 const INTENSITY_COLORS = {
@@ -58,19 +54,16 @@ function getIntensityColor(days, dayId, colorMap) {
   return colorMap[day.intensity] || colorMap.green
 }
 
-const TYPE_LABELS = {
-  scenic: '景点', food: '美食', fuel: '加油', hike: '徒步', stay: '住宿', city: '城市',
-}
 
-function SpotPopup({ spot, pointDetail, photos, onGalleryToggle, dayLabel }) {
+function SpotPopup({ spot, pointDetail, photos, onGalleryToggle, dayLabel, frontmatter }) {
   const photoCount = photos ? photos.length : 0
-  const spotType = spot.type || 'scenic'
+  const typeLabel = getTypeLabel(spot.type, frontmatter)
 
   return (
     <div className="popup-info">
       <h3>{spot.name}</h3>
       <div style={{ marginBottom: 6 }}>
-        <span className="tag">{TAG_EMOJI[spotType] || '📍'} {TYPE_LABELS[spotType] || spotType}</span>
+        <span className="tag">{typeLabel}</span>
         {dayLabel && <span style={{ fontSize: 12, color: '#475569', marginLeft: 6 }}>{dayLabel}</span>}
       </div>
       {pointDetail?.desc && <p className="popup-desc">{pointDetail.desc}</p>}
@@ -258,7 +251,7 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
 
         // Only show a day-level marker if this day has no individual points
         if (points.length === 0 && day.coordinates && Array.isArray(day.coordinates)) {
-          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI['city'] || '🏙️', dayColor, 'main', day.day)
+          const icon = createMarkerIcon(`D${day.day}`, '', dayColor, 'main', day.day)
 
           markers.push(
             <Marker key={`day-${day.day}`} position={day.coordinates} icon={icon}>
@@ -269,6 +262,7 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
                   photos={null}
                   onGalleryToggle={onGalleryToggle}
                   dayLabel={`D${day.day} · ${day.date || ''}`}
+                  frontmatter={frontmatter}
                 />
               </Popup>
             </Marker>
@@ -279,9 +273,8 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
         points.forEach((point, i) => {
           const pointCoords = point.coordinates || (point.lat && point.lng ? [point.lat, point.lng] : null)
           if (!pointCoords) return
-          const pointType = point.type || point.tags?.[0] || 'scenic'
           const isFirst = i === 0
-          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI[pointType] || '📍', dayColor, isFirst ? 'main' : 'secondary', day.day)
+          const icon = createMarkerIcon(`D${day.day}`, '', dayColor, isFirst ? 'main' : 'secondary', day.day)
           const detailKey = point.name
           const detail = pointDetails[detailKey]
           const photos = pointPhotos[detailKey]
@@ -295,6 +288,7 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
                   photos={photos}
                   onGalleryToggle={onGalleryToggle}
                   dayLabel={`D${day.day} · ${day.date || ''}`}
+                  frontmatter={frontmatter}
                 />
               </Popup>
             </Marker>
