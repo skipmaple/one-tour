@@ -251,26 +251,23 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
         ]
       })}
 
-      {/* Day markers and highlight markers */}
+      {/* One marker per spot — day marker only when no points exist */}
       {days.map((day) => {
         const dayColor = INTENSITY_COLORS[day.intensity] || INTENSITY_COLORS.green
         const markers = []
+        const points = day.points || day.highlights || []
 
-        // Main day marker
-        if (day.coordinates && Array.isArray(day.coordinates)) {
-          const mainType = day.points?.[0]?.tags?.[0] || 'city'
-          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI[mainType] || '🏙️', dayColor, 'main', day.day)
-          const detailKey = day.title
-          const detail = pointDetails[detailKey]
-          const photos = pointPhotos[detailKey]
+        // Only show a day-level marker if this day has no individual points
+        if (points.length === 0 && day.coordinates && Array.isArray(day.coordinates)) {
+          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI['city'] || '🏙️', dayColor, 'main', day.day)
 
           markers.push(
             <Marker key={`day-${day.day}`} position={day.coordinates} icon={icon}>
               <Popup className="popup-custom" maxWidth={380}>
                 <SpotPopup
-                  spot={{ name: `D${day.day}: ${day.title}`, tags: day.points?.[0]?.tags || [] }}
-                  pointDetail={detail}
-                  photos={photos}
+                  spot={{ name: `D${day.day}: ${day.title}`, tags: [] }}
+                  pointDetail={null}
+                  photos={null}
                   onGalleryToggle={onGalleryToggle}
                 />
               </Popup>
@@ -278,13 +275,13 @@ export default function MapPreview({ frontmatter, activeDayId, onGalleryToggle, 
           )
         }
 
-        // Secondary point markers for each highlight/point in the day
-        const points = day.points || day.highlights || []
+        // Individual point markers
         points.forEach((point, i) => {
           const pointCoords = point.coordinates || (point.lat && point.lng ? [point.lat, point.lng] : null)
           if (!pointCoords) return
           const pointType = point.type || point.tags?.[0] || 'scenic'
-          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI[pointType] || '📍', dayColor, 'secondary', day.day)
+          const isFirst = i === 0
+          const icon = createMarkerIcon(`D${day.day}`, TAG_EMOJI[pointType] || '📍', dayColor, isFirst ? 'main' : 'secondary', day.day)
           const detailKey = point.name
           const detail = pointDetails[detailKey]
           const photos = pointPhotos[detailKey]
