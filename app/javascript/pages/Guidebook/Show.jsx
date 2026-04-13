@@ -16,8 +16,9 @@ const theme = createTheme({
   fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
 })
 
-const topBarStyle = {
-  position: 'fixed', top: 16, right: 16, zIndex: 1001,
+const topBarStyle = (sidebarCollapsed) => ({
+  position: 'fixed', top: 16, right: sidebarCollapsed ? 16 : 386, zIndex: 1001,
+  transition: 'right 0.3s ease',
   display: 'flex', alignItems: 'center',
   background: 'rgba(255,255,255,0.95)',
   backdropFilter: 'blur(12px)',
@@ -25,7 +26,7 @@ const topBarStyle = {
   borderRadius: 10,
   boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
   padding: '3px 4px',
-}
+})
 
 const topBarItem = (active) => ({
   background: active ? '#e0f2fe' : 'transparent',
@@ -220,7 +221,7 @@ export default function Show({ guidebook }) {
       </a>
 
       {/* Unified top bar */}
-      <div style={topBarStyle}>
+      <div style={topBarStyle(sidebarCollapsed)}>
         <Link href="/" style={topBarItem(false)}>←</Link>
         <span style={topBarDivider} />
         {guidebook.editable && (
