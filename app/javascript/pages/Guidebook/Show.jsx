@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { MantineProvider, createTheme, ScrollArea } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import '@mantine/core/styles.css'
+import '../../styles/responsive.css'
 import MapPreview from '../../components/MapPreview'
 import DayCard from '../../components/DayCard'
 import GalleryPanel from '../../components/GalleryPanel'
@@ -12,7 +14,23 @@ const theme = createTheme({
 })
 
 const sidebarStyles = {
-  container: (collapsed) => ({
+  container: (collapsed, mobile) => mobile ? {
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: '100%',
+    height: '50vh',
+    zIndex: 1000,
+    background: 'linear-gradient(180deg, rgba(255,255,255,0.97) 0%, rgba(248,250,252,0.97) 100%)',
+    backdropFilter: 'blur(12px)',
+    borderTop: '1px solid #e2e8f0',
+    borderRadius: '16px 16px 0 0',
+    boxShadow: '0 -4px 20px rgba(0,0,0,0.08)',
+    transform: collapsed ? 'translateY(50vh)' : 'translateY(0)',
+    transition: 'transform 300ms ease',
+    overflow: 'hidden',
+  } : {
     width: 370,
     height: '100%',
     position: 'relative',
@@ -24,8 +42,22 @@ const sidebarStyles = {
     transform: collapsed ? 'translateX(370px)' : 'translateX(0)',
     transition: 'transform 300ms ease',
     overflow: 'hidden',
-  }),
-  toggleBtn: (collapsed) => ({
+  },
+  toggleBtn: (collapsed, mobile) => mobile ? {
+    position: 'fixed',
+    bottom: 16,
+    right: 16,
+    zIndex: 1001,
+    background: '#fff',
+    border: '1px solid #e2e8f0',
+    color: '#1e293b',
+    padding: '8px 14px',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontSize: 14,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    transition: 'bottom 0.3s ease',
+  } : {
     position: 'fixed',
     top: 16,
     right: collapsed ? 16 : 380,
@@ -39,7 +71,7 @@ const sidebarStyles = {
     fontSize: 14,
     boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
     transition: 'right 0.3s ease',
-  }),
+  },
   title: {
     fontSize: 20,
     fontWeight: 700,
@@ -114,6 +146,7 @@ export default function Show({ guidebook }) {
   const [gallerySpot, setGallerySpot] = useState(null)
   const [lightboxState, setLightboxState] = useState(null)
   const galleryTriggerRef = useRef(null)
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
   const pointPhotos = fm.point_photos || {}
 
@@ -157,12 +190,12 @@ export default function Show({ guidebook }) {
       </div>
 
       {/* Toggle button */}
-      <button onClick={toggleSidebar} style={sidebarStyles.toggleBtn(sidebarCollapsed)}>
+      <button onClick={toggleSidebar} style={sidebarStyles.toggleBtn(sidebarCollapsed, isMobile)}>
         {sidebarCollapsed ? '☰' : '✕'}
       </button>
 
       {/* Sidebar */}
-      <div style={sidebarStyles.container(sidebarCollapsed)}>
+      <div style={sidebarStyles.container(sidebarCollapsed, isMobile)}>
         <ScrollArea h="100%" type="auto" offsetScrollbars>
           <div style={{ padding: 20 }}>
             {/* Title */}
@@ -230,7 +263,7 @@ export default function Show({ guidebook }) {
           spotName={gallerySpot}
           photos={pointPhotos[gallerySpot]}
           popupElement={document.querySelector('.popup-custom .leaflet-popup-content-wrapper')}
-          sidebarWidth={sidebarCollapsed ? 0 : 370}
+          sidebarWidth={isMobile ? 0 : (sidebarCollapsed ? 0 : 370)}
           onClose={handleGalleryClose}
           onOpenLightbox={handleOpenLightbox}
           triggerRef={galleryTriggerRef}
