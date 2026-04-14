@@ -1,171 +1,84 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## What is this?
-
-OneTour is a collaborative travel guidebook application for creating, editing, publishing, and sharing interactive travel guides with maps. Authors write guidebook content in Markdown with YAML frontmatter that encodes structured trip data (routes, coordinates, daily itineraries, points of interest). The app renders this as an interactive map experience with Leaflet.
-
-Built with Rails 8 + React 19, connected via Inertia.js (no separate API layer).
-
-## Development Commands
-
-### Setup and Server
-```bash
-bin/setup              # Install gems, npm deps, create/migrate DB
-bin/dev                # Start Rails + Vite dev servers (foreman with Procfile.dev)
-```
-
-Development URL: http://localhost:3000
-Login: Use the "Developer Login" button (OmniAuth developer strategy, dev only)
-
-### Testing
-```bash
-bundle exec rspec                        # All Ruby specs
-bundle exec rspec spec/models/           # Model specs only
-bundle exec rspec spec/requests/         # Request specs only
-bundle exec rspec spec/path/to_spec.rb   # Single file
-npm test                                 # JS tests (vitest)
-npm run test:watch                       # JS tests in watch mode
-```
-
-### Database
-```bash
-bin/rails db:create db:migrate
-bin/rails db:seed         # Creates admin@example.com user; reads guidebook markdown from sibling ../tour-of-xinjiang repo
-```
-
-### Linting
-```bash
-bundle exec rubocop       # Ruby (rubocop-rails-omakase)
-```
-
-## Deploy
-
-Kamal + Docker deployment. Config in `config/deploy.yml`.
-
-- Image: `your-user/tour_of_xinjiang_app` (Docker Hub)
-- Secrets: `RAILS_MASTER_KEY` (from `config/master.key`)
-- Production runs Puma behind Thruster (HTTP accelerator), port 80
-- SSL via Let's Encrypt through Kamal proxy
-- Production uses separate PostgreSQL databases for primary, cache (SolidCache), queue (SolidQueue), and cable (SolidCable)
-
-## Architecture Overview
-
-### Inertia.js Bridge
-
-There is no REST API. Rails controllers render Inertia responses with props, and React components receive them directly. This is the central architectural pattern:
-
-```
-Controller action → render_inertia("Page/Name", props: {...}) → React component receives props
-```
-
-- Page components live at `app/javascript/pages/{Controller}/{Action}.jsx` matching Rails routing conventions
-- Page resolution: `import.meta.glob('../pages/**/*.jsx', { eager: true })` in `app/javascript/entrypoints/inertia.jsx`
-- Navigation uses Inertia `<Link>` and `router.visit/post/put/delete` — never raw fetch or axios
-- `preserveState: true` and `preserveScroll: true` on auto-save requests to maintain editor state
-
-**Key insight**: When adding new pages, create the Rails controller action returning Inertia props AND the matching React page component. The Inertia middleware handles the JSON↔HTML negotiation automatically.
-
-### Authentication (OmniAuth)
-
-Passwordless OAuth authentication with multiple providers:
-- GitHub, Google, WeChat, Feishu (production)
-- Developer strategy (development only — form at GET `/auth/developer`)
-
-Flow: `/auth/:provider/callback` → `SessionsController#create` → finds or creates `OauthIdentity` + `User` → sets `session[:user_id]`
-
-A single User can have multiple OauthIdentity records (login with GitHub and Google → same account if email matches).
-
-Test helper: `POST /login_test` with `user_id` param (test env only).
-
-### Authorization Model
-
-Authorization is enforced at the model level with three permission methods on `Guidebook`:
-
-- `owned_by?(user)` — is this user the author?
-- `editable_by?(user)` — owner OR has editor membership
-- `visible_to?(user)` — published (anyone) OR owner/member (private)
-
-Roles via `GuidebookMembership`: `reader` (0) and `editor` (1).
-
-Controllers check these methods in before_actions and actions. The frontend receives `editable` and `owned` boolean props to conditionally render UI, but the backend is always the source of truth.
-
-**Key insight**: Only the guidebook author can publish, unpublish, manage members, or delete. Editors can modify content but not control access.
-
-### Content Model (Markdown + YAML Frontmatter)
-
-Guidebook content is a single text field containing Markdown with YAML frontmatter. The frontmatter encodes structured trip data: title, dates, vehicle, route coordinates, day-by-day itineraries with schedules, meals, lodging, points of interest with tags and photos.
-
-**Dual parsing** — the same content is parsed in two places:
-- **Backend**: `FrontmatterParser` service (`app/services/frontmatter_parser.rb`) — validates on save, populates `frontmatter_cache` JSONB column, extracts title
-- **Frontend**: `useFrontmatter` hook (`app/javascript/hooks/useFrontmatter.js`) — parses with `js-yaml` for real-time preview while editing
-
-The `before_validation :update_frontmatter_cache` callback on `Guidebook` keeps the cache in sync: when `content` changes, it re-parses frontmatter, updates `frontmatter_cache`, and extracts the `title` field.
-
-**Publishing requirements** (enforced by `FrontmatterParser#publishable?`):
-1. Valid YAML frontmatter with no parse errors
-2. `title` field present
-3. ALL days must have a `coordinates` array (required for map rendering)
-
-### Auto-Save
-
-The `useAutoSave` hook (`app/javascript/hooks/useAutoSave.js`) implements debounced auto-saving:
-
-1. User types in CodeMirror editor → `rawContent` state updates
-2. After 5 seconds of inactivity, hook fires `router.put(/guidebooks/:id, { guidebook: { content } })`
-3. Controller updates model → `before_validation` callback re-parses frontmatter cache
-4. Response preserves editor state and scroll position
-5. StatusBar component shows "Saving..." / "Saved at HH:MM:SS" / error
-
-The hook also registers a `beforeunload` handler to warn about unsaved changes on page leave.
-
-**Key insight**: No WebSocket or real-time collaboration — this is a simple HTTP PUT with debounce. Last-write-wins for concurrent editors.
-
-### Core Domain Models
-
-**User** — has_many `oauth_identities`, has_many `guidebooks` (as author), has_many `guidebook_memberships`
-
-**Guidebook** — belongs_to `author` (User), has_many `guidebook_memberships`, has_many `members` (through memberships). Key fields: `content` (text), `frontmatter_cache` (jsonb), `published` (boolean). Key methods: `owned_by?`, `editable_by?`, `visible_to?`, `publishable?`, `parsed_content`
-
-**GuidebookMembership** — join table with `role` enum (reader: 0, editor: 1). Unique on (guidebook_id, user_id)
-
-**OauthIdentity** — belongs_to `user`. Stores provider, uid, credentials (jsonb). Unique on (provider, uid)
-
-### Frontend Stack
-
-- **React 19** with **Mantine UI 9** (component library + theming via Emotion)
-- **Leaflet / react-leaflet** for interactive maps with routes, markers, popups
-- **CodeMirror 6** for the markdown editor with YAML + markdown syntax highlighting
-- **react-markdown** with remark-gfm and rehype-raw for preview rendering
-- Entry point: `app/javascript/entrypoints/inertia.jsx` — configures Inertia, MantineProvider, AppLayout
-- `AppLayout` wraps all pages except `Show.jsx` (full-screen map) and `Login.jsx` (centered form), which set their own `layout` property
-- Active Storage for image uploads with thumb (600x360) and HD (1200x800) variants
-
-### Routes Structure
-
-```ruby
-resources :guidebooks do
-  resource :publication, only: [:create, :destroy]      # publish/unpublish
-  resources :memberships, only: [:index, :create, :update, :destroy]  # sharing
-end
-```
-
-OAuth: `/auth/:provider/callback` → `sessions#create`
-Login: `GET /login` → `sessions#new`
-Root: `guidebooks#index`
-
-New REST resources preferred over custom actions (see CRUD controllers in STYLE.md).
-
-## Tools
-
-### Chrome MCP (Local Dev)
-
-URL: http://localhost:3000
-Login: Use "Developer Login" button on the login page (no credentials needed in development)
-
-Use Chrome DevTools MCP tools to interact with the running dev app for UI testing and debugging.
+Guidance for Claude Code working on this repo. Human-facing setup and command reference live in [README.md](README.md); this file only covers things you cannot learn by reading the code.
 
 ## Coding style
 
-@STYLE.md
+[STYLE.md](STYLE.md) is load-bearing and non-negotiable. When in doubt, match nearby existing code — not generic Rails conventions, which STYLE.md deliberately diverges from in several places (method ordering, conditional style, CRUD-over-custom-actions).
+
+## Before claiming done
+
+CI runs **only** `bin/rubocop`, `bin/brakeman`, and `bin/importmap audit` — no tests. If you did not run these locally, the change is unverified:
+
+- `mise exec -- bundle exec rspec` — Ruby tests (RSpec)
+- `npm test` — JS tests (Vitest)
+- `bin/rubocop -f github` — Ruby lint (CI-matching format)
+- `bin/brakeman --no-pager` — Ruby security scan
+- `bin/importmap audit` — JS dependency audit
+
+Failing to run tests locally and claiming "CI will catch it" is a lie — CI won't.
+
+## When to stop and ask
+
+Do not proceed without explicit user confirmation for:
+- Any change to `.env.production` or `.kamal/secrets` (production credentials)
+- `kamal deploy` or `kamal app exec` in production
+- Destructive migrations (drop column, backfill on large tables, index drops)
+- Changes to `config/storage.yml` R2/Cloudflare config
+- Rewriting git history on shared branches
+
+## Gotchas
+
+Each entry below is "if you see X, consider Y" — match on the trigger, don't memorize as timeless fact.
+
+- **`bundle exec` failing with bundler/Ruby version error** — On some local setups, shebang `/usr/bin/env ruby` resolves to macOS system Ruby 2.6, which cannot load this project's bundler. Work around with `mise exec -- bundle exec ...` or an explicit `BUNDLER_VERSION=...`. Applies to `rspec`, `rubocop`, `kamal` equally.
+- **Tuning `ChatStreamJob` `max_tokens`** — On SiliconFlow this parameter is near-total context, not an output cap. Leave ~10k for input (current cap: 32_768, not 128K). Verify against the provider's current docs if the provider changes.
+- **Editing `ChatStreamJob#replay_history`** — Kimi degrades into token loops ("DIN DIN DIN…") when prior degenerate output is replayed. The filter is load-bearing — don't remove it without re-testing long conversations.
+- **`Message#tool_calls` / `#metadata`** — Both jsonb columns are provisioned but always `nil`/empty in current prod data. Don't read them as if populated; don't drop them either — they exist for forthcoming tool-calling support.
+- **Production secrets** — `.env.production` is the real source and is git-ignored. `.kamal/secrets` only references it via shell — editing `.kamal/secrets` alone changes nothing deployed.
+- **A `.superpowers/` directory appears** — Local tooling state, must stay out of git. `.gitignore` covers it; history has been filter-branched clean once — don't re-add.
+- **`bin/rails db:migrate`** — Only migrates the primary DB. Cache/queue/cable live in separate DBs with their own migrations under `db/cache_migrate`, `db/queue_migrate`, `db/cable_migrate`.
+- **Adding a network call from the frontend** — Use Inertia `router.*`. The one exception is `useChat.js` (streaming + DELETE-then-refetch don't fit Inertia) — don't add a second exception without a similarly strong reason.
+- **Touching `config/storage.yml`** — Keep `request_checksum_calculation: when_required` and `response_checksum_validation: when_required`. R2 rejects aws-sdk-s3's default CRC32 checksum.
+- **Reasoning about user identity** — OAuth logins and email-code logins resolve to the **same** `User` when the email matches. One user may have multiple `OauthIdentity` rows on one account.
+
+## Where the sharp edges are
+
+Don't trust a hardcoded list here — it will rot. Find the current sharp edge:
+
+```sh
+git log --since='3 months ago' --name-only --pretty=format: \
+  | grep -v '^$' | sort | uniq -c | sort -rn | head -20
+```
+
+The top-churned files are where recent bugs are still warm. Before editing one of them, read its last ~10 commits and corresponding specs for failure modes not captured here.
+
+## Architecture notes not obvious from code
+
+**AI Travel Assistant cross-file flow** (the one part you cannot reconstruct by reading a single file):
+
+- `ChatPanel.jsx` → `POST /guidebooks/:id/conversations/:cid/messages` → `ChatStreamJob` → RubyLLM (OpenAI-compatible endpoint) → ActionCable channel `chat_guidebook_<guidebook_id>_user_<user_id>` → `useChat.js`
+- User-selectable modes: `auto` (apply to editor on success), `ask` (show apply button), `plan` (describe changes only)
+- System prompt is built from `FrontmatterSchema.to_prompt_description` — schema edits propagate to the LLM automatically; don't hand-sync them
+- One `Conversation` per (guidebook, user) via `find_or_create_by`; reset via `DELETE /guidebooks/:id/conversations/:cid`
+- Exact event payload shapes live in `ChatChannel` / `ChatStreamJob` — read there, don't mirror here
+
+**Model invariants** (enforced by DB-level uniques / enums — don't bypass in code):
+
+- `Conversation` unique on (guidebook_id, user_id)
+- `Message.role` enum: `user: 0, assistant: 1, system: 2`
+- `OauthIdentity` unique on (provider, uid); one `User` may have many
+- `GuidebookMembership.role` enum: `reader: 0, editor: 1`
+
+Everything else (Inertia bridge, authorization predicates, dual frontmatter parsing, auto-save semantics) is documented in [README.md](README.md) and/or apparent from the code — don't duplicate it here.
+
+## Testing patterns
+
+- Request specs log in via the test-only route: `post "/login_test", params: { user_id: user.id }`. Conventional helper: `def login_as(user); post "/login_test", params: { user_id: user.id }; end`
+- Factories under `spec/factories/`: `:user`, `:guidebook` (defaults `author: create(:user)`), `:guidebook_membership`, `:conversation`, `:message`, `:oauth_identity`
+- WebMock is loaded globally (`spec/rails_helper.rb`); unstubbed external HTTP fails the test
+- Ad-hoc prod inspection: `mise exec -- bundle exec kamal app exec --reuse "bin/rails runner '...'"`
+
+## Deploy
+
+Kamal + Docker. All host/image/domain details live in [config/deploy.yml](config/deploy.yml) — read that file rather than trusting a copy here. Production Active Storage service is `:cloudflare` (R2 via S3-compatible API).
