@@ -1,5 +1,6 @@
 import { Button, Stack, Title, Paper, Center, Text, Alert, Divider } from '@mantine/core'
 import { usePage } from '@inertiajs/react'
+import EmailLoginForm from '../../components/EmailLoginForm'
 
 // All icons from Simple Icons (https://simpleicons.org) — MIT license, fill-based monochrome
 const ICONS = {
@@ -42,6 +43,10 @@ export default function Login() {
           )}
 
           <Stack w="100%" gap="sm">
+            <EmailLoginForm />
+
+            <Divider label="或使用社交账号登录" labelPosition="center" my="xs" />
+
             <OAuthButton provider="github" label="GitHub" icon={ICONS.github} />
             <OAuthButton provider="google_oauth2" label="Google" icon={ICONS.google} />
             <OAuthButton provider="feishu" label="Feishu" icon={ICONS.feishu} />

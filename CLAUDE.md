@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is this?
 
-Tour of Xinjiang is a collaborative travel guidebook application for creating, editing, publishing, and sharing interactive travel guides with maps. Authors write guidebook content in Markdown with YAML frontmatter that encodes structured trip data (routes, coordinates, daily itineraries, points of interest). The app renders this as an interactive map experience with Leaflet.
+OneTour is a collaborative travel guidebook application for creating, editing, publishing, and sharing interactive travel guides with maps. Authors write guidebook content in Markdown with YAML frontmatter that encodes structured trip data (routes, coordinates, daily itineraries, points of interest). The app renders this as an interactive map experience with Leaflet.
 
 Built with Rails 8 + React 19, connected via Inertia.js (no separate API layer).
 

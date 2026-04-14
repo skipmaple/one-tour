@@ -47,6 +47,9 @@ env:
     - LLM_MODEL
     - AMAP_API_KEY
     - GOOGLE_MAPS_API_KEY
+    - RESEND_API_KEY
+    - MAIL_FROM
+    - EMAIL_VERIFICATION_PEPPER
   clear:
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     # When you start using multiple servers, you should split out job processing to a dedicated machine.

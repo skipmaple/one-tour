@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_13_083908) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_14_085634) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -50,6 +50,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_13_083908) do
     t.index ["guidebook_id", "user_id"], name: "index_conversations_on_guidebook_id_and_user_id", unique: true
     t.index ["guidebook_id"], name: "index_conversations_on_guidebook_id"
     t.index ["user_id"], name: "index_conversations_on_user_id"
+  end
+
+  create_table "email_verifications", force: :cascade do |t|
+    t.string "email", null: false
+    t.string "code_digest", null: false
+    t.datetime "expires_at", null: false
+    t.integer "attempts", default: 0, null: false
+    t.datetime "used_at"
+    t.string "requested_ip"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["email", "created_at"], name: "index_email_verifications_on_email_and_created_at"
+    t.index ["email"], name: "index_email_verifications_on_email"
+    t.index ["requested_ip"], name: "index_email_verifications_on_requested_ip"
   end
 
   create_table "guidebook_memberships", force: :cascade do |t|
