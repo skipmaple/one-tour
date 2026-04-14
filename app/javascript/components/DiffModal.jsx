@@ -77,8 +77,19 @@ export default function DiffModal({ opened, onClose, oldContent, newContent, onC
           </div>
         </ScrollArea>
 
-        {/* Actions */}
-        <Group justify="flex-end" px={16} py={12} style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
+        {/* Actions — sticky so they stay visible when the summary overflows */}
+        <Group
+          justify="flex-end"
+          px={16}
+          py={12}
+          style={{
+            position: 'sticky',
+            bottom: 0,
+            backgroundColor: 'var(--mantine-color-body)',
+            borderTop: '1px solid var(--mantine-color-gray-3)',
+            zIndex: 10,
+          }}
+        >
           <Button variant="default" size="xs" onClick={onClose}>取消</Button>
           <Button size="xs" onClick={onConfirm}>确认保存</Button>
         </Group>
