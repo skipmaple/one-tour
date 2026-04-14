@@ -18,7 +18,7 @@ default: &default
   # For details on connection pooling, see Rails configuration guide
   # https://guides.rubyonrails.org/configuring.html#database-pooling
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  host: localhost
+  host: <%= ENV.fetch("DB_HOST", "localhost") %>
   username: postgres
   password: postgres
 
@@ -84,18 +84,18 @@ test:
 production:
   primary: &primary_production
     <<: *default
-    database: tour_of_xinjiang_app_production
-    username: tour_of_xinjiang_app
-    password: <%= ENV["TOUR_OF_XINJIANG_APP_DATABASE_PASSWORD"] %>
+    database: one_tour_production
+    username: one_tour
+    password: <%= ENV["ONE_TOUR_DATABASE_PASSWORD"] %>
   cache:
     <<: *primary_production
-    database: tour_of_xinjiang_app_production_cache
+    database: one_tour_production_cache
     migrations_paths: db/cache_migrate
   queue:
     <<: *primary_production
-    database: tour_of_xinjiang_app_production_queue
+    database: one_tour_production_queue
     migrations_paths: db/queue_migrate
   cable:
     <<: *primary_production
-    database: tour_of_xinjiang_app_production_cable
+    database: one_tour_production_cable
     migrations_paths: db/cable_migrate

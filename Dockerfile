@@ -2,13 +2,21 @@
 # check=error=true
 
 # This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
-# docker build -t tour_of_xinjiang_app .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name tour_of_xinjiang_app tour_of_xinjiang_app
+# docker build -t one-tour .
+# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name one-tour one-tour
 
 # For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
 
 # Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=3.4.8
+ARG NODE_VERSION=22
+
+# JavaScript dependencies stage — cached independently from Ruby gems
+FROM node:${NODE_VERSION}-slim AS node_modules
+WORKDIR /rails
+COPY package.json package-lock.json ./
+RUN npm ci
+
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 
 # Rails app lives here
@@ -42,11 +50,17 @@ RUN bundle install && \
 # Copy application code
 COPY . .
 
+# Import Node.js binary and npm packages from node_modules stage.
+# This comes after COPY . . so it is never overwritten by the build context.
+COPY --from=node_modules /usr/local/bin/node /usr/local/bin/node
+COPY --from=node_modules /rails/node_modules ./node_modules
+
 # Precompile bootsnap code for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
 
-# Precompiling assets for production without requiring secret RAILS_MASTER_KEY
-RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
+# Precompile assets; node_modules are not needed in the final image
+RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile && \
+    rm -rf node_modules
 
 
 
