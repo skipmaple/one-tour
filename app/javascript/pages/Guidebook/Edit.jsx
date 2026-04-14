@@ -65,7 +65,7 @@ export default function Edit({ guidebook }) {
     chatModeRef.current = newMode
   }
 
-  const { messages, streaming, streamingContent, sendMessage, error: chatError } = useChat(guidebook?.id, {
+  const { messages, streaming, streamingContent, sendMessage, error: chatError, resetConversation } = useChat(guidebook?.id, {
     modeRef: chatModeRef,
     onAutoApply: handleApplyContent,
   })
@@ -185,9 +185,25 @@ export default function Edit({ guidebook }) {
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <Group px="sm" py="xs" justify="space-between" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
               <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>AI 旅行助手</span>
-              <ActionIcon size="sm" variant="subtle" onClick={() => setChatOpen(false)}>
-                ✕
-              </ActionIcon>
+              <Group gap={4}>
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  color="gray"
+                  title="重置对话"
+                  disabled={streaming || messages.length === 0}
+                  onClick={() => {
+                    if (window.confirm('确定清空这次对话的所有历史？不影响已应用到编辑器的内容。')) {
+                      resetConversation()
+                    }
+                  }}
+                >
+                  🗑️
+                </ActionIcon>
+                <ActionIcon size="sm" variant="subtle" onClick={() => setChatOpen(false)}>
+                  ✕
+                </ActionIcon>
+              </Group>
             </Group>
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <ChatPanel

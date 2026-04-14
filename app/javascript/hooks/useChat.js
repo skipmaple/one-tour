@@ -121,5 +121,26 @@ export function useChat(guidebookId, { modeRef, onAutoApply } = {}) {
     }
   }, [guidebookId, streaming, ensureConversation])
 
-  return { messages, streaming, streamingContent, sendMessage, error }
+  const resetConversation = useCallback(async () => {
+    const convId = conversationIdRef.current
+    if (!convId) return
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+    await fetch(`/guidebooks/${guidebookId}/conversations/${convId}`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': csrfToken, 'Accept': 'application/json' }
+    })
+
+    conversationIdRef.current = null
+    setConversationId(null)
+    setMessages([])
+    setStreamingContent('')
+    streamingContentRef.current = ''
+    setStreaming(false)
+    setError(null)
+
+    await ensureConversation()
+  }, [guidebookId, ensureConversation])
+
+  return { messages, streaming, streamingContent, sendMessage, error, resetConversation }
 }

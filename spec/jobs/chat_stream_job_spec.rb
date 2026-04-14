@@ -79,4 +79,77 @@ RSpec.describe ChatStreamJob do
       hash_including(frequency_penalty: be > 0, presence_penalty: be > 0, max_tokens: be > 0)
     )
   end
+
+  it "filters out degenerate prior assistant messages when replaying history" do
+    create(:message, conversation: conversation, role: :assistant, content: ("DIN " * 200).strip)
+    create(:message, conversation: conversation, role: :user, content: "Continue")
+
+    fake_messages = []
+    fake_chat = instance_double(RubyLLM::Chat)
+    allow(fake_chat).to receive(:with_temperature).and_return(fake_chat)
+    allow(fake_chat).to receive(:with_params).and_return(fake_chat)
+    allow(fake_chat).to receive(:with_instructions).and_return(fake_chat)
+    allow(fake_chat).to receive(:with_tool).and_return(fake_chat)
+    allow(fake_chat).to receive(:messages).and_return(fake_messages)
+    allow(fake_chat).to receive(:ask) do |_msg, &block|
+      block.call(RubyLLM::Chunk.new(role: :assistant, content: "ok"))
+    end
+    allow(RubyLLM).to receive(:chat).and_return(fake_chat)
+    allow(ActionCable.server).to receive(:broadcast)
+
+    described_class.new.perform(conversation.id, guidebook.id, user.id)
+
+    replayed_contents = fake_messages.map(&:content)
+    expect(replayed_contents).to include("Plan me a trip")
+    expect(replayed_contents).not_to include(include("DIN DIN DIN DIN"))
+  end
+
+  describe "has_guidebook_content in complete broadcast" do
+    it "is false when output is a truncated YAML with no closing delimiter" do
+      stub_chat_yielding([ "---\n```yaml\ntitle: Test\n" ])
+
+      broadcasts = []
+      allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
+
+      described_class.new.perform(conversation.id, guidebook.id, user.id)
+
+      complete = broadcasts.find { |p| p[:type] == "complete" }
+      expect(complete[:has_guidebook_content]).to be(false)
+    end
+
+    it "is false when frontmatter is well-formed but days array is empty" do
+      stub_chat_yielding([ "---\ntitle: Test\ndays: []\n---\n\n# Body\n" ])
+
+      broadcasts = []
+      allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
+
+      described_class.new.perform(conversation.id, guidebook.id, user.id)
+
+      complete = broadcasts.find { |p| p[:type] == "complete" }
+      expect(complete[:has_guidebook_content]).to be(false)
+    end
+
+    it "is true when frontmatter parses cleanly with at least one day" do
+      content = <<~MD
+        ---
+        title: Test Trip
+        days:
+          - day: 1
+            title: Arrive
+            coordinates: [43.8, 87.6]
+        ---
+
+        # Test Trip
+      MD
+      stub_chat_yielding([ content ])
+
+      broadcasts = []
+      allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
+
+      described_class.new.perform(conversation.id, guidebook.id, user.id)
+
+      complete = broadcasts.find { |p| p[:type] == "complete" }
+      expect(complete[:has_guidebook_content]).to be(true)
+    end
+  end
 end

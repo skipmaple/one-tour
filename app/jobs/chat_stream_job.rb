@@ -3,6 +3,8 @@ class ChatStreamJob < ApplicationJob
 
   REPETITION_THRESHOLD = 50
   SHORT_CHUNK_MAX_STRIP_SIZE = 8
+  DEGENERATE_RUN_THRESHOLD = 100
+  DEGENERATE_MIN_SIZE = 400
 
   def perform(conversation_id, guidebook_id, user_id, mode = "ask")
     conversation = Conversation.find(conversation_id)
@@ -63,9 +65,16 @@ class ChatStreamJob < ApplicationJob
     end
 
     def replay_history(chat, prior_messages)
-      prior_messages.each do |msg|
+      prior_messages.reject { |msg| degenerate_message?(msg) }.each do |msg|
         chat.messages << RubyLLM::Message.new(role: msg.role.to_sym, content: msg.content)
       end
+    end
+
+    def degenerate_message?(msg)
+      return false unless msg.role == "assistant"
+      return false if msg.content.bytesize < DEGENERATE_MIN_SIZE
+
+      msg.content.scan(/(\S{1,#{SHORT_CHUNK_MAX_STRIP_SIZE}})(?: \1){#{DEGENERATE_RUN_THRESHOLD - 1},}/).any?
     end
 
     def save_and_broadcast_complete(conversation, guidebook, channel, full_response)
@@ -73,13 +82,18 @@ class ChatStreamJob < ApplicationJob
         conversation.messages.create!(role: :assistant, content: full_response)
       end
 
-      has_frontmatter = full_response.strip.start_with?("---")
-
       ActionCable.server.broadcast(channel, {
         type: "complete",
         content: full_response,
-        has_guidebook_content: has_frontmatter
+        has_guidebook_content: valid_guidebook?(full_response)
       })
+    end
+
+    def valid_guidebook?(content)
+      return false if content.blank?
+
+      parsed = FrontmatterParser.new(content).parse
+      parsed.valid? && parsed.frontmatter["days"].is_a?(Array) && parsed.frontmatter["days"].any?
     end
 
     def system_prompt(guidebook, mode)
@@ -98,8 +112,26 @@ class ChatStreamJob < ApplicationJob
       <<~PROMPT
         你是一个旅行规划助手。#{existing_content}
 
-        当用户要求生成或修改路书时，输出完整的 Markdown 文件（以 --- 包裹 YAML frontmatter，后跟 Markdown 正文）。
-        当用户只是提问（不需要修改路书）时，直接回答即可，不要输出 frontmatter。
+        ## 输出格式（严格遵守）
+
+        当用户要求生成或修改路书时，输出**必须**是以下三段式纯文本，不加任何额外包装：
+
+        ```
+        ---
+        <YAML 内容>
+        ---
+
+        # <标题>
+        <Markdown 正文>
+        ```
+
+        **禁止**：
+        - 不要在开头 `---` 后加 ` ```yaml ` 或任何代码围栏
+        - 不要把整个回复包进 ``` ``` ``` 代码块
+        - 不要只输出 YAML 而省略结尾的 `---` 和 Markdown 正文
+        - 输出里必须有两次 `---`（开头一次、YAML 结束一次），缺一不可
+
+        当用户只是提问（不需要修改路书）时，直接用自然语言回答，不要输出 `---`。
 
         ## Schema 参考
         #{FrontmatterSchema.to_prompt_description}

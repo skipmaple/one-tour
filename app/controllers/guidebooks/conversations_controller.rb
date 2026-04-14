@@ -21,6 +21,17 @@ class Guidebooks::ConversationsController < ApplicationController
     end
   end
 
+  def destroy
+    conversation = @guidebook.conversations.find(params[:id])
+
+    if conversation.user_id == current_user.id
+      conversation.destroy
+      head :no_content
+    else
+      head :forbidden
+    end
+  end
+
   private
     def set_guidebook
       @guidebook = Guidebook.find(params[:guidebook_id])

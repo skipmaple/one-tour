@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
   # OAuth callbacks
-  match "/auth/:provider/callback", to: "sessions#create", via: [:get, :post]
+  match "/auth/:provider/callback", to: "sessions#create", via: [ :get, :post ]
   get "/auth/failure", to: "sessions#failure"
   # OmniAuth developer strategy serves a form at GET /auth/developer (handled by middleware)
   delete "/logout", to: "sessions#destroy"
@@ -15,11 +15,11 @@ Rails.application.routes.draw do
   # Guidebooks
   resources :guidebooks do
     scope module: :guidebooks do
-      resource :publication, only: [:create, :destroy]
-      resources :memberships, only: [:index, :create, :update, :destroy]
-      resources :images, only: [:create]
-      resources :conversations, only: [:create, :show] do
-        resources :messages, only: [:create]
+      resource :publication, only: [ :create, :destroy ]
+      resources :memberships, only: [ :index, :create, :update, :destroy ]
+      resources :images, only: [ :create ]
+      resources :conversations, only: [ :create, :show, :destroy ] do
+        resources :messages, only: [ :create ]
       end
     end
   end

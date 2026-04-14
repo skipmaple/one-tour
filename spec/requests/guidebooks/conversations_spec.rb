@@ -81,4 +81,32 @@ RSpec.describe "Guidebook Conversations", type: :request do
       expect(response).to have_http_status(:forbidden)
     end
   end
+
+  describe "DELETE /guidebooks/:guidebook_id/conversations/:id" do
+    it "destroys the conversation and its messages for the owner" do
+      login_as(owner)
+      conversation = create(:conversation, guidebook: guidebook, user: owner)
+      create(:message, conversation: conversation, role: :user, content: "Hello")
+      create(:message, conversation: conversation, role: :assistant, content: "Hi")
+
+      expect {
+        delete "/guidebooks/#{guidebook.id}/conversations/#{conversation.id}"
+      }.to change(Conversation, :count).by(-1).and change(Message, :count).by(-2)
+
+      expect(response).to have_http_status(:no_content)
+    end
+
+    it "denies another user's conversation" do
+      login_as(owner)
+      other_editor = create(:user)
+      create(:guidebook_membership, guidebook: guidebook, user: other_editor, role: :editor)
+      conversation = create(:conversation, guidebook: guidebook, user: other_editor)
+
+      expect {
+        delete "/guidebooks/#{guidebook.id}/conversations/#{conversation.id}"
+      }.not_to change(Conversation, :count)
+
+      expect(response).to have_http_status(:forbidden)
+    end
+  end
 end
