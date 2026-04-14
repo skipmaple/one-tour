@@ -36,6 +36,12 @@ env:
   secret:
     - RAILS_MASTER_KEY
     - ONE_TOUR_DATABASE_PASSWORD
+    - GITHUB_CLIENT_ID
+    - GITHUB_CLIENT_SECRET
+    - GOOGLE_CLIENT_ID
+    - GOOGLE_CLIENT_SECRET
+    - FEISHU_APP_ID
+    - FEISHU_APP_SECRET
   clear:
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     # When you start using multiple servers, you should split out job processing to a dedicated machine.

@@ -1,6 +1,6 @@
 class SessionsController < ApplicationController
   def new
-    render inertia: "Auth/Login"
+    render inertia: "Auth/Login", props: { dev_login_enabled: Rails.env.development? }
   end
 
   def create
