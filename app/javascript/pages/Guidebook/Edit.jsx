@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Button, Group, Stack, Alert, ActionIcon } from '@mantine/core'
 import { router } from '@inertiajs/react'
 import MarkdownEditor from '../../components/MarkdownEditor'
@@ -70,6 +70,14 @@ export default function Edit({ guidebook }) {
     onAutoApply: handleApplyContent,
   })
 
+  // Auto-open chat after creation if user clicked AI button on the new page
+  useEffect(() => {
+    if (!isNew && sessionStorage.getItem('openChatAfterCreate') === 'true') {
+      sessionStorage.removeItem('openChatAfterCreate')
+      setChatOpen(true)
+    }
+  }, [isNew])
+
   const handleCreate = () => {
     router.post('/guidebooks', {
       guidebook: { content: rawContent }
@@ -100,16 +108,21 @@ export default function Edit({ guidebook }) {
       <Group px="md" py="xs" justify="space-between" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
         <PreviewToggle value={previewMode} onChange={setPreviewMode} />
         <Group>
-          {!isNew && (
-            <ActionIcon
-              size="md"
-              variant={chatOpen ? 'filled' : 'light'}
-              onClick={() => setChatOpen(o => !o)}
-              title="AI 助手"
-            >
-              💬
-            </ActionIcon>
-          )}
+          <ActionIcon
+            size="md"
+            variant={chatOpen ? 'filled' : 'light'}
+            onClick={() => {
+              if (isNew) {
+                sessionStorage.setItem('openChatAfterCreate', 'true')
+                handleCreate()
+              } else {
+                setChatOpen(o => !o)
+              }
+            }}
+            title="AI 助手"
+          >
+            💬
+          </ActionIcon>
           {guidebook?.owned && guidebook?.publishable && !guidebook?.published && (
             <Button
               size="xs"
