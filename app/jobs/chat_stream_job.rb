@@ -1,6 +1,9 @@
 class ChatStreamJob < ApplicationJob
   queue_as :default
 
+  REPETITION_THRESHOLD = 50
+  SHORT_CHUNK_MAX_STRIP_SIZE = 8
+
   def perform(conversation_id, guidebook_id, user_id, mode = "ask")
     conversation = Conversation.find(conversation_id)
     guidebook = Guidebook.find(guidebook_id)
@@ -12,8 +15,14 @@ class ChatStreamJob < ApplicationJob
 
   private
     def stream_llm_response(conversation, guidebook, channel, mode)
-      model = ENV.fetch("LLM_MODEL", "qwen3.5-122b-a10b")
+      model = ENV.fetch("LLM_MODEL", "moonshotai/Kimi-K2-Instruct-0905")
       chat = RubyLLM.chat(model: model, provider: :openai, assume_model_exists: true)
+      chat.with_temperature(0.7)
+      chat.with_params(
+        frequency_penalty: 0.3,
+        presence_penalty: 0.3,
+        max_tokens: 32_768
+      )
       chat.with_instructions(system_prompt(guidebook, mode))
       chat.with_tool(GeocodeTool)
 
@@ -22,12 +31,29 @@ class ChatStreamJob < ApplicationJob
       latest_message = all_messages.last.content
 
       full_response = ""
+      repeat_count = 0
+      last_chunk_content = nil
 
       chat.ask(latest_message) do |chunk|
-        if chunk.content
-          full_response << chunk.content
-          ActionCable.server.broadcast(channel, { type: "chunk", content: chunk.content })
+        next unless chunk.content
+
+        # Detect degenerate token repetition (e.g. qwen stuck emitting "DIN DIN DIN…")
+        if chunk.content == last_chunk_content && chunk.content.strip.size <= SHORT_CHUNK_MAX_STRIP_SIZE
+          repeat_count += 1
+          if repeat_count >= REPETITION_THRESHOLD
+            Rails.logger.warn(
+              "ChatStreamJob: aborting stream, detected #{repeat_count} consecutive " \
+              "identical chunks (#{chunk.content.inspect})"
+            )
+            raise "模型生成异常（检测到重复输出），已中止"
+          end
+        else
+          repeat_count = 0
         end
+        last_chunk_content = chunk.content
+
+        full_response << chunk.content
+        ActionCable.server.broadcast(channel, { type: "chunk", content: chunk.content })
       end
 
       full_response
