@@ -123,7 +123,7 @@ export default function Lightbox({
         <div className="lightbox-image-wrap">
           <img
             className="lightbox-image"
-            src={`/${photo.img?.hd}`}
+            src={photo.img?.hd?.startsWith('http') ? photo.img.hd : `/${photo.img?.hd}`}
             alt={photo.title}
           />
         </div>

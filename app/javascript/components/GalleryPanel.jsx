@@ -20,7 +20,7 @@ function GalleryCard({ photo, index, onOpen }) {
       <div className="gallery-card-thumb-wrap">
         <img
           className="gallery-card-thumb"
-          src={`/${photo.img?.thumb}`}
+          src={photo.img?.thumb?.startsWith('http') ? photo.img.thumb : `/${photo.img?.thumb}`}
           alt={photo.title}
           loading="lazy"
         />
