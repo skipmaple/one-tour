@@ -1,146 +1,95 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect, useReducer, useRef } from 'react'
 import consumer from '../channels/consumer'
 
-export function useChat(guidebookId, { modeRef, onAutoApply } = {}) {
-  const [messages, setMessages] = useState([])
-  const [streaming, setStreaming] = useState(false)
-  const [streamingContent, setStreamingContent] = useState('')
-  const [error, setError] = useState(null)
-  const [conversationId, setConversationId] = useState(null)
-  const subscriptionRef = useRef(null)
-  const streamingContentRef = useRef('')
+export const INITIAL = {
+  messages: [],
+  streaming: false,
+  pendingToolCalls: {}
+}
 
-  // Subscribe to ActionCable channel
-  useEffect(() => {
-    if (!guidebookId) return
+export function reducer(state, action) {
+  switch (action.type) {
+    case 'send_user':
+      return {
+        ...state,
+        messages: [ ...state.messages, { role: 'user', content: action.content } ],
+        streaming: true
+      }
 
-    subscriptionRef.current = consumer.subscriptions.create(
-      { channel: 'ChatChannel', guidebook_id: guidebookId },
-      {
-        received(data) {
-          if (data.type === 'chunk') {
-            streamingContentRef.current += data.content
-            setStreamingContent(streamingContentRef.current)
-          } else if (data.type === 'complete') {
-            setStreaming(false)
-            if (data.content) {
-              setMessages(prev => [...prev, { role: 'assistant', content: data.content }])
-            }
-            if (data.has_guidebook_content && modeRef?.current === 'auto' && onAutoApply) {
-              onAutoApply(data.content)
-            }
-            setStreamingContent('')
-            streamingContentRef.current = ''
-          } else if (data.type === 'error') {
-            setStreaming(false)
-            setError(data.content)
-            setStreamingContent('')
-            streamingContentRef.current = ''
-          }
+    case 'tool_call_start':
+      return {
+        ...state,
+        pendingToolCalls: {
+          ...state.pendingToolCalls,
+          [action.id]: { name: action.name, arguments: action.arguments }
         }
       }
-    )
 
-    return () => {
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe()
+    case 'tool_call_result':
+      return {
+        ...state,
+        pendingToolCalls: {
+          ...state.pendingToolCalls,
+          [action.id]: { ...(state.pendingToolCalls[action.id] || {}), result: action.result }
+        }
       }
+
+    case 'assistant_text': {
+      const msgs = [ ...state.messages ]
+      const last = msgs[msgs.length - 1]
+      if (last && last.role === 'assistant') {
+        msgs[msgs.length - 1] = { ...last, content: (last.content || '') + action.delta }
+      } else {
+        msgs.push({ role: 'assistant', content: action.delta })
+      }
+      return { ...state, messages: msgs }
     }
-  }, [guidebookId])
 
-  // Create or load conversation
-  const conversationIdRef = useRef(null)
+    case 'complete':
+      return { ...state, streaming: false }
 
-  const ensureConversation = useCallback(async () => {
-    if (conversationIdRef.current) return conversationIdRef.current
+    case 'error':
+      return { ...state, streaming: false, error: action.message }
 
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
-    const response = await fetch(`/guidebooks/${guidebookId}/conversations`, {
+    default:
+      return state
+  }
+}
+
+export default function useChat({ tourId }) {
+  const [ state, dispatch ] = useReducer(reducer, INITIAL)
+  const subRef = useRef(null)
+
+  useEffect(() => {
+    if (!tourId) return
+    subRef.current = consumer.subscriptions.create(
+      { channel: 'ChatChannel', tour_id: tourId },
+      { received: (data) => dispatch(data) }
+    )
+    return () => subRef.current?.unsubscribe()
+  }, [ tourId ])
+
+  function send(content) {
+    dispatch({ type: 'send_user', content })
+    fetch(`/tours/${tourId}/conversation/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-CSRF-Token': csrfToken,
-        'Accept': 'application/json'
-      }
+        'X-CSRF-Token': csrfToken()
+      },
+      body: JSON.stringify({ content })
     })
+  }
 
-    const data = await response.json()
-    const id = data.conversation.id
-    conversationIdRef.current = id
-    setConversationId(id)
+  return {
+    messages: state.messages,
+    streaming: state.streaming,
+    pendingToolCalls: state.pendingToolCalls,
+    error: state.error,
+    send
+  }
+}
 
-    // Load existing messages
-    const historyResponse = await fetch(`/guidebooks/${guidebookId}/conversations/${id}`, {
-      headers: { 'Accept': 'application/json' }
-    })
-    const historyData = await historyResponse.json()
-    setMessages(historyData.messages || [])
-
-    return id
-  }, [guidebookId])
-
-  // Load conversation history on mount
-  useEffect(() => {
-    if (guidebookId) {
-      ensureConversation()
-    }
-  }, [guidebookId, ensureConversation])
-
-  const sendMessage = useCallback(async (content) => {
-    if (!content.trim() || streaming) return
-
-    setError(null)
-    setStreaming(true)
-    streamingContentRef.current = ''
-    setStreamingContent('')
-
-    // Ensure conversation exists (loads history if first call)
-    const convId = await ensureConversation()
-
-    // Optimistically add user message AFTER history is loaded
-    setMessages(prev => [...prev, { role: 'user', content }])
-
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
-
-    const response = await fetch(
-      `/guidebooks/${guidebookId}/conversations/${convId}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify({ content, mode: modeRef?.current || 'ask' })
-      }
-    )
-
-    if (!response.ok) {
-      setStreaming(false)
-      setError('Failed to send message')
-    }
-  }, [guidebookId, streaming, ensureConversation])
-
-  const resetConversation = useCallback(async () => {
-    const convId = conversationIdRef.current
-    if (!convId) return
-
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
-    await fetch(`/guidebooks/${guidebookId}/conversations/${convId}`, {
-      method: 'DELETE',
-      headers: { 'X-CSRF-Token': csrfToken, 'Accept': 'application/json' }
-    })
-
-    conversationIdRef.current = null
-    setConversationId(null)
-    setMessages([])
-    setStreamingContent('')
-    streamingContentRef.current = ''
-    setStreaming(false)
-    setError(null)
-
-    await ensureConversation()
-  }, [guidebookId, ensureConversation])
-
-  return { messages, streaming, streamingContent, sendMessage, error, resetConversation }
+function csrfToken() {
+  return document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
 }
