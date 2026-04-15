@@ -12,22 +12,27 @@ Rails.application.routes.draw do
   # ActionCable
   mount ActionCable.server => "/cable"
 
-  # Guidebooks
-  resources :guidebooks do
-    scope module: :guidebooks do
-      resource :publication, only: [ :create, :destroy ]
-      resources :memberships, only: [ :index, :create, :update, :destroy ]
-      resources :images, only: [ :create ]
-      resources :conversations, only: [ :create, :show, :destroy ] do
-        resources :messages, only: [ :create ]
-      end
+  # Tours (Trip Planner)
+  resources :tours do
+    resource  :constitution, only: [ :show, :update ], controller: "tours/constitutions"
+    resources :members, controller: :tour_memberships, only: [ :create, :update, :destroy ]
+    resources :days, only: [ :create, :update, :destroy ] do
+      resources :activities, only: [ :create ]
     end
+    resources :backlog_activities, only: [ :create ], controller: :activities
+    resource  :conversation, only: [ :show, :destroy ] do
+      resources :messages, only: [ :create ]
+    end
+  end
+
+  resources :activities, only: [ :update, :destroy ] do
+    resource :position, only: [ :update ], controller: :activity_positions
   end
 
   # Login page
   get "/login", to: "sessions#new"
 
-  root "guidebooks#index"
+  root "tours#index"
 
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server
   constraints(host: "127.0.0.1") do
