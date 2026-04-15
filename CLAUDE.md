@@ -8,13 +8,13 @@ Guidance for Claude Code working on this repo. Human-facing setup and command re
 
 ## Before claiming done
 
-CI runs **only** `bin/rubocop`, `bin/brakeman`, and `bin/importmap audit` — no tests. If you did not run these locally, the change is unverified:
+CI runs **only** `bin/rubocop`, `bin/brakeman`, and `npm audit` — no tests. If you did not run these locally, the change is unverified:
 
 - `mise exec -- bundle exec rspec` — Ruby tests (RSpec)
 - `npm test` — JS tests (Vitest)
 - `bin/rubocop -f github` — Ruby lint (CI-matching format)
 - `bin/brakeman --no-pager` — Ruby security scan
-- `bin/importmap audit` — JS dependency audit
+- `npm audit` — JS dependency audit
 
 Failing to run tests locally and claiming "CI will catch it" is a lie — CI won't.
 
