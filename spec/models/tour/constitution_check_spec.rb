@@ -1,9 +1,11 @@
 require "rails_helper"
 
 RSpec.describe Tour::ConstitutionCheck do
-  it "returns empty array for a fresh tour with no days" do
+  it "returns min_buffer_days violation for a fresh tour with no days" do
     tour = create(:tour)
-    expect(described_class.for(tour)).to eq([])
+    violations = described_class.for(tour)
+    expect(violations.length).to eq(1)
+    expect(violations.first.rule).to eq(:min_buffer_days)
   end
 
   describe "#check_daily_driving" do
@@ -39,6 +41,26 @@ RSpec.describe Tour::ConstitutionCheck do
       v = violations.find { |x| x.rule == :max_tier_one_per_day }
       expect(v).not_to be_nil
       expect(v.level).to eq(:soft)
+    end
+  end
+
+  describe "#check_buffer_days" do
+    let(:tour) { create(:tour) }
+
+    it "flags soft violation when buffer_days < min_buffer_days (default 1)" do
+      create(:day, tour: tour, day_index: 1, buffer_day: false)
+      create(:day, tour: tour, day_index: 2, buffer_day: false)
+      violations = described_class.for(tour)
+      v = violations.find { |x| x.rule == :min_buffer_days }
+      expect(v).not_to be_nil
+      expect(v.level).to eq(:soft)
+      expect(v.scope).to eq({})
+    end
+
+    it "no violation when at or above min_buffer_days" do
+      create(:day, tour: tour, day_index: 1, buffer_day: true)
+      violations = described_class.for(tour)
+      expect(violations.map(&:rule)).not_to include(:min_buffer_days)
     end
   end
 end

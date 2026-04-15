@@ -13,7 +13,8 @@ class Tour::ConstitutionCheck
   def violations
     [
       check_daily_driving,
-      check_tier_one_per_day
+      check_tier_one_per_day,
+      check_buffer_days
     ].flatten.compact.reject { |v| overridden?(v) }
   end
 
@@ -47,6 +48,19 @@ class Tour::ConstitutionCheck
           suggestion: "拆到其他日或降级为二等/三等"
         )
       end
+    end
+
+    def check_buffer_days
+      limit = @rules[:min_buffer_days]
+      actual = @tour.buffer_days_count
+      return nil if actual >= limit
+      Violation.new(
+        level: :soft,
+        rule: :min_buffer_days,
+        scope: {},
+        message: "整程 #{actual} 个机动日（建议 ≥ #{limit}）",
+        suggestion: "新增一个 buffer_day=true 的 Day"
+      )
     end
 
     def overridden?(violation)
