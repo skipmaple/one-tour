@@ -1,11 +1,17 @@
 import { useState } from 'react'
-import { Stack, Group, Title, Button, Paper, Text, Select, Collapse } from '@mantine/core'
+import { Stack, Group, Title, Button, Paper, Text, Select } from '@mantine/core'
 import { Head, router } from '@inertiajs/react'
+
+// "关键约束" section shows these three keys; everything else in DEFAULTS
+// renders as "高级参数". Keep this list here, not hardcoded in the
+// "剩余 N 条" label, so the count stays accurate when DEFAULTS changes.
+const KEY_FIELDS = [ 'max_daily_driving_minutes', 'max_tier_one_per_day', 'min_buffer_days' ]
 
 export default function Constitution({ tour, constitution, defaults }) {
   const [c, setC] = useState({ ...constitution })
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const dirty = Object.keys(defaults).some(k => String(c[k]) !== String(defaults[k]))
+  const advancedCount = Object.keys(defaults).filter(k => !KEY_FIELDS.includes(k)).length
 
   const save = () => {
     router.patch(`/tours/${tour.id}/constitution`, { constitution: c })
@@ -72,10 +78,14 @@ export default function Constitution({ tour, constitution, defaults }) {
       </Stack>
 
       <Button variant="subtle" size="sm" onClick={() => setAdvancedOpen(o => !o)}>
-        {advancedOpen ? '▴ 收起高级参数' : '▾ 高级参数（剩余 5 条，大多数情况不用改）'}
+        {advancedOpen ? '▴ 收起高级参数' : `▾ 高级参数（剩余 ${advancedCount} 条，大多数情况不用改）`}
       </Button>
 
-      <Collapse in={advancedOpen}>
+      {/* Previously wrapped in <Collapse in={advancedOpen}> but Mantine 9's
+          Collapse leaks the `in` prop to the child DOM when in={false},
+          producing a React "non-boolean attribute" warning on every render.
+          Drop the slide animation and just conditionally render. */}
+      {advancedOpen && (
         <Stack gap="xs">
           <Title order={5}>硬约束剩余</Title>
           <ConstRow label="单日山路驾驶上限" field="max_mountain_road_minutes" scale={60} options={[ 180, 240, 300 ]} unit="小时" hint="独库 / 伊昭这类山路段" c={c} setC={setC} />
@@ -84,9 +94,8 @@ export default function Constitution({ tour, constitution, defaults }) {
           <Title order={5} mt="md">弹性配额</Title>
           <ConstRow label="整程特色餐厅总数" field="max_tier_two_food_per_tour" options={[ 2, 3, 4 ]} unit="家" hint="为吃饭绕路的上限" c={c} setC={setC} />
           <ConstRow label='整程"找油紧急升级"' field="max_fuel_emergency_per_tour" options={[ 0, 1, 2 ]} unit="次" hint="多于此说明油量规划不好" c={c} setC={setC} />
-          <ConstRow label="整程毡房 / 蒙古包夜晚" field="max_yurt_nights" options={[ 0, 1, 2 ]} unit="晚" hint="需提前全员同意" c={c} setC={setC} />
         </Stack>
-      </Collapse>
+      )}
 
       <Group justify="space-between" mt="lg" pt="md" style={{ borderTop: '1px solid #eee' }}>
         <Button variant="default" onClick={resetToDefaults} disabled={!dirty}>↺ 恢复默认</Button>
