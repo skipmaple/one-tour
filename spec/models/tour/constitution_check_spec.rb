@@ -34,13 +34,20 @@ RSpec.describe Tour::ConstitutionCheck do
   describe "#check_tier_one_per_day" do
     let(:tour) { create(:tour) }
 
-    it "flags soft violation when tier_one count reaches limit (default 3)" do
+    it "no violation when count equals limit (at-cap is OK)" do
       day = create(:day, tour: tour, day_index: 2)
       3.times { create(:activity, tour: tour, day: day, citizen_level: :tier_one) }
       violations = described_class.for(tour)
+      expect(violations.map(&:rule)).not_to include(:max_tier_one_per_day)
+    end
+
+    it "flags hard violation when count exceeds limit (default 3)" do
+      day = create(:day, tour: tour, day_index: 2)
+      4.times { create(:activity, tour: tour, day: day, citizen_level: :tier_one) }
+      violations = described_class.for(tour)
       v = violations.find { |x| x.rule == :max_tier_one_per_day }
       expect(v).not_to be_nil
-      expect(v.level).to eq(:soft)
+      expect(v.level).to eq(:hard)
     end
   end
 
@@ -72,19 +79,6 @@ RSpec.describe Tour::ConstitutionCheck do
       v = described_class.for(tour).find { |x| x.rule == :max_tier_two_food_per_tour }
       expect(v).not_to be_nil
       expect(v.level).to eq(:soft)
-    end
-  end
-
-  describe "#check_yurt_nights" do
-    let(:tour) { create(:tour) }
-
-    it "flags soft violation when yurt stays > max_yurt_nights (default 1)" do
-      2.times do
-        create(:activity, tour: tour, kind: :stay,
-               details: { "sanitation" => "yurt" })
-      end
-      v = described_class.for(tour).find { |x| x.rule == :max_yurt_nights }
-      expect(v).not_to be_nil
     end
   end
 

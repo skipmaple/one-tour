@@ -1,16 +1,21 @@
 class TourMembershipsController < ApplicationController
+  ALLOWED_ROLES = %w[reader editor].freeze
+
   before_action :require_login
   before_action :set_tour
   before_action :require_author
 
   def create
+    role = params[:role].presence || "reader"
+    head :unprocessable_entity and return unless ALLOWED_ROLES.include?(role)
     user = User.find_by(email: params[:email])
     head :not_found and return unless user
-    @tour.tour_memberships.create!(user: user, role: params[:role] || "reader")
+    @tour.tour_memberships.create!(user: user, role: role)
     redirect_to @tour
   end
 
   def update
+    head :unprocessable_entity and return unless ALLOWED_ROLES.include?(params[:role])
     membership = @tour.tour_memberships.find(params[:id])
     membership.update!(role: params[:role])
     redirect_to @tour

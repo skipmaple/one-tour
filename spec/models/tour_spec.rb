@@ -14,6 +14,12 @@ RSpec.describe Tour do
       tour.save!
       expect(Constitution::DEFAULTS[:max_daily_driving_minutes]).to eq(420)
     end
+
+    it "merges defaults under user-provided partial constitution" do
+      tour = create(:tour, constitution: { "max_daily_driving_minutes" => 360 })
+      expect(tour.constitution["max_daily_driving_minutes"]).to eq(360)
+      expect(tour.constitution["max_tier_one_per_day"]).to eq(3)
+    end
   end
 
   describe "#owned_by?" do

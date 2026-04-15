@@ -30,5 +30,23 @@ RSpec.describe Activity do
       activity = build(:activity, name: nil)
       expect(activity).not_to be_valid
     end
+
+    it "rejects non-hash details" do
+      activity = build(:activity, details: [ "not", "a", "hash" ])
+      expect(activity).not_to be_valid
+      expect(activity.errors[:details]).to include("must be a JSON object")
+    end
+
+    it "accepts nil or empty details" do
+      expect(build(:activity, details: nil)).to be_valid
+      expect(build(:activity, details: {})).to be_valid
+    end
+
+    it "rejects details larger than DETAILS_MAX_BYTES" do
+      huge = { "notes" => "x" * (Activity::DETAILS_MAX_BYTES + 100) }
+      activity = build(:activity, details: huge)
+      expect(activity).not_to be_valid
+      expect(activity.errors[:details].first).to match(/too large/)
+    end
   end
 end

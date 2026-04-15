@@ -52,6 +52,6 @@ class Tour < ApplicationRecord
     end
 
     def seed_constitution_defaults
-      self.constitution = Constitution::DEFAULTS.deep_stringify_keys if constitution.blank?
+      self.constitution = Constitution::DEFAULTS.deep_stringify_keys.merge(constitution.presence || {})
     end
 end

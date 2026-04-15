@@ -13,7 +13,7 @@ Rails.application.routes.draw do
   mount ActionCable.server => "/cable"
 
   # Tours (Trip Planner)
-  resources :tours do
+  resources :tours, except: [ :new, :edit ] do
     resource  :constitution, only: [ :show, :update ], controller: "tours/constitutions"
     resources :members, controller: :tour_memberships, only: [ :create, :update, :destroy ]
     resources :days, only: [ :create, :update, :destroy ] do

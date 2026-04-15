@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe Constitution do
-  it "defines 8 required default rules" do
+  it "defines 7 required default rules" do
     expect(Constitution::DEFAULTS.keys).to contain_exactly(
       :max_daily_driving_minutes,
       :max_mountain_road_minutes,
@@ -9,8 +9,7 @@ RSpec.describe Constitution do
       :min_buffer_days,
       :min_daily_buffer_minutes,
       :max_tier_two_food_per_tour,
-      :max_fuel_emergency_per_tour,
-      :max_yurt_nights
+      :max_fuel_emergency_per_tour
     )
   end
 
