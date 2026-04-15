@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_15_172616) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_15_172617) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -103,28 +103,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_15_172616) do
     t.index ["requested_ip"], name: "index_email_verifications_on_requested_ip"
   end
 
-  create_table "guidebook_memberships", force: :cascade do |t|
-    t.bigint "guidebook_id", null: false
-    t.bigint "user_id", null: false
-    t.integer "role", default: 0, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["guidebook_id", "user_id"], name: "index_guidebook_memberships_on_guidebook_id_and_user_id", unique: true
-    t.index ["guidebook_id"], name: "index_guidebook_memberships_on_guidebook_id"
-    t.index ["user_id"], name: "index_guidebook_memberships_on_user_id"
-  end
-
-  create_table "guidebooks", force: :cascade do |t|
-    t.string "title", null: false
-    t.text "content", default: "", null: false
-    t.jsonb "frontmatter_cache", default: {}
-    t.bigint "author_id", null: false
-    t.boolean "published", default: false, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["author_id"], name: "index_guidebooks_on_author_id"
-  end
-
   create_table "messages", force: :cascade do |t|
     t.bigint "conversation_id", null: false
     t.integer "role", null: false
@@ -190,9 +168,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_15_172616) do
   add_foreign_key "conversations", "tours"
   add_foreign_key "conversations", "users"
   add_foreign_key "days", "tours"
-  add_foreign_key "guidebook_memberships", "guidebooks"
-  add_foreign_key "guidebook_memberships", "users"
-  add_foreign_key "guidebooks", "users", column: "author_id"
   add_foreign_key "messages", "conversations"
   add_foreign_key "oauth_identities", "users"
   add_foreign_key "tour_memberships", "tours"
