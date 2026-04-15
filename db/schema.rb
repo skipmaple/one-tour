@@ -66,12 +66,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_15_172615) do
   end
 
   create_table "conversations", force: :cascade do |t|
-    t.bigint "guidebook_id", null: false
     t.bigint "user_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["guidebook_id", "user_id"], name: "index_conversations_on_guidebook_id_and_user_id", unique: true
-    t.index ["guidebook_id"], name: "index_conversations_on_guidebook_id"
+    t.bigint "tour_id", null: false
+    t.index ["tour_id", "user_id"], name: "index_conversations_on_tour_id_and_user_id", unique: true
+    t.index ["tour_id"], name: "index_conversations_on_tour_id"
     t.index ["user_id"], name: "index_conversations_on_user_id"
   end
 
@@ -187,7 +187,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_15_172615) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "activities", "days"
   add_foreign_key "activities", "tours"
-  add_foreign_key "conversations", "guidebooks"
+  add_foreign_key "conversations", "tours"
   add_foreign_key "conversations", "users"
   add_foreign_key "days", "tours"
   add_foreign_key "guidebook_memberships", "guidebooks"
