@@ -1,6 +1,10 @@
 class ApplicationController < ActionController::Base
   inertia_share flash: -> { { alert: flash[:alert], notice: flash[:notice] } }
   inertia_share current_user: -> { current_user&.as_json(only: [ :id, :name, :email, :avatar_url ]) }
+  # Expose AMAP web JS key to the frontend. AMAP protects it with a domain
+  # allowlist configured in the AMAP console; leaking it in page source is
+  # expected (same model as Google Maps API keys).
+  inertia_share amap_api_key: -> { ENV["AMAP_API_KEY"] }
 
   helper_method :current_user, :logged_in?
 

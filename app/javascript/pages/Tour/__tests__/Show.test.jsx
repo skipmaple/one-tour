@@ -5,6 +5,13 @@ import Show from '../Show'
 
 vi.mock('@inertiajs/react', () => ({
   Head: ({ children, title }) => null,
+  usePage: () => ({ props: { amap_api_key: '' } }),
+  router: { patch: () => {}, post: () => {}, reload: () => {} },
+}))
+
+// PlannerMap loads AMAP JS SDK via <script>; stub it out for unit tests.
+vi.mock('../../../components/planner/PlannerMap', () => ({
+  default: () => <div data-testid="planner-map-stub" />,
 }))
 
 vi.mock('@dnd-kit/core', () => ({

@@ -26,7 +26,7 @@ export default function Show({ tour, days, activities, violations }) {
         <div style={{ display: 'grid', gridTemplateColumns: `260px 1fr ${chatOpen ? 320 : 36}px`, gap: 10, padding: 10 }}>
           <BacklogList activities={backlog} />
           <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', gap: 10 }}>
-            <PlannerMap activities={activities} />
+            <PlannerMap activities={activities} days={days} />
             <div style={{ display: 'flex', gap: 8, overflowX: 'auto', alignItems: 'stretch' }}>
               {days.map(d => <DayColumn key={d.id} day={d} activities={byDay[d.id] || []} constitution={tour.constitution} />)}
               <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />
