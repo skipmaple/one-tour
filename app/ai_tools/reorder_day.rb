@@ -9,14 +9,16 @@ module AITools
         day = Day.find_by(id: day_id)
         next bail("Day not found", code: "day_not_found") unless day
 
+        updated = 0
         Activity.transaction do
           activity_ids.each_with_index do |aid, idx|
             activity = day.activities.find_by(id: aid)
             next unless activity
             activity.update!(position: idx + 1)
+            updated += 1
           end
         end
-        ok(day_id: day_id, count: activity_ids.size)
+        ok(day_id: day_id, count: updated)
       end
     end
   end

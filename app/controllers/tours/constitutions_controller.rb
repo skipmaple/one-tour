@@ -22,5 +22,6 @@ class Tours::ConstitutionsController < ApplicationController
   private
     def set_tour
       @tour = Tour.find_by(id: params[:tour_id])
+      head :not_found and return unless @tour
     end
 end

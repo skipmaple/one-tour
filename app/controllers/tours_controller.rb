@@ -3,11 +3,15 @@ class ToursController < ApplicationController
   before_action :set_tour, only: [ :show, :update, :destroy ]
 
   def index
-    @tours = Tour
+    uid = current_user.id
+    tours = Tour
       .left_joins(:tour_memberships)
-      .where("tours.author_id = :uid OR tour_memberships.user_id = :uid", uid: current_user.id)
+      .where("tours.author_id = :uid OR tour_memberships.user_id = :uid", uid: uid)
       .distinct
-    render inertia: "Tour/Index", props: { tours: @tours.as_json }
+      .includes(:tour_memberships)
+
+    payload = tours.map { |t| tour_index_entry(t, uid) }
+    render inertia: "Tour/Index", props: { tours: payload }
   end
 
   def show
@@ -40,9 +44,29 @@ class ToursController < ApplicationController
   private
     def set_tour
       @tour = Tour.find_by(id: params[:id])
+      head :not_found and return unless @tour
     end
 
     def tour_params
       params.require(:tour).permit(:title, :date_range, :vehicle, :team_size, :trip_style, :budget_per_person, :archived)
+    end
+
+    def tour_index_entry(tour, user_id)
+      violations = Tour::ConstitutionCheck.for(tour)
+      tour.as_json.merge(
+        "days_count"       => tour.days.count,
+        "activities_count" => tour.activities.count,
+        "health"           => {
+          "hard" => violations.count { |v| v.level == :hard },
+          "soft" => violations.count { |v| v.level == :soft }
+        },
+        "my_role"          => role_on(tour, user_id),
+        "last_activity_at" => tour.updated_at&.iso8601
+      )
+    end
+
+    def role_on(tour, user_id)
+      return "author" if tour.author_id == user_id
+      tour.tour_memberships.find { |m| m.user_id == user_id }&.role || "reader"
     end
 end

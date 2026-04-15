@@ -28,4 +28,10 @@ RSpec.describe "Tours::Constitutions", type: :request do
     patch tour_constitution_path(tour), params: { constitution: { max_tier_one_per_day: 4 } }
     expect(response).to have_http_status(:forbidden)
   end
+
+  it "GET returns 404 when tour does not exist (I4)" do
+    login_as(user)
+    get "/tours/9999999/constitution"
+    expect(response).to have_http_status(:not_found)
+  end
 end

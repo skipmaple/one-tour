@@ -48,5 +48,44 @@ RSpec.describe "Tours", type: :request do
       get "/tours/#{tour.id}"
       expect(response).to have_http_status(:not_found)
     end
+
+    it "returns 404 when the tour does not exist (no 500 from nil.visible_to?)" do
+      login_as(user)
+      get "/tours/9999999"
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  describe "GET /tours index payload enrichment (I8)" do
+    it "includes days_count, activities_count, health, my_role, last_activity_at" do
+      tour = create(:tour, author: user)
+      day  = create(:day, tour: tour, day_index: 1)
+      # Drive a hard tier_one violation: 4 tier_one on the same day > limit 3
+      4.times.with_index { |_, i| create(:activity, tour: tour, day: day, citizen_level: :tier_one, position: i + 1) }
+
+      login_as(user)
+      get "/tours"
+      expect(response).to have_http_status(:ok)
+      body = response.body
+      expect(body).to include("days_count")
+      expect(body).to include("activities_count")
+      expect(body).to include("health")
+      expect(body).to include("my_role")
+      expect(body).to include("last_activity_at")
+      expect(body).to include("\"hard\"")
+      expect(body).to include("author")
+    end
+
+    it "reports my_role='reader' / 'editor' for shared tours" do
+      reader_tour = create(:tour)
+      editor_tour = create(:tour)
+      create(:tour_membership, tour: reader_tour, user: user, role: :reader)
+      create(:tour_membership, tour: editor_tour, user: user, role: :editor)
+
+      login_as(user)
+      get "/tours"
+      expect(response.body).to include("reader")
+      expect(response.body).to include("editor")
+    end
   end
 end
