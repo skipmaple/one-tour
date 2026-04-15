@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_15_172613) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_15_172614) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -50,6 +50,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_15_172613) do
     t.index ["guidebook_id", "user_id"], name: "index_conversations_on_guidebook_id_and_user_id", unique: true
     t.index ["guidebook_id"], name: "index_conversations_on_guidebook_id"
     t.index ["user_id"], name: "index_conversations_on_user_id"
+  end
+
+  create_table "days", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.integer "day_index", null: false
+    t.date "date"
+    t.string "title"
+    t.text "theme"
+    t.integer "intensity"
+    t.boolean "buffer_day", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["tour_id", "day_index"], name: "index_days_on_tour_id_and_day_index", unique: true
+    t.index ["tour_id"], name: "index_days_on_tour_id"
   end
 
   create_table "email_verifications", force: :cascade do |t|
@@ -150,6 +164,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_15_172613) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "conversations", "guidebooks"
   add_foreign_key "conversations", "users"
+  add_foreign_key "days", "tours"
   add_foreign_key "guidebook_memberships", "guidebooks"
   add_foreign_key "guidebook_memberships", "users"
   add_foreign_key "guidebooks", "users", column: "author_id"
