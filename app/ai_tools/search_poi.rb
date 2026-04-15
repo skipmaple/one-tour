@@ -7,10 +7,12 @@ module AITools
     param :near_lng,    type: :number, required: false
 
     def execute(query:, region_hint: nil, near_lat: nil, near_lng: nil)
-      candidates = PoiSearch.new.search(query, region_hint: region_hint, near_lat: near_lat, near_lng: near_lng)
-      ok(candidates: candidates)
+      with_rescues do
+        candidates = PoiSearch.new.search(query, region_hint: region_hint, near_lat: near_lat, near_lng: near_lng)
+        ok(candidates: candidates)
+      end
     rescue PoiSearch::Error => e
-      fail(e.message, code: "poi_search_failed")
+      bail(e.message, code: "poi_search_failed")
     end
   end
 end

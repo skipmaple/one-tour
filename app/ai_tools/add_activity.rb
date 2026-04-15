@@ -15,33 +15,35 @@ module AITools
 
     def execute(tour_id:, day_index:, kind:, citizen_level:, name:, lat: nil, lng: nil,
                 planned_start_at: nil, planned_duration_min: nil, details: {})
-      tour = Tour.find_by(id: tour_id)
-      return fail("Tour not found", code: "tour_not_found") unless tour
+      with_rescues do
+        tour = Tour.find_by(id: tour_id)
+        next bail("Tour not found", code: "tour_not_found") unless tour
 
-      day =
-        if day_index.to_s == "backlog"
-          nil
-        else
-          tour.days.find_by(day_index: day_index.to_i)
-        end
-      return fail("Day not found", code: "day_not_found") if day_index.to_s != "backlog" && day.nil?
+        day =
+          if day_index.to_s == "backlog"
+            nil
+          else
+            tour.days.find_by(day_index: day_index.to_i)
+          end
+        next bail("Day not found", code: "day_not_found") if day_index.to_s != "backlog" && day.nil?
 
-      position = (day ? tour.activities.where(day_id: day.id).maximum(:position) : tour.activities.where(day_id: nil).maximum(:position)).to_i + 1
+        position = (day ? tour.activities.where(day_id: day.id).maximum(:position) : tour.activities.where(day_id: nil).maximum(:position)).to_i + 1
 
-      activity = tour.activities.create!(
-        day: day,
-        position: position,
-        kind: kind,
-        citizen_level: citizen_level,
-        name: name,
-        lat: lat,
-        lng: lng,
-        planned_start_at: planned_start_at,
-        planned_duration_min: planned_duration_min,
-        details: details || {}
-      )
+        activity = tour.activities.create!(
+          day: day,
+          position: position,
+          kind: kind,
+          citizen_level: citizen_level,
+          name: name,
+          lat: lat,
+          lng: lng,
+          planned_start_at: planned_start_at,
+          planned_duration_min: planned_duration_min,
+          details: details || {}
+        )
 
-      ok(activity_id: activity.id, position: activity.position)
+        ok(activity_id: activity.id, position: activity.position)
+      end
     end
   end
 end

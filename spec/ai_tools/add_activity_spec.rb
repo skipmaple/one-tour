@@ -49,4 +49,16 @@ RSpec.describe AITools::AddActivity do
     expect(result[:ok]).to be false
     expect(result[:error][:code]).to eq("day_not_found")
   end
+
+  it "returns error hash for invalid kind enum (with_rescues catches)" do
+    result = described_class.new.execute(
+      tour_id: tour.id,
+      day_index: "backlog",
+      kind: "dinner",
+      citizen_level: "tier_one",
+      name: "x"
+    )
+    expect(result[:ok]).to be false
+    expect(result[:error][:code]).to be_in(%w[invalid_argument validation])
+  end
 end

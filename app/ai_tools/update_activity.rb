@@ -7,12 +7,14 @@ module AITools
     UPDATABLE = %w[name desc tips lat lng address planned_start_at planned_duration_min kind citizen_level details].freeze
 
     def execute(activity_id:, patch:)
-      activity = Activity.find_by(id: activity_id)
-      return fail("Activity not found", code: "activity_not_found") unless activity
+      with_rescues do
+        activity = Activity.find_by(id: activity_id)
+        next bail("Activity not found", code: "activity_not_found") unless activity
 
-      safe = (patch || {}).stringify_keys.slice(*UPDATABLE)
-      activity.update!(safe)
-      ok(activity_id: activity.id, updated_fields: safe.keys)
+        safe = (patch || {}).stringify_keys.slice(*UPDATABLE)
+        activity.update!(safe)
+        ok(activity_id: activity.id, updated_fields: safe.keys)
+      end
     end
   end
 end
