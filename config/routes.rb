@@ -21,7 +21,7 @@ Rails.application.routes.draw do
     end
     resources :backlog_activities, only: [ :create ], controller: :activities
     resource  :conversation, only: [ :show, :destroy ] do
-      resources :messages, only: [ :create ]
+      resources :messages, only: [ :create ], controller: "conversations/messages"
     end
   end
 
