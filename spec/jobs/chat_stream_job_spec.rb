@@ -1,155 +1,98 @@
-require 'rails_helper'
+require "rails_helper"
 
 RSpec.describe ChatStreamJob do
   let(:user) { create(:user) }
-  let(:guidebook) { create(:guidebook, author: user) }
-  let(:conversation) { create(:conversation, guidebook: guidebook, user: user) }
-  let(:channel) { "chat_guidebook_#{guidebook.id}_user_#{user.id}" }
+  let(:tour) { create(:tour, author: user) }
+  let(:conversation) { create(:conversation, tour: tour, user: user) }
 
   before do
-    create(:message, conversation: conversation, role: :user, content: "Plan me a trip")
+    create(:message, conversation: conversation, role: :user, content: "加个赛里木湖")
   end
 
-  def stub_chat_yielding(chunks)
+  it "broadcasts tool_call_start/result and assistant_text events + persists assistant message" do
     fake_chat = instance_double(RubyLLM::Chat)
-    allow(fake_chat).to receive(:with_temperature).and_return(fake_chat)
-    allow(fake_chat).to receive(:with_params).and_return(fake_chat)
+    allow(RubyLLM).to receive(:chat).and_return(fake_chat)
+    allow(fake_chat).to receive(:with_instructions).and_return(fake_chat)
+    allow(fake_chat).to receive(:with_tool).and_return(fake_chat)
+    allow(fake_chat).to receive(:messages).and_return([])
+
+    allow(fake_chat).to receive(:ask) do |_msg, &block|
+      block.call(double("Event", type: :tool_call_start, name: "add_activity", arguments: {}, id: "tc1"))
+      block.call(double("Event", type: :tool_call_result, id: "tc1", result: { ok: true }))
+      block.call(double("Event", type: :text, delta: "已加入 D2"))
+      "已加入 D2"
+    end
+
+    broadcasts = []
+    allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
+
+    expect {
+      described_class.new.perform(conversation.id, tour.id, user.id)
+    }.to change { conversation.reload.messages.count }.by(1)
+
+    assistant_msg = conversation.messages.where(role: :assistant).last
+    expect(assistant_msg.content).to include("已加入")
+
+    expect(broadcasts).to include(hash_including(type: "tool_call_start", name: "add_activity", id: "tc1"))
+    expect(broadcasts).to include(hash_including(type: "tool_call_result", id: "tc1"))
+    expect(broadcasts).to include(hash_including(type: "assistant_text", delta: "已加入 D2"))
+    expect(broadcasts).to include(hash_including(type: "complete"))
+  end
+
+  it "broadcasts an error event when the job raises" do
+    fake_chat = instance_double(RubyLLM::Chat)
+    allow(RubyLLM).to receive(:chat).and_return(fake_chat)
+    allow(fake_chat).to receive(:with_instructions).and_return(fake_chat)
+    allow(fake_chat).to receive(:with_tool).and_return(fake_chat)
+    allow(fake_chat).to receive(:messages).and_return([])
+    allow(fake_chat).to receive(:ask).and_raise("LLM connection failed")
+
+    broadcasts = []
+    allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
+
+    described_class.new.perform(conversation.id, tour.id, user.id)
+
+    expect(broadcasts).to include(hash_including(type: "error", message: "LLM connection failed"))
+  end
+
+  it "calls with_tool for each tool in AITools::Schema.all" do
+    fake_chat = instance_double(RubyLLM::Chat)
+    allow(RubyLLM).to receive(:chat).and_return(fake_chat)
     allow(fake_chat).to receive(:with_instructions).and_return(fake_chat)
     allow(fake_chat).to receive(:with_tool).and_return(fake_chat)
     allow(fake_chat).to receive(:messages).and_return([])
     allow(fake_chat).to receive(:ask) do |_msg, &block|
-      chunks.each { |c| block.call(RubyLLM::Chunk.new(role: :assistant, content: c)) }
+      block.call(double("Event", type: :text, delta: "ok"))
+      "ok"
     end
-    allow(RubyLLM).to receive(:chat).and_return(fake_chat)
-    fake_chat
-  end
-
-  it "aborts the stream when the model emits a long run of identical short chunks" do
-    stub_chat_yielding(Array.new(60, "DIN"))
-
-    broadcasts = []
-    allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
-
-    expect {
-      described_class.new.perform(conversation.id, guidebook.id, user.id)
-    }.not_to change { conversation.messages.where(role: :assistant).count }
-
-    error_broadcast = broadcasts.find { |p| p[:type] == "error" }
-    expect(error_broadcast).not_to be_nil
-    expect(error_broadcast[:content]).to match(/重复输出/)
-    expect(broadcasts).to include(hash_including(type: "complete", content: ""))
-  end
-
-  it "streams normal responses without firing the repetition guard" do
-    stub_chat_yielding([ "Hello", ", ", "world", "!", " " ])
-
-    broadcasts = []
-    allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
-
-    expect {
-      described_class.new.perform(conversation.id, guidebook.id, user.id)
-    }.to change { conversation.messages.where(role: :assistant).count }.by(1)
-
-    expect(broadcasts.count { |p| p[:type] == "chunk" }).to eq(5)
-    expect(broadcasts.last[:type]).to eq("complete")
-    expect(broadcasts).not_to include(hash_including(type: "error"))
-  end
-
-  it "does not trip on identical long chunks (only short repeated tokens count)" do
-    long = "这是一段比较长的正常中文描述内容，不应被当作 token 退化。"
-    stub_chat_yielding(Array.new(60, long))
-
-    broadcasts = []
-    allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
-
-    described_class.new.perform(conversation.id, guidebook.id, user.id)
-
-    expect(broadcasts.last[:type]).to eq("complete")
-    expect(broadcasts).not_to include(hash_including(type: "error"))
-  end
-
-  it "configures the chat with sampling params that discourage repetition" do
-    chat = stub_chat_yielding([ "ok" ])
     allow(ActionCable.server).to receive(:broadcast)
 
-    described_class.new.perform(conversation.id, guidebook.id, user.id)
+    described_class.new.perform(conversation.id, tour.id, user.id)
 
-    expect(chat).to have_received(:with_temperature).with(0.7)
-    expect(chat).to have_received(:with_params).with(
-      hash_including(frequency_penalty: be > 0, presence_penalty: be > 0, max_tokens: be > 0)
-    )
+    expect(fake_chat).to have_received(:with_tool).exactly(AITools::Schema.all.size).times
   end
 
-  it "filters out degenerate prior assistant messages when replaying history" do
-    create(:message, conversation: conversation, role: :assistant, content: ("DIN " * 200).strip)
-    create(:message, conversation: conversation, role: :user, content: "Continue")
+  it "replays prior messages excluding the latest into chat history" do
+    create(:message, conversation: conversation, role: :assistant, content: "上一条助手回复")
+    create(:message, conversation: conversation, role: :user, content: "再加一个")
 
     fake_messages = []
     fake_chat = instance_double(RubyLLM::Chat)
-    allow(fake_chat).to receive(:with_temperature).and_return(fake_chat)
-    allow(fake_chat).to receive(:with_params).and_return(fake_chat)
+    allow(RubyLLM).to receive(:chat).and_return(fake_chat)
     allow(fake_chat).to receive(:with_instructions).and_return(fake_chat)
     allow(fake_chat).to receive(:with_tool).and_return(fake_chat)
     allow(fake_chat).to receive(:messages).and_return(fake_messages)
     allow(fake_chat).to receive(:ask) do |_msg, &block|
-      block.call(RubyLLM::Chunk.new(role: :assistant, content: "ok"))
+      block.call(double("Event", type: :text, delta: "done"))
+      "done"
     end
-    allow(RubyLLM).to receive(:chat).and_return(fake_chat)
     allow(ActionCable.server).to receive(:broadcast)
 
-    described_class.new.perform(conversation.id, guidebook.id, user.id)
+    described_class.new.perform(conversation.id, tour.id, user.id)
 
     replayed_contents = fake_messages.map(&:content)
-    expect(replayed_contents).to include("Plan me a trip")
-    expect(replayed_contents).not_to include(include("DIN DIN DIN DIN"))
-  end
-
-  describe "has_guidebook_content in complete broadcast" do
-    it "is false when output is a truncated YAML with no closing delimiter" do
-      stub_chat_yielding([ "---\n```yaml\ntitle: Test\n" ])
-
-      broadcasts = []
-      allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
-
-      described_class.new.perform(conversation.id, guidebook.id, user.id)
-
-      complete = broadcasts.find { |p| p[:type] == "complete" }
-      expect(complete[:has_guidebook_content]).to be(false)
-    end
-
-    it "is false when frontmatter is well-formed but days array is empty" do
-      stub_chat_yielding([ "---\ntitle: Test\ndays: []\n---\n\n# Body\n" ])
-
-      broadcasts = []
-      allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
-
-      described_class.new.perform(conversation.id, guidebook.id, user.id)
-
-      complete = broadcasts.find { |p| p[:type] == "complete" }
-      expect(complete[:has_guidebook_content]).to be(false)
-    end
-
-    it "is true when frontmatter parses cleanly with at least one day" do
-      content = <<~MD
-        ---
-        title: Test Trip
-        days:
-          - day: 1
-            title: Arrive
-            coordinates: [43.8, 87.6]
-        ---
-
-        # Test Trip
-      MD
-      stub_chat_yielding([ content ])
-
-      broadcasts = []
-      allow(ActionCable.server).to receive(:broadcast) { |_ch, payload| broadcasts << payload }
-
-      described_class.new.perform(conversation.id, guidebook.id, user.id)
-
-      complete = broadcasts.find { |p| p[:type] == "complete" }
-      expect(complete[:has_guidebook_content]).to be(true)
-    end
+    expect(replayed_contents).to include("加个赛里木湖")
+    expect(replayed_contents).to include("上一条助手回复")
+    expect(replayed_contents).not_to include("再加一个")
   end
 end
