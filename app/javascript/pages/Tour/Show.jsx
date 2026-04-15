@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Head } from '@inertiajs/react'
+import { Head, router } from '@inertiajs/react'
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import BacklogList from '../../components/planner/BacklogList'
 import DayColumn from '../../components/planner/DayColumn'
 import PlannerMap from '../../components/planner/PlannerMap'
 import ChatPanel from '../../components/planner/ChatPanel'
+import { csrfToken } from '../../utils/csrf'
 
 export default function Show({ tour, days, activities, violations }) {
   const [chatOpen, setChatOpen] = useState(true)
@@ -29,5 +30,28 @@ export default function Show({ tour, days, activities, violations }) {
     </div>
   )
 
-  function handleDragEnd() { /* implemented in Task 4.8 */ }
+  async function handleDragEnd({ active, over }) {
+    if (!over) return
+    const activityId = String(active.id).replace(/^activity-/, '')
+    const data = over.data.current || {}
+    const toDayId = data.dayId ?? null
+    const toPosition = data.position ?? 1
+
+    try {
+      const res = await fetch(`/activities/${activityId}/position`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken()
+        },
+        body: JSON.stringify({ to_day_id: toDayId, to_position: toPosition })
+      })
+      if (!res.ok) throw new Error(`PATCH failed: ${res.status}`)
+      router.reload({ only: ['activities', 'violations'] })
+    } catch (err) {
+      // Basic error display; Task 4.10 wires proper toast
+      console.error('[drag] failed', err)
+      alert('拖拽未保存，请重试')
+    }
+  }
 }

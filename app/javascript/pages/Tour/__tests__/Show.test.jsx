@@ -10,6 +10,8 @@ vi.mock('@inertiajs/react', () => ({
 vi.mock('@dnd-kit/core', () => ({
   DndContext: ({ children }) => <div>{children}</div>,
   closestCenter: null,
+  useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
+  useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, isDragging: false }),
 }))
 
 vi.mock('../../../components/planner/ChatPanel', () => ({
