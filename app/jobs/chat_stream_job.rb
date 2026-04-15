@@ -1,6 +1,13 @@
 class ChatStreamJob < ApplicationJob
   queue_as :default
 
+  # Short-word token-loop pattern we've seen when a local/Kimi-style model
+  # degrades mid-stream, e.g. "DIN DIN DIN DIN DIN DIN…". Replaying such a
+  # prior assistant message into chat history reliably re-triggers the
+  # same degenerate loop on the next turn. See CLAUDE.md (load-bearing).
+  KIMI_LOOP_PATTERN  = /(\S{1,4})(\s+\1){5,}/
+  KIMI_MAX_CONTENT   = 20_000
+
   def perform(conversation_id, tour_id, user_id)
     conversation = Conversation.find(conversation_id)
     tour         = Tour.find(tour_id)
@@ -15,36 +22,65 @@ class ChatStreamJob < ApplicationJob
 
   private
     def stream_response(conversation, tour, channel)
-      chat = RubyLLM.chat(model: ENV.fetch("LLM_MODEL", "moonshotai/Kimi-K2-Instruct-0905"), provider: :openai, assume_model_exists: true)
+      chat = RubyLLM.chat(
+        model: ENV.fetch("LLM_MODEL", "moonshotai/Kimi-K2-Instruct-0905"),
+        provider: :openai,
+        assume_model_exists: true
+      )
       chat.with_instructions(system_prompt(tour))
-
-      AITools::Schema.all.each { |tool| chat.with_tool(tool.new) }
+      AITools::Schema.all.each { |tool| chat.with_tool(tool) }
 
       prior = conversation.messages.order(:created_at)[0..-2].to_a
       replay_history(chat, prior)
 
+      attach_tool_callbacks(chat, channel)
+
       latest = conversation.messages.order(:created_at).last.content
       full_text = "".dup
 
-      chat.ask(latest) do |event|
-        case event.type
-        when :tool_call_start
-          broadcast(channel, type: "tool_call_start", name: event.name, arguments: event.arguments, id: event.id)
-        when :tool_call_result
-          broadcast(channel, type: "tool_call_result", id: event.id, result: event.result)
-        when :text
-          full_text << event.delta
-          broadcast(channel, type: "assistant_text", delta: event.delta)
-        end
+      chat.ask(latest) do |chunk|
+        text = chunk.content.to_s
+        next if text.empty?
+        full_text << text
+        broadcast(channel, type: "assistant_text", delta: text)
       end
 
       full_text
     end
 
+    def attach_tool_callbacks(chat, channel)
+      # Tool calls and results fire strictly in sequence inside
+      # RubyLLM::Chat#handle_tool_calls, so a single ivar-like local is
+      # enough to correlate a result back to the call it came from.
+      current_call_id = nil
+
+      chat.on_tool_call do |tool_call|
+        current_call_id = tool_call.id
+        broadcast(channel,
+          type: "tool_call_start",
+          id: tool_call.id,
+          name: tool_call.name,
+          arguments: tool_call.arguments
+        )
+      end
+
+      chat.on_tool_result do |result|
+        broadcast(channel, type: "tool_call_result", id: current_call_id, result: result)
+        current_call_id = nil
+      end
+    end
+
     def replay_history(chat, prior_messages)
       prior_messages.each do |m|
+        next if degenerate_assistant_output?(m)
         chat.messages << RubyLLM::Message.new(role: m.role.to_sym, content: m.content)
       end
+    end
+
+    def degenerate_assistant_output?(message)
+      return false unless message.role.to_s == "assistant"
+      content = message.content.to_s
+      content.length > KIMI_MAX_CONTENT || content.match?(KIMI_LOOP_PATTERN)
     end
 
     def save_assistant_message(conversation, content)
