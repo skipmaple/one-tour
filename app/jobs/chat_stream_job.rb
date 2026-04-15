@@ -11,9 +11,10 @@ class ChatStreamJob < ApplicationJob
   def perform(conversation_id, tour_id, user_id)
     conversation = Conversation.find(conversation_id)
     tour         = Tour.find(tour_id)
+    user         = User.find(user_id)
     channel      = "chat_tour_#{tour_id}_user_#{user_id}"
 
-    full_text = stream_response(conversation, tour, channel)
+    full_text = stream_response(conversation, tour, user, channel)
     save_assistant_message(conversation, full_text)
     broadcast(channel, type: "complete", content: full_text)
   rescue => e
@@ -21,14 +22,17 @@ class ChatStreamJob < ApplicationJob
   end
 
   private
-    def stream_response(conversation, tour, channel)
+    def stream_response(conversation, tour, user, channel)
       chat = RubyLLM.chat(
         model: ENV.fetch("LLM_MODEL", "moonshotai/Kimi-K2-Instruct-0905"),
         provider: :openai,
         assume_model_exists: true
       )
       chat.with_instructions(system_prompt(tour))
-      AITools::Schema.all.each { |tool| chat.with_tool(tool) }
+      # Bind tour+user into each tool instance so the LLM never sees a tour_id
+      # param (it cannot hallucinate or target a foreign tour) and every DB
+      # lookup is already scoped to the authorised tour.
+      AITools::Schema.all.each { |tool_class| chat.with_tool(tool_class.new(tour: tour, user: user)) }
 
       prior = conversation.messages.order(:created_at)[0..-2].to_a
       replay_history(chat, prior)
@@ -94,7 +98,9 @@ class ChatStreamJob < ApplicationJob
     def system_prompt(tour)
       <<~PROMPT
         你是一个旅行规划助手。当前 Tour：#{tour.title}。
-        你通过调用工具修改 Tour / Day / Activity，不要直接输出 JSON 或 Markdown。
+        所有 Day / Activity 工具已经自动绑定到这个 Tour —— 你不需要（也无法）
+        指定目标 Tour，操作必然发生在当前 Tour 上。
+        你通过调用工具修改 Day / Activity，不要直接输出 JSON 或 Markdown。
 
         ## 宪法约束（本程独立）
         #{tour.constitution.map { |k, v| "- #{k}: #{v}" }.join("\n")}

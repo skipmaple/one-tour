@@ -7,6 +7,33 @@ RSpec.describe "Tours", type: :request do
 
   let(:user) { create(:user) }
 
+  describe "inertia_share current_user (BUG #1)" do
+    # inertia_rails >= 3.20 serialises the page blob into
+    #   <script data-page="app" type="application/json">{...}</script>
+    def inertia_page_from(body)
+      match = body.match(/<script data-page="app" type="application\/json">(.*?)<\/script>/m)
+      match or raise "no Inertia <script data-page> block in body"
+      JSON.parse(match[1])
+    end
+
+    it "embeds current_user into the Inertia page props so the nav layout can read it" do
+      login_as(user)
+      get "/tours"
+      expect(response).to have_http_status(:ok)
+      page = inertia_page_from(response.body)
+      expect(page.dig("props", "current_user", "id")).to eq(user.id)
+      expect(page.dig("props", "current_user", "email")).to eq(user.email)
+      expect(page["sharedProps"]).to include("current_user")
+    end
+
+    it "shares current_user as null for anonymous visitors (no 500)" do
+      get "/login"
+      expect(response).to have_http_status(:ok)
+      page = inertia_page_from(response.body)
+      expect(page.dig("props", "current_user")).to be_nil
+    end
+  end
+
   describe "GET /tours" do
     it "lists tours where user is author or member, excluding others" do
       create(:tour, author: user, title: "Mine")

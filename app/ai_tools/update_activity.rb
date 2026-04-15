@@ -8,7 +8,9 @@ module AITools
 
     def execute(activity_id:, patch:)
       with_rescues do
-        activity = Activity.find_by(id: activity_id)
+        next require_tour! if @tour.nil?
+
+        activity = @tour.activities.find_by(id: activity_id)
         next bail("Activity not found", code: "activity_not_found") unless activity
 
         safe = (patch || {}).stringify_keys.slice(*UPDATABLE)

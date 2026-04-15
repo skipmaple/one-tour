@@ -138,6 +138,20 @@ RSpec.describe ChatStreamJob do
     expect(fake.tools_registered.size).to eq(AITools::Schema.all.size)
   end
 
+  it "constructs each tool with the resolved tour+user so the LLM cannot target a foreign tour" do
+    fake = stub_chat(script: [ { kind: :text, content: "ok" } ])
+    capture_broadcasts
+
+    described_class.new.perform(conversation.id, tour.id, user.id)
+
+    # Every registered tool should be an instance (not a class) bound to this tour+user
+    fake.tools_registered.each do |tool|
+      expect(tool).to be_a(AITools::Base)
+      expect(tool.tour).to eq(tour)
+      expect(tool.user).to eq(user)
+    end
+  end
+
   it "replays prior messages (excluding the latest user turn) into chat history" do
     create(:message, conversation: conversation, role: :assistant, content: "上一条助手回复")
     create(:message, conversation: conversation, role: :user, content: "再加一个")

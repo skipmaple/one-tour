@@ -8,14 +8,16 @@ module AITools
 
     def execute(activity_id:, to_day_index:, to_position:)
       with_rescues do
-        activity = Activity.find_by(id: activity_id)
+        next require_tour! if @tour.nil?
+
+        activity = @tour.activities.find_by(id: activity_id)
         next bail("Activity not found", code: "activity_not_found") unless activity
 
         target_day =
           if to_day_index.to_s == "backlog"
             nil
           else
-            activity.tour.reload.days.find_by(day_index: to_day_index.to_i)
+            @tour.days.find_by(day_index: to_day_index.to_i)
           end
         next bail("Day not found", code: "day_not_found") if to_day_index.to_s != "backlog" && target_day.nil?
 

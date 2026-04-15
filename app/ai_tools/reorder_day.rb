@@ -6,7 +6,9 @@ module AITools
 
     def execute(day_id:, activity_ids:)
       with_rescues do
-        day = Day.find_by(id: day_id)
+        next require_tour! if @tour.nil?
+
+        day = @tour.days.find_by(id: day_id)
         next bail("Day not found", code: "day_not_found") unless day
 
         updated = 0

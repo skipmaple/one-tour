@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::Base
   inertia_share flash: -> { { alert: flash[:alert], notice: flash[:notice] } }
+  inertia_share current_user: -> { current_user&.as_json(only: [ :id, :name, :email, :avatar_url ]) }
 
   helper_method :current_user, :logged_in?
 

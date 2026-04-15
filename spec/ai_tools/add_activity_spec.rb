@@ -4,8 +4,7 @@ RSpec.describe AITools::AddActivity do
   let(:tour) { create(:tour) }
 
   it "creates activity in backlog when day_index is :backlog" do
-    result = described_class.new.execute(
-      tour_id: tour.id,
+    result = described_class.new(tour: tour).execute(
       day_index: "backlog",
       kind: "scenic",
       citizen_level: "tier_one",
@@ -18,6 +17,7 @@ RSpec.describe AITools::AddActivity do
 
     expect(result[:ok]).to be true
     activity = Activity.find(result[:activity_id])
+    expect(activity.tour_id).to eq(tour.id)
     expect(activity.day_id).to be_nil
     expect(activity.name).to eq("赛里木湖")
     expect(activity.citizen_level).to eq("tier_one")
@@ -26,8 +26,7 @@ RSpec.describe AITools::AddActivity do
 
   it "creates activity in a specific day when day_index is a positive int" do
     day = create(:day, tour: tour, day_index: 2)
-    result = described_class.new.execute(
-      tour_id: tour.id,
+    result = described_class.new(tour: tour).execute(
       day_index: 2,
       kind: "food",
       citizen_level: "tier_three",
@@ -39,8 +38,7 @@ RSpec.describe AITools::AddActivity do
   end
 
   it "fails with ok:false when day_index not found" do
-    result = described_class.new.execute(
-      tour_id: tour.id,
+    result = described_class.new(tour: tour).execute(
       day_index: 99,
       kind: "scenic",
       citizen_level: "tier_three",
@@ -51,8 +49,7 @@ RSpec.describe AITools::AddActivity do
   end
 
   it "returns error hash for invalid kind enum (with_rescues catches)" do
-    result = described_class.new.execute(
-      tour_id: tour.id,
+    result = described_class.new(tour: tour).execute(
       day_index: "backlog",
       kind: "dinner",
       citizen_level: "tier_one",
@@ -60,5 +57,13 @@ RSpec.describe AITools::AddActivity do
     )
     expect(result[:ok]).to be false
     expect(result[:error][:code]).to be_in(%w[invalid_argument validation])
+  end
+
+  it "bails with tour_context_missing when constructed without a tour" do
+    result = described_class.new.execute(
+      day_index: "backlog", kind: "scenic", citizen_level: "tier_one", name: "x"
+    )
+    expect(result[:ok]).to be false
+    expect(result[:error][:code]).to eq("tour_context_missing")
   end
 end
