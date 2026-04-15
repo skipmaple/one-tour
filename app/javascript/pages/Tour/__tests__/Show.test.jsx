@@ -5,7 +5,7 @@ import Show from '../Show'
 
 vi.mock('@inertiajs/react', () => ({
   Head: ({ children, title }) => null,
-  usePage: () => ({ props: { amap_api_key: '' } }),
+  usePage: () => ({ props: { amap_js_api_key: '', amap_js_security_code: '' } }),
   router: { patch: () => {}, post: () => {}, reload: () => {} },
 }))
 

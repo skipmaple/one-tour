@@ -8,8 +8,8 @@ import useAmap from '../../hooks/useAmap'
 // get a blue numbered label marker so you can tell at a glance which day they
 // belong to.
 export default function PlannerMap({ activities, days = [] }) {
-  const { amap_api_key } = usePage().props
-  const sdkState = useAmap(amap_api_key)
+  const { amap_js_api_key, amap_js_security_code } = usePage().props
+  const sdkState = useAmap(amap_js_api_key, amap_js_security_code)
 
   const containerRef = useRef(null)
   const mapRef = useRef(null)
