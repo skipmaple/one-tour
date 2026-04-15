@@ -28,6 +28,11 @@ module TourOfXinjiangApp
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
 
+    # app/ai_tools is registered with a custom namespace in config/initializers/ai_tools.rb.
+    # Remove it from Rails' default autoload_paths so Zeitwerk doesn't add it without namespace.
+    config.autoload_paths.delete(Rails.root.join("app/ai_tools").to_s)
+    config.eager_load_paths.delete(Rails.root.join("app/ai_tools").to_s)
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files
