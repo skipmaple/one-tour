@@ -14,7 +14,9 @@ class Tour::ConstitutionCheck
     [
       check_daily_driving,
       check_tier_one_per_day,
-      check_buffer_days
+      check_buffer_days,
+      check_tier_two_food,
+      check_yurt_nights
     ].flatten.compact.reject { |v| overridden?(v) }
   end
 
@@ -60,6 +62,32 @@ class Tour::ConstitutionCheck
         scope: {},
         message: "整程 #{actual} 个机动日（建议 ≥ #{limit}）",
         suggestion: "新增一个 buffer_day=true 的 Day"
+      )
+    end
+
+    def check_tier_two_food
+      limit = @rules[:max_tier_two_food_per_tour]
+      count = @tour.tier_two_food_count
+      return nil if count <= limit
+      Violation.new(
+        level: :soft,
+        rule: :max_tier_two_food_per_tour,
+        scope: {},
+        message: "整程二等餐厅 #{count} 家（上限 #{limit}）",
+        suggestion: "降级部分餐厅到三等"
+      )
+    end
+
+    def check_yurt_nights
+      limit = @rules[:max_yurt_nights]
+      count = @tour.activities.where(kind: :stay).where("details->>'sanitation' = ?", "yurt").count
+      return nil if count <= limit
+      Violation.new(
+        level: :soft,
+        rule: :max_yurt_nights,
+        scope: {},
+        message: "整程毡房 #{count} 晚（上限 #{limit}）",
+        suggestion: "改订普通住宿"
       )
     end
 

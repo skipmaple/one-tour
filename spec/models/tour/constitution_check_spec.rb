@@ -63,4 +63,28 @@ RSpec.describe Tour::ConstitutionCheck do
       expect(violations.map(&:rule)).not_to include(:min_buffer_days)
     end
   end
+
+  describe "#check_tier_two_food" do
+    let(:tour) { create(:tour) }
+
+    it "flags soft violation when tier_two food count > limit (default 3)" do
+      4.times { create(:activity, tour: tour, kind: :food, citizen_level: :tier_two) }
+      v = described_class.for(tour).find { |x| x.rule == :max_tier_two_food_per_tour }
+      expect(v).not_to be_nil
+      expect(v.level).to eq(:soft)
+    end
+  end
+
+  describe "#check_yurt_nights" do
+    let(:tour) { create(:tour) }
+
+    it "flags soft violation when yurt stays > max_yurt_nights (default 1)" do
+      2.times do
+        create(:activity, tour: tour, kind: :stay,
+               details: { "sanitation" => "yurt" })
+      end
+      v = described_class.for(tour).find { |x| x.rule == :max_yurt_nights }
+      expect(v).not_to be_nil
+    end
+  end
 end
