@@ -82,4 +82,27 @@ RSpec.describe Tour do
       expect(tour.visible_to?(create(:user))).to be false
     end
   end
+
+  describe "#tier_two_food_count" do
+    let(:tour) { create(:tour) }
+
+    it "counts food activities with citizen_level=tier_two" do
+      create(:activity, tour: tour, kind: :food, citizen_level: :tier_two)
+      create(:activity, tour: tour, kind: :food, citizen_level: :tier_two)
+      create(:activity, tour: tour, kind: :food, citizen_level: :tier_three)
+      create(:activity, tour: tour, kind: :scenic, citizen_level: :tier_two)
+      expect(tour.tier_two_food_count).to eq(2)
+    end
+  end
+
+  describe "#buffer_days_count" do
+    let(:tour) { create(:tour) }
+
+    it "counts days marked buffer_day=true" do
+      create(:day, tour: tour, day_index: 1, buffer_day: true)
+      create(:day, tour: tour, day_index: 2, buffer_day: false)
+      create(:day, tour: tour, day_index: 3, buffer_day: true)
+      expect(tour.buffer_days_count).to eq(2)
+    end
+  end
 end

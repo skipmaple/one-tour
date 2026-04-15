@@ -34,6 +34,14 @@ class Tour < ApplicationRecord
     end
   end
 
+  def tier_two_food_count
+    activities.where(kind: :food, citizen_level: :tier_two).count
+  end
+
+  def buffer_days_count
+    days.where(buffer_day: true).count
+  end
+
   private
     def editor_member?(user)
       tour_memberships.exists?(user: user, role: :editor)
