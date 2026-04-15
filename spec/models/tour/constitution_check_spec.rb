@@ -87,4 +87,33 @@ RSpec.describe Tour::ConstitutionCheck do
       expect(v).not_to be_nil
     end
   end
+
+  describe "constraint_overrides filtering" do
+    let(:tour) { create(:tour) }
+
+    it "suppresses violation matching an override with same rule + scope" do
+      day = create(:day, tour: tour, day_index: 3)
+      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 480 })
+      tour.update!(constraint_overrides: [ {
+        "rule" => "max_daily_driving_minutes",
+        "scope" => { "day_index" => 3 },
+        "reason" => "独库必走",
+        "acknowledged_at" => Time.current.iso8601
+      } ])
+
+      violations = described_class.for(tour)
+      expect(violations.map(&:rule)).not_to include(:max_daily_driving_minutes)
+    end
+
+    it "does not suppress when scope differs" do
+      day = create(:day, tour: tour, day_index: 3)
+      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 480 })
+      tour.update!(constraint_overrides: [ {
+        "rule" => "max_daily_driving_minutes",
+        "scope" => { "day_index" => 5 },
+        "reason" => "xxx"
+      } ])
+      expect(described_class.for(tour).map(&:rule)).to include(:max_daily_driving_minutes)
+    end
+  end
 end
