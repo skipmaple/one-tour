@@ -61,6 +61,11 @@ export default function PlannerMap({ activities, days = [] }) {
   // Sync markers with activities. Clear + re-draw on every activities change.
   // Cheap enough for the typical 0-50 POI / tour scale; if we ever hit 500+
   // we can diff by id instead.
+  //
+  // `sdkState` is in deps so this re-runs once the map is actually created
+  // (initial render has sdkState=idle and mapRef.current=null; the markers
+  // must be added AFTER the map-creation effect runs — they don't share deps,
+  // so we force-re-run when SDK becomes ready).
   useEffect(() => {
     const map = mapRef.current
     if (!map || !window.AMap) return
@@ -68,7 +73,11 @@ export default function PlannerMap({ activities, days = [] }) {
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
 
-    const withCoords = activities.filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lng))
+    // Rails serializes decimal columns as strings to preserve precision; coerce
+    // once here and drop anything that doesn't parse.
+    const withCoords = activities
+      .map(a => ({ ...a, lat: parseFloat(a.lat), lng: parseFloat(a.lng) }))
+      .filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lng))
     withCoords.forEach(a => {
       const inDay = a.day_id && dayIndexById[a.day_id]
       const marker = new window.AMap.Marker({
@@ -96,7 +105,7 @@ export default function PlannerMap({ activities, days = [] }) {
     } else if (withCoords.length === 1) {
       map.setZoomAndCenter(10, [ withCoords[0].lng, withCoords[0].lat ])
     }
-  }, [ activities, dayIndexById ])
+  }, [ activities, dayIndexById, sdkState ])
 
   return (
     <Paper
