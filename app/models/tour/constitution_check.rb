@@ -12,7 +12,8 @@ class Tour::ConstitutionCheck
 
   def violations
     [
-      check_daily_driving
+      check_daily_driving,
+      check_tier_one_per_day
     ].flatten.compact.reject { |v| overridden?(v) }
   end
 
@@ -28,6 +29,22 @@ class Tour::ConstitutionCheck
           scope: { day_index: day.day_index },
           message: "D#{day.day_index} 驾驶 #{total} min > #{limit} min 上限",
           suggestion: "考虑把部分行程拆到相邻日"
+        )
+      end
+    end
+
+    def check_tier_one_per_day
+      limit = @rules[:max_tier_one_per_day]
+      @tour.days.map do |day|
+        count = day.tier_one_count
+        next if count < limit
+        level = count > limit ? :hard : :soft
+        Violation.new(
+          level: level,
+          rule: :max_tier_one_per_day,
+          scope: { day_index: day.day_index },
+          message: "D#{day.day_index} 一等公民 #{count} 个（#{level == :hard ? "超过" : "达"}每日 #{limit} 上限）",
+          suggestion: "拆到其他日或降级为二等/三等"
         )
       end
     end

@@ -28,4 +28,17 @@ RSpec.describe Tour::ConstitutionCheck do
       expect(violations.map(&:rule)).not_to include(:max_daily_driving_minutes)
     end
   end
+
+  describe "#check_tier_one_per_day" do
+    let(:tour) { create(:tour) }
+
+    it "flags soft violation when tier_one count reaches limit (default 3)" do
+      day = create(:day, tour: tour, day_index: 2)
+      3.times { create(:activity, tour: tour, day: day, citizen_level: :tier_one) }
+      violations = described_class.for(tour)
+      v = violations.find { |x| x.rule == :max_tier_one_per_day }
+      expect(v).not_to be_nil
+      expect(v.level).to eq(:soft)
+    end
+  end
 end
