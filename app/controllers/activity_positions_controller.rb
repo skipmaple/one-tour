@@ -6,6 +6,6 @@ class ActivityPositionsController < ApplicationController
     head :forbidden and return unless activity.tour.editable_by?(current_user)
     target_day = params[:to_day_id].present? ? activity.tour.days.find(params[:to_day_id]) : nil
     activity.update!(day: target_day, position: params.require(:to_position).to_i)
-    head :ok
+    redirect_to tour_path(activity.tour)
   end
 end

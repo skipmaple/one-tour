@@ -8,13 +8,13 @@ RSpec.describe "ActivityPositions", type: :request do
   let(:author) { create(:user) }
   let(:tour)   { create(:tour, author: author) }
 
-  it "PATCH moves activity between days" do
+  it "PATCH moves activity between days and redirects to the tour" do
     day1 = create(:day, tour: tour, day_index: 1)
     day2 = create(:day, tour: tour, day_index: 2)
     a = create(:activity, tour: tour, day: day1, position: 1)
     login_as(author)
     patch activity_position_path(a), params: { to_day_id: day2.id, to_position: 1 }
-    expect(response).to have_http_status(:ok)
+    expect(response).to redirect_to(tour_path(tour))
     expect(a.reload.day_id).to eq(day2.id)
   end
 
@@ -24,6 +24,7 @@ RSpec.describe "ActivityPositions", type: :request do
     login_as(author)
     patch activity_position_path(a), params: { to_position: 1 }
     expect(a.reload.day_id).to be_nil
+    expect(response).to redirect_to(tour_path(tour))
   end
 
   it "non-editor is forbidden" do

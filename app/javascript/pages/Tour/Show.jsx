@@ -6,7 +6,6 @@ import DayColumn from '../../components/planner/DayColumn'
 import PlannerMap from '../../components/planner/PlannerMap'
 import ChatPanel from '../../components/planner/ChatPanel'
 import ConstitutionBanner from '../../components/planner/ConstitutionBanner'
-import { csrfToken } from '../../utils/csrf'
 
 export default function Show({ tour, days, activities, violations }) {
   const [chatOpen, setChatOpen] = useState(true)
@@ -34,28 +33,26 @@ export default function Show({ tour, days, activities, violations }) {
     </div>
   )
 
-  async function handleDragEnd({ active, over }) {
+  function handleDragEnd({ active, over }) {
     if (!over) return
+    if (active.id === over.id) return
     const activityId = String(active.id).replace(/^activity-/, '')
+    // over.data.current is populated by useDroppable({ data: { dayId, position } })
+    // on BOTH the container (day column / backlog, position = length+1 → append)
+    // and each ActivityCard (position = that card's position → insert-before).
     const data = over.data.current || {}
     const toDayId = data.dayId ?? null
     const toPosition = data.position ?? 1
 
-    try {
-      const res = await fetch(`/activities/${activityId}/position`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken()
-        },
-        body: JSON.stringify({ to_day_id: toDayId, to_position: toPosition })
-      })
-      if (!res.ok) throw new Error(`PATCH failed: ${res.status}`)
-      router.reload({ only: ['activities', 'violations'] })
-    } catch (err) {
-      // Basic error display; Task 4.10 wires proper toast
-      console.error('[drag] failed', err)
-      alert('拖拽未保存，请重试')
-    }
+    router.patch(
+      `/activities/${activityId}/position`,
+      { to_day_id: toDayId, to_position: toPosition },
+      {
+        preserveState: true,
+        preserveScroll: true,
+        only: [ 'activities', 'violations' ],
+        onError: () => { alert('拖拽未保存，请重试') }
+      }
+    )
   }
 }

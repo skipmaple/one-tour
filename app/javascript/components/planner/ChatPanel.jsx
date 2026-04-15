@@ -1,5 +1,6 @@
-import { Paper, Text, Button, Textarea, Stack } from '@mantine/core'
-import { useState } from 'react'
+import { Paper, Text, Button, Textarea, Stack, Group, Badge, Code } from '@mantine/core'
+import { useEffect, useRef, useState } from 'react'
+import useChat from '../../hooks/useChat'
 
 export default function ChatPanel({ tour, open, onToggle }) {
   if (!open) {
@@ -16,32 +17,111 @@ export default function ChatPanel({ tour, open, onToggle }) {
 
   return (
     <Paper withBorder style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 400 }}>
-      <div style={{ padding: 6, background: '#f3f3f3', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Group justify="space-between" p="xs" bg="gray.1">
         <Text fw={600} size="sm">AI 对话</Text>
         <Button size="compact-xs" variant="subtle" onClick={onToggle}>收起 ▸</Button>
-      </div>
-      <Stack gap="xs" p="xs" style={{ flex: 1, overflowY: 'auto', minHeight: 200 }}>
-        <Text size="xs" c="dimmed" ta="center">（对话历史将显示在这里）</Text>
-      </Stack>
-      <div style={{ borderTop: '1px solid #ccc', padding: 6 }}>
-        <ChatInput tour={tour} />
-      </div>
+      </Group>
+      <ChatBody tour={tour} />
     </Paper>
   )
 }
 
-function ChatInput({ tour }) {
-  const [text, setText] = useState('')
-  const send = () => {
-    if (!text.trim()) return
-    // Task 4.5 implements full useChat hook with ActionCable
-    console.log('[ChatPanel stub] send', tour.id, text)
+function ChatBody({ tour }) {
+  const { messages, streaming, pendingToolCalls, error, send } = useChat({ tourId: tour.id })
+  const [ text, setText ] = useState('')
+  const scrollRef = useRef(null)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (el && typeof el.scrollTo === 'function') {
+      el.scrollTo({ top: el.scrollHeight })
+    }
+  }, [ messages, pendingToolCalls, streaming ])
+
+  const handleSend = () => {
+    const trimmed = text.trim()
+    if (!trimmed || streaming) return
+    send(trimmed)
     setText('')
   }
+
+  const toolEntries = Object.entries(pendingToolCalls)
+
   return (
-    <Stack gap={4}>
-      <Textarea value={text} onChange={e => setText(e.target.value)} autosize minRows={2} maxRows={4} placeholder="说点什么让 AI 帮忙..." />
-      <Button size="xs" onClick={send}>发送</Button>
-    </Stack>
+    <>
+      <Stack ref={scrollRef} gap="xs" p="xs" style={{ flex: 1, overflowY: 'auto', minHeight: 200 }}>
+        {messages.length === 0 && !streaming && (
+          <Text size="xs" c="dimmed" ta="center">（还没有对话。说点什么让 AI 帮忙 → ）</Text>
+        )}
+        {messages.map((m, i) => <MessageBubble key={i} message={m} />)}
+        {toolEntries.length > 0 && (
+          <Stack gap={4}>
+            {toolEntries.map(([ id, call ]) => <ToolCallChip key={id} call={call} />)}
+          </Stack>
+        )}
+        {streaming && <Text size="xs" c="dimmed">...</Text>}
+        {error && (
+          <Text size="xs" c="red" data-testid="chat-error">出错：{error}</Text>
+        )}
+      </Stack>
+      <div style={{ borderTop: '1px solid #ccc', padding: 6 }}>
+        <Stack gap={4}>
+          <Textarea
+            value={text}
+            onChange={e => setText(e.target.value)}
+            rows={3}
+            placeholder="说点什么让 AI 帮忙..."
+            disabled={streaming}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                handleSend()
+              }
+            }}
+          />
+          <Button size="xs" onClick={handleSend} disabled={streaming || !text.trim()}>
+            {streaming ? '处理中…' : '发送'}
+          </Button>
+        </Stack>
+      </div>
+    </>
+  )
+}
+
+function MessageBubble({ message }) {
+  const isUser = message.role === 'user'
+  return (
+    <Paper
+      p="xs"
+      radius="sm"
+      style={{
+        alignSelf: isUser ? 'flex-end' : 'flex-start',
+        maxWidth: '85%',
+        background: isUser ? '#e7f2ff' : '#f5f5f5',
+        whiteSpace: 'pre-wrap',
+        fontSize: 13
+      }}
+    >
+      {message.content}
+    </Paper>
+  )
+}
+
+function ToolCallChip({ call }) {
+  const status = call.result ? (call.result.ok === false ? 'err' : 'done') : 'run'
+  const color = status === 'err' ? 'red' : status === 'done' ? 'green' : 'gray'
+  return (
+    <Group gap={4} wrap="nowrap" align="flex-start">
+      <Badge color={color} size="xs">{status === 'run' ? '执行中' : status === 'done' ? '完成' : '失败'}</Badge>
+      <Code style={{ fontSize: 11, flex: 1, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+        {call.name}({JSON.stringify(call.arguments ?? {})})
+        {call.result && (
+          <>
+            {' → '}
+            {JSON.stringify(call.result)}
+          </>
+        )}
+      </Code>
+    </Group>
   )
 }
