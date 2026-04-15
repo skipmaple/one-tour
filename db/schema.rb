@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_15_172614) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_15_172615) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -40,6 +40,29 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_15_172614) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "activities", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.bigint "day_id"
+    t.integer "position", null: false
+    t.integer "citizen_level", default: 2, null: false
+    t.integer "kind", null: false
+    t.string "name", null: false
+    t.decimal "lat", precision: 9, scale: 6
+    t.decimal "lng", precision: 9, scale: 6
+    t.string "address"
+    t.time "planned_start_at"
+    t.integer "planned_duration_min"
+    t.text "desc"
+    t.text "tips"
+    t.jsonb "details", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["day_id"], name: "index_activities_on_day_id"
+    t.index ["tour_id", "day_id", "position"], name: "index_activities_on_tour_id_and_day_id_and_position"
+    t.index ["tour_id", "kind", "citizen_level"], name: "index_activities_on_tour_id_and_kind_and_citizen_level"
+    t.index ["tour_id"], name: "index_activities_on_tour_id"
   end
 
   create_table "conversations", force: :cascade do |t|
@@ -162,6 +185,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_15_172614) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "activities", "days"
+  add_foreign_key "activities", "tours"
   add_foreign_key "conversations", "guidebooks"
   add_foreign_key "conversations", "users"
   add_foreign_key "days", "tours"
