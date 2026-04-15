@@ -1,0 +1,21 @@
+module AITools
+  class ReorderDay < Base
+    description "按给定 activity_ids 顺序重排一个 Day"
+    param :day_id,        type: :integer
+    param :activity_ids,  type: :array, desc: "activity id 列表（决定新 position 顺序）"
+
+    def execute(day_id:, activity_ids:)
+      day = Day.find_by(id: day_id)
+      return fail("Day not found", code: "day_not_found") unless day
+
+      Activity.transaction do
+        activity_ids.each_with_index do |aid, idx|
+          activity = day.activities.find_by(id: aid)
+          next unless activity
+          activity.update!(position: idx + 1)
+        end
+      end
+      ok(day_id: day_id, count: activity_ids.size)
+    end
+  end
+end
