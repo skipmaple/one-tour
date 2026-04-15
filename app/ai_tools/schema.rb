@@ -14,13 +14,13 @@ module AITools
       UpdateConstitution
       SearchPoi
     ].freeze
-  
+
     module_function
-  
+
     def all
       TOOLS.map { |name| AITools.const_get(name) }
     end
-  
+
     def to_prompt_description
       lines = [ "# 可用工具" ]
       all.each do |klass|
@@ -30,7 +30,7 @@ module AITools
       end
       lines.join("\n")
     end
-  
+
     def tool_description(klass)
       # RubyLLM::Tool exposes the DSL-set description via .description
       klass.respond_to?(:description) ? klass.description.to_s : ""
