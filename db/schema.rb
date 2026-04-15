@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_14_085634) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_15_172612) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -110,6 +110,22 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_14_085634) do
     t.index ["user_id"], name: "index_oauth_identities_on_user_id"
   end
 
+  create_table "tours", force: :cascade do |t|
+    t.bigint "author_id", null: false
+    t.string "title", null: false
+    t.string "date_range"
+    t.string "vehicle"
+    t.integer "team_size"
+    t.string "trip_style"
+    t.string "budget_per_person"
+    t.jsonb "constitution", default: {}, null: false
+    t.jsonb "constraint_overrides", default: [], null: false
+    t.boolean "archived", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["author_id"], name: "index_tours_on_author_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "name", null: false
     t.string "email", null: false
@@ -128,4 +144,5 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_14_085634) do
   add_foreign_key "guidebooks", "users", column: "author_id"
   add_foreign_key "messages", "conversations"
   add_foreign_key "oauth_identities", "users"
+  add_foreign_key "tours", "users", column: "author_id"
 end
