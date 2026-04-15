@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reducer, INITIAL } from '../useChat'
+import { reducer, INITIAL, shouldReloadPlanner, RELOAD_PROPS } from '../useChat'
 
 describe('useChat reducer', () => {
   it('send_user appends user message + marks streaming', () => {
@@ -43,5 +43,32 @@ describe('useChat reducer', () => {
     const s = reducer({ ...INITIAL, streaming: true }, { type: 'error', message: 'oops' })
     expect(s.streaming).toBe(false)
     expect(s.error).toBe('oops')
+  })
+})
+
+describe('shouldReloadPlanner', () => {
+  it('returns true for complete (end of a successful turn)', () => {
+    expect(shouldReloadPlanner({ type: 'complete', content: 'ok' })).toBe(true)
+  })
+
+  it('returns true for error (partial work may have landed server-side)', () => {
+    expect(shouldReloadPlanner({ type: 'error', message: 'oops' })).toBe(true)
+  })
+
+  it('returns false for mid-turn events that would thrash the server', () => {
+    expect(shouldReloadPlanner({ type: 'tool_call_start' })).toBe(false)
+    expect(shouldReloadPlanner({ type: 'tool_call_result' })).toBe(false)
+    expect(shouldReloadPlanner({ type: 'assistant_text', delta: 'x' })).toBe(false)
+  })
+
+  it('returns false for unknown / malformed actions', () => {
+    expect(shouldReloadPlanner(null)).toBe(false)
+    expect(shouldReloadPlanner(undefined)).toBe(false)
+    expect(shouldReloadPlanner({})).toBe(false)
+    expect(shouldReloadPlanner({ type: 'bogus' })).toBe(false)
+  })
+
+  it('re-fetches exactly the planner-driven props (no more, no less)', () => {
+    expect(RELOAD_PROPS).toEqual([ 'activities', 'days', 'violations' ])
   })
 })

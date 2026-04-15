@@ -1,4 +1,5 @@
 import { useEffect, useReducer, useRef } from 'react'
+import { router } from '@inertiajs/react'
 import consumer from '../channels/consumer'
 
 export const INITIAL = {
@@ -56,6 +57,17 @@ export function reducer(state, action) {
   }
 }
 
+// Pure predicate — extracted so it's unit-testable without mocking Inertia.
+// A turn ends on `complete` (success) or `error`; both are moments the
+// server-side tour state may have changed and the planner's props
+// (activities, days, violations) need to be re-fetched. We don't reload on
+// every `tool_call_result` because a turn can run 5+ tools and we'd thrash.
+export function shouldReloadPlanner(action) {
+  return action?.type === 'complete' || action?.type === 'error'
+}
+
+export const RELOAD_PROPS = [ 'activities', 'days', 'violations' ]
+
 export default function useChat({ tourId }) {
   const [ state, dispatch ] = useReducer(reducer, INITIAL)
   const subRef = useRef(null)
@@ -64,7 +76,20 @@ export default function useChat({ tourId }) {
     if (!tourId) return
     subRef.current = consumer.subscriptions.create(
       { channel: 'ChatChannel', tour_id: tourId },
-      { received: (data) => dispatch(data) }
+      {
+        received: (data) => {
+          dispatch(data)
+          if (shouldReloadPlanner(data)) {
+            // Partial reload with preserveState so the chat transcript,
+            // pendingToolCalls chips, and input text survive the re-fetch.
+            router.reload({
+              only: RELOAD_PROPS,
+              preserveState: true,
+              preserveScroll: true
+            })
+          }
+        }
+      }
     )
     return () => subRef.current?.unsubscribe()
   }, [ tourId ])

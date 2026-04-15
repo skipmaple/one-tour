@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Head, router } from '@inertiajs/react'
+import { Button, Paper, Text, Stack } from '@mantine/core'
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import BacklogList from '../../components/planner/BacklogList'
 import DayColumn from '../../components/planner/DayColumn'
@@ -11,6 +12,9 @@ export default function Show({ tour, days, activities, violations }) {
   const [chatOpen, setChatOpen] = useState(true)
   const backlog = activities.filter(a => !a.day_id)
   const byDay = Object.fromEntries(days.map(d => [ d.id, activities.filter(a => a.day_id === d.id) ]))
+  // Brand-new tours land here with days=[] and no UI path to add one
+  // (the AI can do it, but forcing the user through chat is hostile).
+  const nextDayIndex = days.length === 0 ? 1 : Math.max(...days.map(d => d.day_index)) + 1
 
   return (
     <div>
@@ -23,8 +27,9 @@ export default function Show({ tour, days, activities, violations }) {
           <BacklogList activities={backlog} />
           <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', gap: 10 }}>
             <PlannerMap activities={activities} />
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', alignItems: 'stretch' }}>
               {days.map(d => <DayColumn key={d.id} day={d} activities={byDay[d.id] || []} constitution={tour.constitution} />)}
+              <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />
             </div>
           </div>
           <ChatPanel tour={tour} open={chatOpen} onToggle={() => setChatOpen(!chatOpen)} />
@@ -55,4 +60,70 @@ export default function Show({ tour, days, activities, violations }) {
       }
     )
   }
+}
+
+// A dashed-outline drop-target-less column at the end of the Day row.
+// When days=[] we render a wider "empty-state" variant with an explanation;
+// otherwise it's a compact add-slot that matches the column width.
+function AddDayButton({ tour, nextDayIndex, empty }) {
+  const handleAdd = () => {
+    router.post(
+      `/tours/${tour.id}/days`,
+      { day: { day_index: nextDayIndex } },
+      {
+        only: [ 'days', 'activities', 'violations' ],
+        preserveState: true,
+        preserveScroll: true
+      }
+    )
+  }
+
+  if (empty) {
+    return (
+      <Paper
+        withBorder
+        style={{
+          minWidth: 260,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          border: '2px dashed #ccc',
+          background: '#fafafa',
+          padding: 24,
+          gap: 8
+        }}
+      >
+        <Stack gap={6} align="center">
+          <Text fw={600} size="sm">还没有 Day</Text>
+          <Text size="xs" c="dimmed" ta="center">
+            从第 1 天开始，或让 AI 帮你一次排完
+          </Text>
+          <Button size="xs" onClick={handleAdd} data-testid="add-day-empty">
+            + 新建 Day 1
+          </Button>
+        </Stack>
+      </Paper>
+    )
+  }
+
+  return (
+    <Paper
+      withBorder
+      onClick={handleAdd}
+      style={{
+        minWidth: 60,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        border: '2px dashed #ccc',
+        background: '#fafafa',
+        color: '#666'
+      }}
+      data-testid="add-day-slot"
+    >
+      <Text size="sm" fw={500}>+ Day {nextDayIndex}</Text>
+    </Paper>
+  )
 }
