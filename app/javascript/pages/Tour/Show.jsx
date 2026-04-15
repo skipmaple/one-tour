@@ -5,6 +5,7 @@ import BacklogList from '../../components/planner/BacklogList'
 import DayColumn from '../../components/planner/DayColumn'
 import PlannerMap from '../../components/planner/PlannerMap'
 import ChatPanel from '../../components/planner/ChatPanel'
+import ConstitutionBanner from '../../components/planner/ConstitutionBanner'
 import { csrfToken } from '../../utils/csrf'
 
 export default function Show({ tour, days, activities, violations }) {
@@ -16,6 +17,9 @@ export default function Show({ tour, days, activities, violations }) {
     <div>
       <Head title={tour.title} />
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <div style={{ padding: 10 }}>
+          <ConstitutionBanner violations={violations} />
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: `260px 1fr ${chatOpen ? 320 : 36}px`, gap: 10, padding: 10 }}>
           <BacklogList activities={backlog} />
           <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', gap: 10 }}>
