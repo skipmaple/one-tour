@@ -9,7 +9,7 @@ RSpec.describe "ActivityPositions", type: :request do
   let(:tour)   { create(:tour, author: author) }
 
   it "PATCH moves activity between days and redirects to the tour" do
-    day1 = create(:day, tour: tour, day_index: 1)
+    day1 = tour.days.first # D1 seeded by callback
     day2 = create(:day, tour: tour, day_index: 2)
     a = create(:activity, tour: tour, day: day1, position: 1)
     login_as(author)
@@ -19,7 +19,7 @@ RSpec.describe "ActivityPositions", type: :request do
   end
 
   it "PATCH moves to backlog when to_day_id blank" do
-    day = create(:day, tour: tour)
+    day = create(:day, tour: tour, day_index: 2)
     a = create(:activity, tour: tour, day: day, position: 1)
     login_as(author)
     patch activity_position_path(a), params: { to_position: 1 }
@@ -36,7 +36,7 @@ RSpec.describe "ActivityPositions", type: :request do
 
   describe "position shift (I5)" do
     it "same-day move down shifts intermediate siblings up by 1" do
-      day = create(:day, tour: tour, day_index: 1)
+      day = tour.days.first # D1 seeded by callback
       a1 = create(:activity, tour: tour, day: day, position: 1, name: "a1")
       a2 = create(:activity, tour: tour, day: day, position: 2, name: "a2")
       a3 = create(:activity, tour: tour, day: day, position: 3, name: "a3")
@@ -52,7 +52,7 @@ RSpec.describe "ActivityPositions", type: :request do
     end
 
     it "same-day move up shifts intermediate siblings down by 1" do
-      day = create(:day, tour: tour, day_index: 1)
+      day = tour.days.first # D1 seeded by callback
       a1 = create(:activity, tour: tour, day: day, position: 1, name: "a1")
       a2 = create(:activity, tour: tour, day: day, position: 2, name: "a2")
       a3 = create(:activity, tour: tour, day: day, position: 3, name: "a3")
@@ -68,7 +68,7 @@ RSpec.describe "ActivityPositions", type: :request do
     end
 
     it "cross-day move closes the gap in the source day" do
-      src = create(:day, tour: tour, day_index: 1)
+      src = tour.days.first # D1 seeded by callback
       dst = create(:day, tour: tour, day_index: 2)
       a1 = create(:activity, tour: tour, day: src, position: 1, name: "a1")
       a2 = create(:activity, tour: tour, day: src, position: 2, name: "a2")
@@ -84,7 +84,7 @@ RSpec.describe "ActivityPositions", type: :request do
     end
 
     it "cross-day move makes room in the destination day" do
-      src = create(:day, tour: tour, day_index: 1)
+      src = tour.days.first # D1 seeded by callback
       dst = create(:day, tour: tour, day_index: 2)
       a  = create(:activity, tour: tour, day: src, position: 1, name: "a")
       b1 = create(:activity, tour: tour, day: dst, position: 1, name: "b1")
@@ -100,7 +100,7 @@ RSpec.describe "ActivityPositions", type: :request do
     end
 
     it "move to backlog closes the gap in the source day" do
-      src = create(:day, tour: tour, day_index: 1)
+      src = tour.days.first # D1 seeded by callback
       a1 = create(:activity, tour: tour, day: src, position: 1, name: "a1")
       a2 = create(:activity, tour: tour, day: src, position: 2, name: "a2")
       a3 = create(:activity, tour: tour, day: src, position: 3, name: "a3")

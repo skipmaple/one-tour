@@ -43,7 +43,7 @@ RSpec.describe Activity do
 
     it "can belong to a day" do
       tour = create(:tour)
-      day = create(:day, tour: tour)
+      day = create(:day, tour: tour, day_index: 2)
       activity = create(:activity, tour: tour, day: day)
       expect(activity.day).to eq(day)
     end

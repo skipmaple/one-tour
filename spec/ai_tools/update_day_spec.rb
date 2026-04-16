@@ -4,7 +4,7 @@ RSpec.describe AITools::UpdateDay do
   let(:tour) { create(:tour) }
 
   it "updates title and buffer_day" do
-    day = create(:day, tour: tour)
+    day = create(:day, tour: tour, day_index: 2)
     result = described_class.new(tour: tour).execute(day_id: day.id, patch: { "title" => "新标题", "buffer_day" => true })
     expect(result[:ok]).to be true
     expect(day.reload.title).to eq("新标题")
@@ -12,7 +12,7 @@ RSpec.describe AITools::UpdateDay do
   end
 
   it "ignores unknown fields" do
-    day = create(:day, tour: tour)
+    day = create(:day, tour: tour, day_index: 2)
     result = described_class.new(tour: tour).execute(day_id: day.id, patch: { "unknown" => "x", "title" => "ok" })
     expect(result[:ok]).to be true
     expect(result[:updated_fields]).not_to include("unknown")
@@ -27,7 +27,7 @@ RSpec.describe AITools::UpdateDay do
 
   it "refuses to update a day that belongs to a different tour (BUG #6)" do
     other_tour = create(:tour)
-    foreign    = create(:day, tour: other_tour)
+    foreign    = create(:day, tour: other_tour, day_index: 2)
     original   = foreign.title
     result = described_class.new(tour: tour).execute(day_id: foreign.id, patch: { "title" => "pwn" })
     expect(result[:ok]).to be false

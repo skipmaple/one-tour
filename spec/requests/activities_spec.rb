@@ -9,7 +9,7 @@ RSpec.describe "Activities", type: :request do
   let(:tour)   { create(:tour, author: author) }
 
   it "POST creates activity in a day" do
-    day = create(:day, tour: tour)
+    day = create(:day, tour: tour, day_index: 2)
     login_as(author)
     expect {
       post tour_day_activities_path(tour, day), params: {

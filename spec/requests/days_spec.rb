@@ -9,22 +9,23 @@ RSpec.describe "Days", type: :request do
   let(:tour)   { create(:tour, author: author) }
 
   it "POST /tours/:tour_id/days creates a day" do
+    tour # force creation (triggers D1 seed callback) before asserting on Day.count
     login_as(author)
     expect {
-      post tour_days_path(tour), params: { day: { day_index: 1, title: "抵达" } }
+      post tour_days_path(tour), params: { day: { day_index: 2, title: "抵达" } }
     }.to change(Day, :count).by(1)
     expect(response).to redirect_to(tour)
   end
 
   it "PATCH updates day" do
-    day = create(:day, tour: tour)
+    day = create(:day, tour: tour, day_index: 2)
     login_as(author)
     patch tour_day_path(tour, day), params: { day: { buffer_day: true } }
     expect(day.reload.buffer_day).to be true
   end
 
   it "DELETE destroys day and nullifies its activities" do
-    day = create(:day, tour: tour)
+    day = create(:day, tour: tour, day_index: 2)
     activity = create(:activity, tour: tour, day: day)
     login_as(author)
     delete tour_day_path(tour, day)

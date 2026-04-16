@@ -100,7 +100,7 @@ RSpec.describe "Tours", type: :request do
 
     it "includes intensity_derived on each day in Inertia props" do
       tour = create(:tour, author: user)
-      create(:day, tour: tour, day_index: 1, buffer_day: true)
+      tour.days.first.update!(buffer_day: true) # D1 seeded by callback
       create(:day, tour: tour, day_index: 2)
 
       login_as(user)
@@ -114,7 +114,7 @@ RSpec.describe "Tours", type: :request do
   describe "GET /tours index payload enrichment (I8)" do
     it "includes days_count, activities_count, health, my_role, last_activity_at" do
       tour = create(:tour, author: user)
-      day  = create(:day, tour: tour, day_index: 1)
+      day  = tour.days.first # D1 seeded by callback
       # Drive a hard tier_one violation: 4 tier_one on the same day > limit 3
       4.times.with_index { |_, i| create(:activity, tour: tour, day: day, citizen_level: :tier_one, position: i + 1) }
 

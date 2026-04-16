@@ -4,7 +4,7 @@ RSpec.describe AITools::DeleteDay do
   let(:tour) { create(:tour) }
 
   it "destroys day and moves its activities to backlog" do
-    day = create(:day, tour: tour)
+    day = create(:day, tour: tour, day_index: 2)
     activity = create(:activity, tour: tour, day: day)
     described_class.new(tour: tour).execute(day_id: day.id)
     expect(Day.exists?(day.id)).to be false
@@ -19,7 +19,7 @@ RSpec.describe AITools::DeleteDay do
 
   it "refuses to delete a day that belongs to a different tour (BUG #6)" do
     other_tour = create(:tour)
-    foreign    = create(:day, tour: other_tour)
+    foreign    = create(:day, tour: other_tour, day_index: 2)
     result = described_class.new(tour: tour).execute(day_id: foreign.id)
     expect(result[:ok]).to be false
     expect(result[:error][:code]).to eq("day_not_found")

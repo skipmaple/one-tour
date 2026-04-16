@@ -105,7 +105,7 @@ RSpec.describe Tour do
     let(:tour) { create(:tour) }
 
     it "counts days marked buffer_day=true" do
-      create(:day, tour: tour, day_index: 1, buffer_day: true)
+      tour.days.first.update!(buffer_day: true) # D1 seeded by callback
       create(:day, tour: tour, day_index: 2, buffer_day: false)
       create(:day, tour: tour, day_index: 3, buffer_day: true)
       expect(tour.buffer_days_count).to eq(2)
@@ -161,6 +161,20 @@ RSpec.describe Tour do
       tour.record_override!(rule: "r", scope: {}, reason: "a")
       tour.revoke_override!(rule: "other", scope: {})
       expect(tour.reload.constraint_overrides.size).to eq(1)
+    end
+  end
+
+  describe "after_create_commit :seed_first_day" do
+    it "creates a Day with day_index=1 automatically on tour create" do
+      tour = create(:tour)
+      expect(tour.days.size).to eq(1)
+      expect(tour.days.first.day_index).to eq(1)
+    end
+
+    it "is idempotent: calling seed_first_day again does not duplicate D1" do
+      tour = create(:tour)
+      expect { tour.send(:seed_first_day) }.not_to change(Day, :count)
+      expect(tour.days.size).to eq(1)
     end
   end
 end

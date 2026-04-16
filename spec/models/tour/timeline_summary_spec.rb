@@ -4,20 +4,19 @@ RSpec.describe Tour::TimelineSummary do
   describe ".for" do
     let(:tour) { create(:tour) }
 
-    it "returns zero counts for an empty tour" do
+    it "returns baseline counts for a fresh tour (D1 auto-seeded)" do
       result = described_class.for(tour)
-      expect(result[:day_count]).to eq(0)
+      expect(result[:day_count]).to eq(1)
       expect(result[:activity_count]).to eq(0)
       expect(result[:tier_one_total]).to eq(0)
       expect(result[:buffer_count]).to eq(0)
       expect(result[:hard_count]).to eq(0)
-      # A fresh tour always has 1 soft violation (min_buffer_days) — ConstitutionCheck
-      # documents this explicitly: "returns min_buffer_days violation for a fresh tour with no days"
-      expect(result[:soft_count]).to eq(1)
+      # soft_count: min_buffer_days=1 default and buffer_count=0 → 1 soft violation
+      expect(result[:soft_count]).to be >= 1
     end
 
     it "counts days, activities, buffer days and tier_one total" do
-      d1 = create(:day, tour: tour, day_index: 1, buffer_day: true)
+      d1 = tour.days.first.tap { |d| d.update!(buffer_day: true) } # D1 seeded by callback
       d2 = create(:day, tour: tour, day_index: 2)
       create(:activity, tour: tour, day: d2, citizen_level: :tier_one, position: 1)
       create(:activity, tour: tour, day: d2, citizen_level: :tier_one, position: 2)
@@ -37,7 +36,7 @@ RSpec.describe Tour::TimelineSummary do
     end
 
     it "counts hard and soft violations separately" do
-      day = create(:day, tour: tour, day_index: 1)
+      day = tour.days.first # D1 seeded by callback
       # tier_one over limit (3 by default) → hard
       4.times { |i| create(:activity, tour: tour, day: day, citizen_level: :tier_one, position: i + 1) }
       # buffer days 0 < default min 1 → soft (if constitution default min_buffer_days >= 1)

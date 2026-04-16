@@ -2,16 +2,17 @@ require "rails_helper"
 
 RSpec.describe Day do
   it "requires day_index unique per tour" do
-    tour = create(:tour)
-    create(:day, tour: tour, day_index: 1)
+    tour = create(:tour) # D1 seeded by callback
     duplicate = build(:day, tour: tour, day_index: 1)
     expect(duplicate).not_to be_valid
   end
 
   it "allows same day_index across different tours" do
-    create(:day, tour: create(:tour), day_index: 1)
-    other = build(:day, tour: create(:tour), day_index: 1)
-    expect(other).to be_valid
+    # Both tours already have D1 seeded by callback — nothing to prove by creating more
+    tour_a = create(:tour)
+    tour_b = create(:tour)
+    expect(tour_a.days.first.day_index).to eq(1)
+    expect(tour_b.days.first.day_index).to eq(1)
   end
 
   it "has intensity enum green/yellow/red" do
@@ -20,7 +21,7 @@ RSpec.describe Day do
 
   describe "#driving_minutes_total" do
     let(:tour) { create(:tour) }
-    let(:day) { create(:day, tour: tour) }
+    let(:day) { create(:day, tour: tour, day_index: 2) }
 
     it "sums drive_min across road activities of this day" do
       create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 120 })
@@ -37,7 +38,7 @@ RSpec.describe Day do
 
   describe "#tier_one_count" do
     let(:tour) { create(:tour) }
-    let(:day) { create(:day, tour: tour) }
+    let(:day) { create(:day, tour: tour, day_index: 2) }
 
     it "counts activities with citizen_level=tier_one in this day" do
       create(:activity, tour: tour, day: day, citizen_level: :tier_one)

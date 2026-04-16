@@ -24,7 +24,7 @@ RSpec.describe Tour::ConstitutionCheck do
     end
 
     it "no violation when within limit" do
-      day = create(:day, tour: tour, day_index: 1)
+      day = tour.days.first # D1 seeded by callback
       create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 300 })
       violations = described_class.for(tour)
       expect(violations.map(&:rule)).not_to include(:max_daily_driving_minutes)
@@ -55,7 +55,7 @@ RSpec.describe Tour::ConstitutionCheck do
     let(:tour) { create(:tour) }
 
     it "flags soft violation when buffer_days < min_buffer_days (default 1)" do
-      create(:day, tour: tour, day_index: 1, buffer_day: false)
+      # D1 seeded by callback has buffer_day=false by default
       create(:day, tour: tour, day_index: 2, buffer_day: false)
       violations = described_class.for(tour)
       v = violations.find { |x| x.rule == :min_buffer_days }
@@ -65,7 +65,7 @@ RSpec.describe Tour::ConstitutionCheck do
     end
 
     it "no violation when at or above min_buffer_days" do
-      create(:day, tour: tour, day_index: 1, buffer_day: true)
+      tour.days.first.update!(buffer_day: true)
       violations = described_class.for(tour)
       expect(violations.map(&:rule)).not_to include(:min_buffer_days)
     end

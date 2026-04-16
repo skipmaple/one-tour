@@ -9,6 +9,7 @@ class Tour < ApplicationRecord
   validates :title, presence: true
 
   before_create :seed_constitution_defaults
+  after_create_commit :seed_first_day
 
   def owned_by?(user)
     if user
@@ -85,5 +86,9 @@ class Tour < ApplicationRecord
 
     def seed_constitution_defaults
       self.constitution = Constitution::DEFAULTS.deep_stringify_keys.merge(constitution.presence || {})
+    end
+
+    def seed_first_day
+      days.find_or_create_by!(day_index: 1)
     end
 end

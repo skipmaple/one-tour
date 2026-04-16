@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe AITools::MoveActivity do
   let(:tour)  { create(:tour) }
-  let(:day1)  { create(:day, tour: tour, day_index: 1) }
+  let(:day1)  { tour.days.first } # D1 seeded by callback
   let(:day2)  { create(:day, tour: tour, day_index: 2) }
   let(:activity) { create(:activity, tour: tour, day: day1, position: 1) }
 
