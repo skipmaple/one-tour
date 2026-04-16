@@ -109,6 +109,24 @@ RSpec.describe "Tours", type: :request do
       expect(response.body).to include("intensity_derived")
       expect(response.body).to include("green") # buffer_day=true day 1
     end
+
+    it "includes conversation_empty=true for fresh tour with no conversation" do
+      tour = create(:tour, author: user)
+      login_as(user)
+      get "/tours/#{tour.id}"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('"conversation_empty":true')
+    end
+
+    it "includes conversation_empty=false when conversation has messages" do
+      tour = create(:tour, author: user)
+      conv = tour.conversations.create!(user: user)
+      conv.messages.create!(role: :user, content: "hi")
+      login_as(user)
+      get "/tours/#{tour.id}"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include('"conversation_empty":false')
+    end
   end
 
   describe "GET /tours index payload enrichment (I8)" do
