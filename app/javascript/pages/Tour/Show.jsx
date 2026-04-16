@@ -123,6 +123,8 @@ export default function Show({ tour, days, activities, violations, members, auth
             activities={backlog}
             onAddActivity={canEdit ? openCreate : undefined}
             onEditActivity={canEdit ? openEdit : undefined}
+            onAskAI={canEdit ? () => setPendingChatPrompt(ASK_AI_BACKLOG_PROMPT) : undefined}
+            onFocusChat={canEdit ? () => setChatOpen(true) : undefined}
             readOnly={!canEdit}
           />
           <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', gap: 10 }}>
@@ -225,6 +227,8 @@ export default function Show({ tour, days, activities, violations, members, auth
     )
   }
 }
+
+const ASK_AI_BACKLOG_PROMPT = '请帮我再列一些候选 activity 到 backlog'
 
 function fixPromptFor(v) {
   return `请分析 ${v.message} 的硬违反，给我 3 个修正方案，每个说明原因、对其他日的影响，以及整程天数/体验是否变化。`
