@@ -46,6 +46,27 @@ describe('useChat reducer', () => {
   })
 })
 
+describe('useChat reducer — load_history', () => {
+  it('load_history replaces messages with fetched history', () => {
+    const next = reducer(INITIAL, {
+      type: 'load_history',
+      messages: [
+        { role: 'user', content: 'hi' },
+        { role: 'assistant', content: 'hello' }
+      ]
+    })
+    expect(next.messages).toHaveLength(2)
+    expect(next.messages[0].content).toBe('hi')
+    expect(next.messages[1].role).toBe('assistant')
+  })
+
+  it('load_history with empty array keeps state shape valid', () => {
+    const next = reducer(INITIAL, { type: 'load_history', messages: [] })
+    expect(next.messages).toEqual([])
+    expect(next.streaming).toBe(false)
+  })
+})
+
 describe('shouldReloadPlanner', () => {
   it('returns true for complete (end of a successful turn)', () => {
     expect(shouldReloadPlanner({ type: 'complete', content: 'ok' })).toBe(true)

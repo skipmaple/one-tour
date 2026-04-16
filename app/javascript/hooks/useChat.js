@@ -46,6 +46,9 @@ export function reducer(state, action) {
       return { ...state, messages: msgs }
     }
 
+    case 'load_history':
+      return { ...state, messages: action.messages }
+
     case 'complete':
       return { ...state, streaming: false }
 
@@ -71,6 +74,20 @@ export const RELOAD_PROPS = [ 'activities', 'days', 'violations' ]
 export default function useChat({ tourId }) {
   const [ state, dispatch ] = useReducer(reducer, INITIAL)
   const subRef = useRef(null)
+
+  useEffect(() => {
+    if (!tourId) return
+    fetch(`/tours/${tourId}/conversation`, {
+      headers: { Accept: 'application/json' }
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.messages) {
+          dispatch({ type: 'load_history', messages: data.messages })
+        }
+      })
+      .catch(() => { /* silent — chat starts empty on error */ })
+  }, [ tourId ])
 
   useEffect(() => {
     if (!tourId) return
