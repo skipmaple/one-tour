@@ -9,6 +9,7 @@ import DayColumn from '../../components/planner/DayColumn'
 import PlannerMap from '../../components/planner/PlannerMap'
 import ChatPanel from '../../components/planner/ChatPanel'
 import ConstitutionBanner from '../../components/planner/ConstitutionBanner'
+import TourTabs from '../../components/tour/TourTabs'
 import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 import MembershipDrawer from '../../components/planner/MembershipDrawer'
@@ -72,7 +73,8 @@ export default function Show({ tour, days, activities, violations, members, auth
         autoScroll={{ acceleration: 10, threshold: { x: 0.15, y: 0.15 } }}
       >
         <div style={{ padding: 10 }}>
-          <Group justify="space-between" mb="xs">
+          <TourTabs tour={tour} active="planner" />
+          <Group justify="space-between" mb="xs" mt="xs">
             <Text fw={700} size="lg">{tour.title}</Text>
             {canEdit && (
               <Button

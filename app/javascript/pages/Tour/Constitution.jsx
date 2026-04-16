@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Stack, Group, Title, Button, Paper, Text, Select } from '@mantine/core'
 import { Head, router } from '@inertiajs/react'
+import TourTabs from '../../components/tour/TourTabs'
 
 // "关键约束" section shows these three keys; everything else in DEFAULTS
 // renders as "高级参数". Keep this list here, not hardcoded in the
@@ -34,6 +35,7 @@ export default function Constitution({ tour, constitution, defaults, overrides }
   return (
     <Stack gap="lg" p="md" maw={820} mx="auto">
       <Head title="确认宪法" />
+      <TourTabs tour={tour} active="constitution" />
       <Title order={2}>《本程宪法》</Title>
 
       <Paper p="md" bg="yellow.0" withBorder>
