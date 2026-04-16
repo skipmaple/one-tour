@@ -4,8 +4,11 @@ class DaysController < ApplicationController
   before_action :require_editor
 
   def create
-    @tour.days.create!(day_params)
-    redirect_to @tour
+    @day = @tour.days.create!(day_params)
+    respond_to do |format|
+      format.json { render json: { id: @day.id } }
+      format.html { redirect_to @tour }
+    end
   end
 
   def update

@@ -39,4 +39,17 @@ RSpec.describe "Days", type: :request do
     post tour_days_path(tour), params: { day: { day_index: 1 } }
     expect(response).to have_http_status(:forbidden)
   end
+
+  describe "POST create with Accept: application/json" do
+    it "returns id in JSON" do
+      tour = create(:tour, author: author)
+      login_as(author)
+      post tour_days_path(tour),
+        params: { day: { day_index: 2 } },
+        headers: { "Accept" => "application/json" }
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["id"]).to be_a(Integer)
+    end
+  end
 end

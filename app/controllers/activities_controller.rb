@@ -6,13 +6,16 @@ class ActivitiesController < ApplicationController
       day = Day.find(params[:day_id])
       tour = day.tour
       head :forbidden and return unless tour.editable_by?(current_user)
-      tour.activities.create!(activity_params.merge(day: day, position: next_position(tour, day)))
+      @activity = tour.activities.create!(activity_params.merge(day: day, position: next_position(tour, day)))
     else
       tour = Tour.find(params[:tour_id])
       head :forbidden and return unless tour.editable_by?(current_user)
-      tour.activities.create!(activity_params.merge(day: nil, position: next_position(tour, nil)))
+      @activity = tour.activities.create!(activity_params.merge(day: nil, position: next_position(tour, nil)))
     end
-    redirect_to tour
+    respond_to do |format|
+      format.json { render json: { id: @activity.id, position: @activity.position } }
+      format.html { redirect_to @activity.tour }
+    end
   end
 
   def update

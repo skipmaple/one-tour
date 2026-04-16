@@ -49,4 +49,28 @@ RSpec.describe "Activities", type: :request do
     delete activity_path(a)
     expect(response).to have_http_status(:forbidden)
   end
+
+  describe "POST create with Accept: application/json" do
+    it "returns id and position in JSON for day-scoped create" do
+      day = create(:day, tour: tour, day_index: 2)
+      login_as(author)
+      post tour_day_activities_path(tour, day),
+        params: { activity: { name: "新景点", kind: "scenic", citizen_level: "tier_one" } },
+        headers: { "Accept" => "application/json" }
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["id"]).to be_a(Integer)
+      expect(body["position"]).to be_a(Integer)
+    end
+
+    it "returns id for backlog create" do
+      login_as(author)
+      post tour_backlog_activities_path(tour),
+        params: { activity: { name: "待选", kind: "scenic", citizen_level: "tier_three" } },
+        headers: { "Accept" => "application/json" }
+      expect(response).to have_http_status(:ok)
+      body = JSON.parse(response.body)
+      expect(body["id"]).to be_a(Integer)
+    end
+  end
 end
