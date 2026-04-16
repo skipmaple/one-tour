@@ -7,7 +7,7 @@ import { Head, router } from '@inertiajs/react'
 // "剩余 N 条" label, so the count stays accurate when DEFAULTS changes.
 const KEY_FIELDS = [ 'max_daily_driving_minutes', 'max_tier_one_per_day', 'min_buffer_days' ]
 
-export default function Constitution({ tour, constitution, defaults }) {
+export default function Constitution({ tour, constitution, defaults, overrides }) {
   const [c, setC] = useState({ ...constitution })
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const dirty = Object.keys(defaults).some(k => String(c[k]) !== String(defaults[k]))
@@ -108,8 +108,62 @@ export default function Constitution({ tour, constitution, defaults }) {
           )}
         </Group>
       </Group>
+
+      {overrides && overrides.length > 0 && (
+        <Stack gap="xs" mt="lg" pt="md" style={{ borderTop: '1px solid #eee' }}>
+          <Title order={4}>已承认的违反 ({overrides.length})</Title>
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
+                <th style={{ padding: '6px 8px' }}>规则</th>
+                <th style={{ padding: '6px 8px' }}>范围</th>
+                <th style={{ padding: '6px 8px' }}>理由</th>
+                <th style={{ padding: '6px 8px' }}>承认于</th>
+                <th style={{ padding: '6px 8px' }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {overrides.map((o, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '6px 8px' }}><code>{o.rule}</code></td>
+                  <td style={{ padding: '6px 8px' }}>{formatScope(o.scope)}</td>
+                  <td style={{ padding: '6px 8px' }}>{o.reason}</td>
+                  <td style={{ padding: '6px 8px' }}>{formatDate(o.acknowledged_at)}</td>
+                  <td style={{ padding: '6px 8px' }}>
+                    <Button
+                      size="compact-xs"
+                      variant="subtle"
+                      color="red"
+                      onClick={() => {
+                        router.delete(`/tours/${tour.id}/overrides`, {
+                          data: { rule: o.rule, scope: o.scope },
+                          preserveScroll: true,
+                          onSuccess: () => router.reload({ only: ['overrides'] }),
+                        })
+                      }}
+                    >
+                      撤销
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Stack>
+      )}
     </Stack>
   )
+}
+
+function formatScope(scope) {
+  if (!scope || Object.keys(scope).length === 0) return '全局'
+  return Object.entries(scope).map(([k, v]) => `${k}=${v}`).join(', ')
+}
+
+function formatDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 function ConstRow({ label, field, scale = 1, options, unit, hint, c, setC }) {

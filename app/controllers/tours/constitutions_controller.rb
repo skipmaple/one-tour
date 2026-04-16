@@ -7,7 +7,8 @@ class Tours::ConstitutionsController < ApplicationController
     render inertia: "Tour/Constitution", props: {
       tour: @tour.as_json,
       constitution: @tour.constitution,
-      defaults: Constitution::DEFAULTS.deep_stringify_keys
+      defaults: Constitution::DEFAULTS.deep_stringify_keys,
+      overrides: @tour.constraint_overrides
     }
   end
 
