@@ -30,8 +30,15 @@ export default function ActivityCard({ activity, onClick, readOnly }) {
     position: 'relative'
   }
 
+  // When readOnly, suppress the drag affordances entirely:
+  //   - skip the {...attributes} spread (drops `aria-roledescription="draggable"` and tabindex)
+  //   - don't render the grab handle, so listeners are never attached to the DOM
+  // Server-side ActivityPositionsController gates the actual mutation, but
+  // showing a grab handle that always fails is bad UX.
+  const dragAttributes = readOnly ? {} : attributes
+
   return (
-    <div ref={setRef} style={style} {...attributes}>
+    <div ref={setRef} style={style} {...dragAttributes}>
       {isOver && (
         <div
           data-testid="drop-indicator"
@@ -49,22 +56,24 @@ export default function ActivityCard({ activity, onClick, readOnly }) {
           }}
         />
       )}
-      <div
-        ref={setActivatorNodeRef}
-        {...listeners}
-        data-testid="grab-handle"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          padding: '4px 2px',
-          cursor: 'grab',
-          color: '#999',
-          fontSize: 10,
-          userSelect: 'none'
-        }}
-      >
-        ⋮⋮
-      </div>
+      {!readOnly && (
+        <div
+          ref={setActivatorNodeRef}
+          {...listeners}
+          data-testid="grab-handle"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '4px 2px',
+            cursor: 'grab',
+            color: '#999',
+            fontSize: 10,
+            userSelect: 'none'
+          }}
+        >
+          ⋮⋮
+        </div>
+      )}
       <div
         onClick={handleClick}
         style={{ flex: 1, padding: '4px 6px', cursor: readOnly ? 'default' : 'pointer' }}

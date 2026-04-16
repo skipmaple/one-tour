@@ -55,6 +55,17 @@ test('does not fire onClick when readOnly', () => {
   expect(onClick).not.toHaveBeenCalled()
 })
 
+test('does not render grab handle when readOnly', () => {
+  renderInDnd(<ActivityCard activity={{ id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three' }} readOnly />)
+  expect(screen.queryByTestId('grab-handle')).not.toBeInTheDocument()
+})
+
+test('does not expose draggable aria role when readOnly', () => {
+  renderInDnd(<ActivityCard activity={{ id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three' }} readOnly />)
+  // dnd-kit's {...attributes} spread adds aria-roledescription="draggable" — should be absent in readOnly
+  expect(screen.queryByText('X').closest('[aria-roledescription="draggable"]')).toBeNull()
+})
+
 test('shows drop indicator when isOver=true', () => {
   mockDroppableReturn.current = { setNodeRef: () => {}, isOver: true }
   renderInDnd(<ActivityCard activity={{ id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three' }} />)
