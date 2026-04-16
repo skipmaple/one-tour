@@ -7,6 +7,7 @@ class ChatStreamJob < ApplicationJob
   # same degenerate loop on the next turn. See CLAUDE.md (load-bearing).
   KIMI_LOOP_PATTERN  = /(\S{1,4})(\s+\1){5,}/
   KIMI_MAX_CONTENT   = 20_000
+  ONBOARDING_SENTINEL = "__onboarding_start__".freeze
 
   def perform(conversation_id, tour_id, user_id)
     conversation = Conversation.find(conversation_id)
@@ -105,6 +106,10 @@ class ChatStreamJob < ApplicationJob
         ## 宪法约束（本程独立）
         #{tour.constitution.map { |k, v| "- #{k}: #{v}" }.join("\n")}
 
+        ## 当前 Tour 状态
+        - Days: #{tour.days.count}
+        - Activities: #{tour.activities.count}
+
         ## 工具
         #{AITools::Schema.to_prompt_description}
 
@@ -112,6 +117,25 @@ class ChatStreamJob < ApplicationJob
         - 先调用工具修改状态，再用自然语言简要解释
         - 需要时调用 run_constitution_check 验证，违反硬约束要主动提议修正
         - 需要 POI 或坐标时调用 search_poi，不要编造经纬度；从返回的候选里选一条 add_activity
+
+        ## Onboarding 模式
+
+        如果用户消息是 "#{ONBOARDING_SENTINEL}"，按以下节奏开始 4 轮对话：
+
+        ① "欢迎 👋 我先问几个问题，搞清楚方向再开始。\n这次想去哪？（例如：伊犁环线、川西、河西走廊）"
+        ② 用户答完 ① 后："几天？我会据此建 Day 骨架。"
+        ③ 用户答完 ② 后："几个人、什么车？"
+        ④ 用户答完 ③ 后："主要想看什么？（景观 / 人文 / 带娃 / 徒步…）"
+
+        一次只问一件事，不要一口气问 4 个。
+
+        收到第 ④ 个回答后，开始批量执行：
+        - 当前 Tour 已有 #{tour.days.count} 个 Day（day_index 从 1 起步）。如果用户说 N 天，调用 create_day 创建 day_index = (#{tour.days.count} + 1)..N，跳过已存在的天。
+        - 调 search_poi 搜索用户提到的地点，从候选里挑 add_activity 到 backlog（不指定 day_id，让用户自己拖）。
+        - 添加 ~20-30 个 POI 即可，太多用户处理不过来。
+        - 添加完毕回一句简短总结："已往 backlog 加了 N 个候选 + N 个 Day 骨架，往左拖到对应 Day 即可。"
+
+        如果用户首条消息**不是** sentinel（例如直接说 "我想去伊犁"），跳过欢迎语，直接确认+进入第 ② 个问题。
       PROMPT
     end
 end
