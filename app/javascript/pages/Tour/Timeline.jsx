@@ -1,13 +1,18 @@
 import { useState, useRef } from 'react'
 import { Head } from '@inertiajs/react'
-import { Stack, Text } from '@mantine/core'
+import { Stack } from '@mantine/core'
 import TourTabs from '../../components/tour/TourTabs'
 import TourSummaryBar from '../../components/timeline/TourSummaryBar'
 import RhythmBar from '../../components/timeline/RhythmBar'
+import TimelineDayColumn from '../../components/timeline/TimelineDayColumn'
 
 export default function Timeline({ tour, days, activities, violations, summary }) {
   const [selectedDayId, setSelectedDayId] = useState(null)
   const dayColumnRefs = useRef({})
+
+  const byDay = Object.fromEntries(
+    days.map(d => [d.id, activities.filter(a => a.day_id === d.id).sort((a, b) => a.position - b.position)])
+  )
 
   const handleSlotClick = (dayId) => {
     setSelectedDayId(dayId)
@@ -15,6 +20,10 @@ export default function Timeline({ tour, days, activities, violations, summary }
     if (el && typeof el.scrollIntoView === 'function') {
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
     }
+  }
+
+  const handleColumnSelect = (dayId) => {
+    setSelectedDayId(dayId)
   }
 
   return (
@@ -29,9 +38,21 @@ export default function Timeline({ tour, days, activities, violations, summary }
           selectedDayId={selectedDayId}
           onSlotClick={handleSlotClick}
         />
-        {/* Days timeline inserted in Task 5.6 */}
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', alignItems: 'stretch', paddingBottom: 6 }}>
+          {days.map(d => (
+            <TimelineDayColumn
+              key={d.id}
+              day={d}
+              activities={byDay[d.id] || []}
+              constitution={tour.constitution}
+              tourId={tour.id}
+              selected={selectedDayId === d.id}
+              onSelect={handleColumnSelect}
+              columnRef={(el) => { dayColumnRefs.current[d.id] = el }}
+            />
+          ))}
+        </div>
         {/* DayDetailPanel inserted in Task 5.7 */}
-        <Text size="xs" c="dimmed">年表主体内容开发中…</Text>
       </Stack>
     </div>
   )
