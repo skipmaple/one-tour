@@ -5,6 +5,7 @@ import TourTabs from '../../components/tour/TourTabs'
 import TourSummaryBar from '../../components/timeline/TourSummaryBar'
 import RhythmBar from '../../components/timeline/RhythmBar'
 import TimelineDayColumn from '../../components/timeline/TimelineDayColumn'
+import DayDetailPanel from '../../components/timeline/DayDetailPanel'
 
 export default function Timeline({ tour, days, activities, violations, summary }) {
   const [selectedDayId, setSelectedDayId] = useState(null)
@@ -13,6 +14,9 @@ export default function Timeline({ tour, days, activities, violations, summary }
   const byDay = Object.fromEntries(
     days.map(d => [d.id, activities.filter(a => a.day_id === d.id).sort((a, b) => a.position - b.position)])
   )
+
+  const selectedDay = selectedDayId ? days.find(d => d.id === selectedDayId) : null
+  const selectedDayActivities = selectedDay ? (byDay[selectedDay.id] || []) : []
 
   const handleSlotClick = (dayId) => {
     setSelectedDayId(dayId)
@@ -52,7 +56,11 @@ export default function Timeline({ tour, days, activities, violations, summary }
             />
           ))}
         </div>
-        {/* DayDetailPanel inserted in Task 5.7 */}
+        <DayDetailPanel
+          day={selectedDay}
+          activities={selectedDayActivities}
+          constitution={tour.constitution}
+        />
       </Stack>
     </div>
   )
