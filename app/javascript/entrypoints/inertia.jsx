@@ -8,6 +8,7 @@ import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
 import '@mantine/dates/styles.css'
 import AppLayout from '../layouts/AppLayout'
+import { UndoStackProvider } from '../hooks/useUndoStack'
 
 const theme = createTheme({
   primaryColor: 'blue',
@@ -32,7 +33,9 @@ createInertiaApp({
         <DatesProvider settings={{ locale: 'zh-cn', firstDayOfWeek: 1 }}>
           <ModalsProvider>
             <Notifications />
-            <App {...props} />
+            <UndoStackProvider>
+              <App {...props} />
+            </UndoStackProvider>
           </ModalsProvider>
         </DatesProvider>
       </MantineProvider>
