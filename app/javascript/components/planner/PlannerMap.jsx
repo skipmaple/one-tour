@@ -153,6 +153,7 @@ export default function PlannerMap({ activities, days = [] }) {
   // View mode controls which activities show + whether polylines render.
   // Not persisted (resets on refresh, like Backlog filter).
   const [ viewMode, setViewMode ] = useState('all')
+  const theme = useMantineTheme()
 
   // Create the map once the SDK is ready and the container is mounted.
   // AMAP 2.0 has no reliable JS event for auth failures — the error fires
@@ -184,14 +185,8 @@ export default function PlannerMap({ activities, days = [] }) {
     }
   }, [ sdkState ])
 
-  // Sync markers with activities. Clear + re-draw on every activities change.
-  // Cheap enough for the typical 0-50 POI / tour scale; if we ever hit 500+
-  // we can diff by id instead.
-  //
-  // `sdkState` is in deps so this re-runs once the map is actually created
-  // (initial render has sdkState=idle and mapRef.current=null; the markers
-  // must be added AFTER the map-creation effect runs — they don't share deps,
-  // so we force-re-run when SDK becomes ready).
+  // Sync markers with activities + viewMode + theme. Clear + re-draw on every change.
+  // Cheap enough for typical 0-50 POI scale.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !window.AMap) return
@@ -199,39 +194,39 @@ export default function PlannerMap({ activities, days = [] }) {
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
 
-    // Rails serializes decimal columns as strings to preserve precision; coerce
-    // once here and drop anything that doesn't parse.
-    const withCoords = activities
+    // Coerce Rails-serialized lat/lng strings to numbers, drop invalid
+    const visible = filterActivitiesByViewMode(activities, viewMode)
       .map(a => ({ ...a, lat: parseFloat(a.lat), lng: parseFloat(a.lng) }))
       .filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lng))
-    withCoords.forEach(a => {
+
+    visible.forEach(a => {
       const inDay = a.day_id && dayIndexById[a.day_id]
       const marker = new window.AMap.Marker({
         position: [ a.lng, a.lat ],
         title: a.name,
-        label: inDay ? { content: `D${inDay}`, direction: 'top' } : undefined,
-        anchor: 'bottom-center'
+        content: buildMarkerHTML(a, dayIndexById, theme),
+        anchor: 'center'
       })
       const info = new window.AMap.InfoWindow({
         content: `<div style="padding:6px 10px;font-size:12px;line-height:1.5">
           <strong>${escapeHtml(a.name)}</strong><br/>
           <span style="color:#888">${inDay ? `已排入 D${inDay}` : '尚未排入（backlog）'}</span>
         </div>`,
-        offset: new window.AMap.Pixel(0, -30)
+        offset: new window.AMap.Pixel(0, -20)
       })
       marker.on('click', () => info.open(map, marker.getPosition()))
       marker.setMap(map)
       markersRef.current.push(marker)
     })
 
-    // Frame the view to fit all markers, but don't zoom in tighter than z=12
-    // for a single point (too claustrophobic).
-    if (withCoords.length > 1) {
+    // Frame view to fit visible markers; fallbacks for 0/1 markers
+    if (visible.length > 1) {
       map.setFitView(markersRef.current, false, [ 40, 40, 40, 40 ], 12)
-    } else if (withCoords.length === 1) {
-      map.setZoomAndCenter(10, [ withCoords[0].lng, withCoords[0].lat ])
+    } else if (visible.length === 1) {
+      map.setZoomAndCenter(10, [ visible[0].lng, visible[0].lat ])
     }
-  }, [ activities, dayIndexById, sdkState ])
+    // visible.length === 0: don't move map (user keeps current view)
+  }, [ activities, dayIndexById, viewMode, theme, sdkState ])
 
   return (
     <Paper
