@@ -26,6 +26,43 @@ export function filterActivitiesByViewMode(activities, viewMode) {
   return activities
 }
 
+// Build the HTML content string for an AMap.Marker.
+//
+// Day-assigned: 28px solid circle with day color background and "Dn" label embedded.
+// Backlog (day_id=null): 22px white circle with 2px grey dashed border, no label.
+//
+// `theme` is the Mantine theme object (use useMantineTheme() in component).
+// We pull colors[name][6] (the 600-shade) for solid markers — high contrast on
+// AMap's white tile background.
+export function buildMarkerHTML(activity, dayIndexById, theme) {
+  if (activity.day_id == null) {
+    // Backlog marker — grey dashed circle, no label
+    return `<div style="
+      width: 22px; height: 22px;
+      background: white;
+      border: 2px dashed #999;
+      border-radius: 50%;
+      opacity: 0.85;
+      box-sizing: border-box;
+    "></div>`
+  }
+
+  const day_index = dayIndexById[activity.day_id]
+  const colorName = DAY_COLOR(day_index)
+  const hex = theme.colors[colorName][6]
+
+  return `<div style="
+    width: 28px; height: 28px;
+    background: ${hex};
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 11px; font-weight: bold;
+    box-sizing: border-box;
+  ">D${day_index}</div>`
+}
+
 // AMAP-backed planner map. Plots every activity that has lat/lng as a marker.
 // Backlog activities get a grey default-style marker; day-assigned activities
 // get a blue numbered label marker so you can tell at a glance which day they

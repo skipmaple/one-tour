@@ -42,3 +42,44 @@ describe('filterActivitiesByViewMode', () => {
     expect(filterActivitiesByViewMode(fixtures, 'backlog').map(a => a.id)).toEqual([3, 4])
   })
 })
+
+import { buildMarkerHTML } from '../PlannerMap'
+
+describe('buildMarkerHTML', () => {
+  // Mock Mantine theme — only need colors[name][6] lookup
+  const theme = {
+    colors: {
+      red:    [, , , , , , '#fa5252'],
+      pink:   [, , , , , , '#e64980'],
+      grape:  [, , , , , , '#be4bdb'],
+      violet: [, , , , , , '#7950f2'],
+      indigo: [, , , , , , '#4c6ef5'],
+      blue:   [, , , , , , '#228be6'],
+      cyan:   [, , , , , , '#15aabf'],
+      teal:   [, , , , , , '#12b886'],
+      green:  [, , , , , , '#40c057'],
+      yellow: [, , , , , , '#fab005'],
+    }
+  }
+
+  test('day-assigned activity returns HTML with day color and Dn label', () => {
+    const html = buildMarkerHTML({ day_id: 10 }, { 10: 2 }, theme)
+    expect(html).toContain('#e64980') // pink (day 2)
+    expect(html).toContain('D2')
+    expect(html).toContain('border-radius: 50%')
+  })
+
+  test('backlog activity returns grey-dashed circle without label', () => {
+    const html = buildMarkerHTML({ day_id: null }, {}, theme)
+    expect(html).toContain('dashed')
+    expect(html).toContain('#999')
+    expect(html).not.toContain('D')  // no Dn label
+    expect(html).not.toMatch(/<[^>]+>D\d/)  // doubly sure no day number
+  })
+
+  test('day-assigned activity uses cycled color when day_index > 10', () => {
+    const html = buildMarkerHTML({ day_id: 99 }, { 99: 11 }, theme)
+    expect(html).toContain('#fa5252') // red (D11 cycles to D1's color)
+    expect(html).toContain('D11')
+  })
+})
