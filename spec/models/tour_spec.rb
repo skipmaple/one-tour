@@ -111,4 +111,56 @@ RSpec.describe Tour do
       expect(tour.buffer_days_count).to eq(2)
     end
   end
+
+  describe "#record_override!" do
+    let(:tour) { create(:tour) }
+
+    it "appends an override entry with normalized scope and timestamp" do
+      tour.record_override!(rule: "max_daily_driving_minutes", scope: { "day_id" => 7 }, reason: "独库必走")
+      expect(tour.reload.constraint_overrides.size).to eq(1)
+      entry = tour.constraint_overrides.first
+      expect(entry["rule"]).to eq("max_daily_driving_minutes")
+      expect(entry["scope"]).to eq({ "day_id" => 7 })
+      expect(entry["reason"]).to eq("独库必走")
+      expect(entry["acknowledged_at"]).to be_present
+    end
+
+    it "dedupes by (rule, scope): second call replaces first" do
+      tour.record_override!(rule: "r", scope: { "day_id" => 1 }, reason: "first")
+      tour.record_override!(rule: "r", scope: { "day_id" => 1 }, reason: "second")
+      overrides = tour.reload.constraint_overrides
+      expect(overrides.size).to eq(1)
+      expect(overrides.first["reason"]).to eq("second")
+    end
+
+    it "keeps separate entries when scope differs" do
+      tour.record_override!(rule: "r", scope: { "day_id" => 1 }, reason: "a")
+      tour.record_override!(rule: "r", scope: { "day_id" => 2 }, reason: "b")
+      expect(tour.reload.constraint_overrides.size).to eq(2)
+    end
+
+    it "normalizes scope: strips unknown keys, stringifies" do
+      tour.record_override!(rule: "r", scope: { day_id: 3, junk: "x" }, reason: "ok")
+      expect(tour.reload.constraint_overrides.first["scope"]).to eq({ "day_id" => 3 })
+    end
+  end
+
+  describe "#revoke_override!" do
+    let(:tour) { create(:tour) }
+
+    it "removes the matching override by (rule, scope)" do
+      tour.record_override!(rule: "r", scope: { "day_id" => 1 }, reason: "a")
+      tour.record_override!(rule: "r", scope: { "day_id" => 2 }, reason: "b")
+      tour.revoke_override!(rule: "r", scope: { "day_id" => 1 })
+      overrides = tour.reload.constraint_overrides
+      expect(overrides.size).to eq(1)
+      expect(overrides.first["scope"]).to eq({ "day_id" => 2 })
+    end
+
+    it "is a no-op when no match exists" do
+      tour.record_override!(rule: "r", scope: {}, reason: "a")
+      tour.revoke_override!(rule: "other", scope: {})
+      expect(tour.reload.constraint_overrides.size).to eq(1)
+    end
+  end
 end
