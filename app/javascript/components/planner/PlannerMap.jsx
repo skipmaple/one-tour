@@ -1,6 +1,6 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
 import { usePage } from '@inertiajs/react'
-import { Paper, Text } from '@mantine/core'
+import { Paper, Text, SegmentedControl, useMantineTheme } from '@mantine/core'
 import useAmap from '../../hooks/useAmap'
 
 // 10-color palette using Mantine theme color names. Cycles when day_index > 10.
@@ -150,6 +150,10 @@ export default function PlannerMap({ activities, days = [] }) {
   const authFailedRef = useRef(false)
   const [ authFailed, setAuthFailed ] = useState(false)
 
+  // View mode controls which activities show + whether polylines render.
+  // Not persisted (resets on refresh, like Backlog filter).
+  const [ viewMode, setViewMode ] = useState('all')
+
   // Create the map once the SDK is ready and the container is mounted.
   // AMAP 2.0 has no reliable JS event for auth failures — the error fires
   // as a console.error string. Patch console.error once to watch for the
@@ -235,6 +239,9 @@ export default function PlannerMap({ activities, days = [] }) {
       style={{ height: 260, position: 'relative', overflow: 'hidden', background: '#fafafa' }}
     >
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+      {sdkState === 'ready' && !authFailed && (
+        <ViewModeRadio value={viewMode} onChange={setViewMode} />
+      )}
       {sdkState === 'loading' && (
         <Overlay>地图加载中…</Overlay>
       )}
@@ -278,4 +285,35 @@ function escapeHtml(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;')
+}
+
+// Floating SegmentedControl in the top-right corner of the map.
+// Three modes:
+//   all     — every marker + polylines
+//   colored — only day-assigned markers + polylines
+//   backlog — only backlog markers, no polylines
+function ViewModeRadio({ value, onChange }) {
+  return (
+    <div style={{
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      zIndex: 2,
+      background: 'white',
+      borderRadius: 4,
+      padding: 2,
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+    }}>
+      <SegmentedControl
+        value={value}
+        onChange={onChange}
+        data={[
+          { value: 'all',     label: '全部' },
+          { value: 'colored', label: '按天着色' },
+          { value: 'backlog', label: '仅 backlog' },
+        ]}
+        size="xs"
+      />
+    </div>
+  )
 }
