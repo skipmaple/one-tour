@@ -97,6 +97,18 @@ RSpec.describe "Tours", type: :request do
       expect(response.body).to include("editor@test.com")
       expect(response.body).to include("editable_by_current_user")
     end
+
+    it "includes intensity_derived on each day in Inertia props" do
+      tour = create(:tour, author: user)
+      create(:day, tour: tour, day_index: 1, buffer_day: true)
+      create(:day, tour: tour, day_index: 2)
+
+      login_as(user)
+      get "/tours/#{tour.id}"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("intensity_derived")
+      expect(response.body).to include("green") # buffer_day=true day 1
+    end
   end
 
   describe "GET /tours index payload enrichment (I8)" do

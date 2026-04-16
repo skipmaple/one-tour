@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { MantineProvider, createTheme } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { Notifications } from '@mantine/notifications'
+import { DatesProvider } from '@mantine/dates'
 import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
+import '@mantine/dates/styles.css'
 import AppLayout from '../layouts/AppLayout'
 
 const theme = createTheme({
@@ -27,10 +29,12 @@ createInertiaApp({
   setup({ el, App, props }) {
     createRoot(el).render(
       <MantineProvider theme={theme}>
-        <ModalsProvider>
-          <Notifications />
-          <App {...props} />
-        </ModalsProvider>
+        <DatesProvider settings={{ locale: 'zh-cn', firstDayOfWeek: 1 }}>
+          <ModalsProvider>
+            <Notifications />
+            <App {...props} />
+          </ModalsProvider>
+        </DatesProvider>
       </MantineProvider>
     )
   },

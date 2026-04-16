@@ -12,6 +12,7 @@ import ConstitutionBanner from '../../components/planner/ConstitutionBanner'
 import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 import MembershipDrawer from '../../components/planner/MembershipDrawer'
+import DayEditModal from '../../components/planner/DayEditModal'
 
 export default function Show({ tour, days, activities, violations, members, author }) {
   const { current_user } = usePage().props
@@ -49,6 +50,10 @@ export default function Show({ tour, days, activities, violations, members, auth
 
   // Activity editor state
   const [editor, setEditor] = useState({ open: false, mode: 'create', activityId: null, targetDayId: null })
+
+  // Day edit state
+  const [editingDayId, setEditingDayId] = useState(null)
+  const editingDay = editingDayId ? days.find(d => d.id === editingDayId) : null
 
   const openCreate = (dayId) => setEditor({ open: true, mode: 'create', activityId: null, targetDayId: dayId })
   const openEdit = (activityId) => setEditor({ open: true, mode: 'edit', activityId, targetDayId: null })
@@ -105,6 +110,7 @@ export default function Show({ tour, days, activities, violations, members, auth
                   constitution={tour.constitution}
                   onAddActivity={canEdit ? openCreate : undefined}
                   onEditActivity={canEdit ? openEdit : undefined}
+                  onEditDay={canEdit ? setEditingDayId : undefined}
                   readOnly={!canEdit}
                 />
               ))}
@@ -145,6 +151,12 @@ export default function Show({ tour, days, activities, violations, members, auth
         tour={tour}
         members={members || []}
         author={author || { user_id: tour.author_id, email: '' }}
+      />
+
+      <DayEditModal
+        day={editingDay}
+        tourId={tour.id}
+        onClose={() => setEditingDayId(null)}
       />
     </div>
   )

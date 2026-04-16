@@ -2,7 +2,15 @@ import { Paper, Text, Stack, Group, Button } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
 import ActivityCard from './ActivityCard'
 
-export default function DayColumn({ day, activities, constitution, onAddActivity, onEditActivity, readOnly }) {
+const INTENSITY_COLORS = {
+  green:  '#4caf50',
+  yellow: '#fbc02d',
+  red:    '#e53935',
+}
+
+const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+export default function DayColumn({ day, activities, constitution, onAddActivity, onEditActivity, onEditDay, readOnly }) {
   const maxH = Math.round((constitution?.max_daily_driving_minutes || 420) / 60)
   const maxTier1 = constitution?.max_tier_one_per_day || 3
 
@@ -17,12 +25,48 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
     data: { dayId: day.id, position: activities.length + 1 }
   })
 
+  const dotColor = INTENSITY_COLORS[day.intensity_derived] || '#bbb'
+  const weekday = day.date ? WEEKDAY_LABELS[new Date(day.date).getDay()] : ''
+  const shortDate = day.date ? day.date.slice(5) : '—' // MM-DD
+
+  const handleHeaderClick = () => {
+    if (!readOnly && onEditDay) onEditDay(day.id)
+  }
+
   return (
     <Paper withBorder style={{ minWidth: 170, display: 'flex', flexDirection: 'column' }}>
-      <Group justify="space-between" p="xs" bg="gray.1">
-        <Text fw={600}>D{day.day_index}</Text>
-        <Text size="xs" c="dimmed">{day.date || '—'}</Text>
-      </Group>
+      <div
+        data-testid="day-header"
+        onClick={handleHeaderClick}
+        style={{
+          padding: 8,
+          background: 'var(--mantine-color-gray-1)',
+          cursor: readOnly ? 'default' : 'pointer'
+        }}
+      >
+        <Group gap={6} wrap="nowrap">
+          <span
+            data-testid="intensity-dot"
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: '50%',
+              background: dotColor,
+              flexShrink: 0
+            }}
+          />
+          <Text fw={600} size="sm">D{day.day_index}</Text>
+          <Text size="xs" c="dimmed">
+            {shortDate}{weekday && ` ${weekday}`}
+          </Text>
+        </Group>
+        {day.theme && (
+          <Text size="xs" c="dimmed" mt={2} lineClamp={2}>
+            {day.theme}
+          </Text>
+        )}
+      </div>
+
       {!readOnly && onAddActivity && (
         <div style={{ padding: '4px 8px' }}>
           <Button size="compact-xs" variant="light" fullWidth onClick={() => onAddActivity(day.id)}>

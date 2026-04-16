@@ -16,11 +16,12 @@ class ToursController < ApplicationController
 
   def show
     head :not_found and return unless @tour.visible_to?(current_user)
+    tour_violations = Tour::ConstitutionCheck.for(@tour).map(&:to_h)
     render inertia: "Tour/Show", props: {
       tour: @tour.as_json.merge("editable_by_current_user" => @tour.editable_by?(current_user)),
-      days: @tour.days.as_json,
+      days: @tour.days.map { |d| d.as_json.merge("intensity_derived" => d.intensity_derived(tour_violations).to_s) },
       activities: @tour.activities.as_json,
-      violations: Tour::ConstitutionCheck.for(@tour).map(&:to_h),
+      violations: tour_violations,
       members: @tour.tour_memberships.includes(:user).filter_map { |m|
         next unless m.user
         { id: m.id, user_id: m.user_id, email: m.user.email, role: m.role }
