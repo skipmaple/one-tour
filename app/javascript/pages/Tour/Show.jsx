@@ -14,8 +14,9 @@ import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 import MembershipDrawer from '../../components/planner/MembershipDrawer'
 import DayEditModal from '../../components/planner/DayEditModal'
+import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 
-export default function Show({ tour, days, activities, violations, members, author }) {
+export default function Show({ tour, days, activities, violations, members, author, conversation_empty }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const [chatOpen, setChatOpen] = useState(true)
@@ -74,6 +75,16 @@ export default function Show({ tour, days, activities, violations, members, auth
         // Clear the hash so navigating back doesn't re-open
         history.replaceState(null, '', window.location.pathname)
       }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // On mount, auto-start AI onboarding when this is a fresh tour.
+  // Conditions: user can edit (reader can't — AI would try to mutate) +
+  // backlog is empty (user hasn't started) +
+  // conversation has no messages (avoid re-triggering on refresh).
+  useEffect(() => {
+    if (canEdit && activities.length === 0 && conversation_empty) {
+      setPendingChatPrompt(ONBOARDING_SENTINEL)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

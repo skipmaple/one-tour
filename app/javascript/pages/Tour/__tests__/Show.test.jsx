@@ -34,12 +34,18 @@ vi.mock('@mantine/notifications', () => ({
   notifications: { show: vi.fn() },
 }))
 
+// Module-scope ref so tests can inspect what Show.jsx passed to ChatPanel.
+// Mutated (not reassigned) so the closure captured by vi.mock stays valid.
+const chatPanelProps = { pendingPrompt: undefined }
 vi.mock('../../../components/planner/ChatPanel', () => ({
-  default: ({ open, onToggle }) => (
-    <div>
-      {open ? <span>AI 对话</span> : <button onClick={onToggle}>展开 AI 对话</button>}
-    </div>
-  ),
+  default: (props) => {
+    chatPanelProps.pendingPrompt = props.pendingPrompt
+    return (
+      <div data-testid="chat-panel-stub">
+        {props.open ? <span>AI 对话</span> : <button onClick={props.onToggle}>展开 AI 对话</button>}
+      </div>
+    )
+  },
 }))
 
 const props = {
@@ -76,4 +82,68 @@ test('configures DndContext with drag start/end handlers', () => {
 test('renders DragOverlay container', () => {
   render(<MantineProvider><Show {...props} /></MantineProvider>)
   expect(screen.getByTestId('drag-overlay')).toBeInTheDocument()
+})
+
+test('triggers onboarding when activities empty + conversation_empty=true + canEdit=true', () => {
+  chatPanelProps.pendingPrompt = undefined
+  render(
+    <MantineProvider>
+      <Show
+        tour={{ id: 1, title: 'x', constitution: {}, editable_by_current_user: true }}
+        days={[]}
+        activities={[]}
+        violations={[]}
+        conversation_empty={true}
+      />
+    </MantineProvider>
+  )
+  expect(chatPanelProps.pendingPrompt).toBe('__onboarding_start__')
+})
+
+test('does NOT trigger onboarding when activities non-empty', () => {
+  chatPanelProps.pendingPrompt = undefined
+  render(
+    <MantineProvider>
+      <Show
+        tour={{ id: 1, title: 'x', constitution: {}, editable_by_current_user: true }}
+        days={[]}
+        activities={[{ id: 1, name: 'x', kind: 'scenic', citizen_level: 'tier_one', day_id: null }]}
+        violations={[]}
+        conversation_empty={true}
+      />
+    </MantineProvider>
+  )
+  expect(chatPanelProps.pendingPrompt).toBeNull()
+})
+
+test('does NOT trigger onboarding when conversation_empty=false', () => {
+  chatPanelProps.pendingPrompt = undefined
+  render(
+    <MantineProvider>
+      <Show
+        tour={{ id: 1, title: 'x', constitution: {}, editable_by_current_user: true }}
+        days={[]}
+        activities={[]}
+        violations={[]}
+        conversation_empty={false}
+      />
+    </MantineProvider>
+  )
+  expect(chatPanelProps.pendingPrompt).toBeNull()
+})
+
+test('does NOT trigger onboarding when canEdit=false (reader)', () => {
+  chatPanelProps.pendingPrompt = undefined
+  render(
+    <MantineProvider>
+      <Show
+        tour={{ id: 1, title: 'x', constitution: {}, editable_by_current_user: false }}
+        days={[]}
+        activities={[]}
+        violations={[]}
+        conversation_empty={true}
+      />
+    </MantineProvider>
+  )
+  expect(chatPanelProps.pendingPrompt).toBeNull()
 })
