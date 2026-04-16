@@ -8,6 +8,7 @@ export default function ConstitutionBanner({
   onFix = noop,
   onAcknowledge = noop,
   onDismiss = noop,
+  readOnly = false,
 }) {
   const [dismissed, setDismissed] = useState(new Set())
 
@@ -45,7 +46,7 @@ export default function ConstitutionBanner({
                 {v.level === 'hard' ? '⛔ ' : '⚠ '}{v.message}
               </Text>
               <Group gap="xs">
-                {v.level === 'hard' && (
+                {!readOnly && v.level === 'hard' && (
                   <Button size="compact-xs" color="red" onClick={() => onFix(v)}>
                     帮我修正 →
                   </Button>
@@ -54,14 +55,14 @@ export default function ConstitutionBanner({
                   size="compact-xs"
                   variant="default"
                   onClick={() => {
-                    if (v.level === 'hard') {
+                    if (v.level === 'hard' && !readOnly) {
                       onAcknowledge(v)
                     } else {
                       handleDismiss(i, v)
                     }
                   }}
                 >
-                  {v.level === 'hard' ? '承认此违反' : '知道了'}
+                  {v.level === 'hard' && !readOnly ? '承认此违反' : '知道了'}
                 </Button>
               </Group>
             </Group>

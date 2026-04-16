@@ -108,4 +108,11 @@ describe('ChatPanel', () => {
     expect(screen.getByText(/展开 AI 对话/)).toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/说点什么/)).not.toBeInTheDocument()
   })
+
+  test('auto-sends pendingPrompt and calls onPromptConsumed', () => {
+    const onPromptConsumed = vi.fn()
+    renderPanel({ pendingPrompt: '请分析 D3 驾驶超时', onPromptConsumed })
+    expect(mockState.send).toHaveBeenCalledWith('请分析 D3 驾驶超时')
+    expect(onPromptConsumed).toHaveBeenCalled()
+  })
 })

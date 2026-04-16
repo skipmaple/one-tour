@@ -2,7 +2,14 @@ import { Paper, Text, Button, Textarea, Stack, Group, Badge, Code } from '@manti
 import { useEffect, useRef, useState } from 'react'
 import useChat from '../../hooks/useChat'
 
-export default function ChatPanel({ tour, open, onToggle }) {
+export default function ChatPanel({ tour, open, onToggle, pendingPrompt, onPromptConsumed }) {
+  // Auto-expand and send when a pending prompt arrives (e.g. from ConstitutionBanner "帮我修正")
+  const needsExpand = pendingPrompt && !open
+
+  useEffect(() => {
+    if (needsExpand && onToggle) onToggle()
+  }, [needsExpand]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!open) {
     return (
       <Paper
@@ -21,12 +28,12 @@ export default function ChatPanel({ tour, open, onToggle }) {
         <Text fw={600} size="sm">AI 对话</Text>
         <Button size="compact-xs" variant="subtle" onClick={onToggle}>收起 ▸</Button>
       </Group>
-      <ChatBody tour={tour} />
+      <ChatBody tour={tour} pendingPrompt={pendingPrompt} onPromptConsumed={onPromptConsumed} />
     </Paper>
   )
 }
 
-function ChatBody({ tour }) {
+function ChatBody({ tour, pendingPrompt, onPromptConsumed }) {
   const { messages, streaming, pendingToolCalls, error, send } = useChat({ tourId: tour.id })
   const [ text, setText ] = useState('')
   const scrollRef = useRef(null)
@@ -37,6 +44,14 @@ function ChatBody({ tour }) {
       el.scrollTo({ top: el.scrollHeight })
     }
   }, [ messages, pendingToolCalls, streaming ])
+
+  // Auto-send pending prompt from ConstitutionBanner
+  useEffect(() => {
+    if (pendingPrompt && !streaming) {
+      send(pendingPrompt)
+      if (onPromptConsumed) onPromptConsumed()
+    }
+  }, [pendingPrompt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSend = () => {
     const trimmed = text.trim()

@@ -1,7 +1,9 @@
 import { createInertiaApp } from '@inertiajs/react'
 import { createRoot } from 'react-dom/client'
 import { MantineProvider, createTheme } from '@mantine/core'
+import { Notifications } from '@mantine/notifications'
 import '@mantine/core/styles.css'
+import '@mantine/notifications/styles.css'
 import AppLayout from '../layouts/AppLayout'
 
 const theme = createTheme({
@@ -11,7 +13,10 @@ const theme = createTheme({
 
 createInertiaApp({
   resolve: name => {
-    const pages = import.meta.glob('../pages/**/*.jsx', { eager: true })
+    const pages = import.meta.glob(
+      ['../pages/**/*.jsx', '!../pages/**/__tests__/**', '!../pages/**/*.test.jsx'],
+      { eager: true }
+    )
     const page = pages[`../pages/${name}.jsx`]
     if (!page.default.layout) {
       page.default.layout = (page) => <AppLayout>{page}</AppLayout>
@@ -21,6 +26,7 @@ createInertiaApp({
   setup({ el, App, props }) {
     createRoot(el).render(
       <MantineProvider theme={theme}>
+        <Notifications />
         <App {...props} />
       </MantineProvider>
     )

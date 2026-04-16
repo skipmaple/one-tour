@@ -8,6 +8,7 @@ import PlannerMap from '../../components/planner/PlannerMap'
 import ChatPanel from '../../components/planner/ChatPanel'
 import ConstitutionBanner from '../../components/planner/ConstitutionBanner'
 import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
+import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 
 export default function Show({ tour, days, activities, violations }) {
   const { current_user } = usePage().props
@@ -16,6 +17,10 @@ export default function Show({ tour, days, activities, violations }) {
   const backlog = activities.filter(a => !a.day_id)
   const byDay = Object.fromEntries(days.map(d => [ d.id, activities.filter(a => a.day_id === d.id) ]))
   const nextDayIndex = days.length === 0 ? 1 : Math.max(...days.map(d => d.day_index)) + 1
+
+  // Violation acknowledge state
+  const [acknowledgingViolation, setAcknowledgingViolation] = useState(null)
+  const [pendingChatPrompt, setPendingChatPrompt] = useState(null)
 
   // Activity editor state
   const [editor, setEditor] = useState({ open: false, mode: 'create', activityId: null, targetDayId: null })
@@ -31,7 +36,13 @@ export default function Show({ tour, days, activities, violations }) {
       <Head title={tour.title} />
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div style={{ padding: 10 }}>
-          <ConstitutionBanner violations={violations} />
+          <ConstitutionBanner
+            violations={violations}
+            onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
+            onAcknowledge={(v) => setAcknowledgingViolation(v)}
+            onDismiss={() => {}}
+            readOnly={!canEdit}
+          />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: `260px 1fr ${chatOpen ? 320 : 36}px`, gap: 10, padding: 10 }}>
           <BacklogList
@@ -57,7 +68,13 @@ export default function Show({ tour, days, activities, violations }) {
               <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />
             </div>
           </div>
-          <ChatPanel tour={tour} open={chatOpen} onToggle={() => setChatOpen(!chatOpen)} />
+          <ChatPanel
+            tour={tour}
+            open={chatOpen}
+            onToggle={() => setChatOpen(!chatOpen)}
+            pendingPrompt={pendingChatPrompt}
+            onPromptConsumed={() => setPendingChatPrompt(null)}
+          />
         </div>
       </DndContext>
 
@@ -68,6 +85,12 @@ export default function Show({ tour, days, activities, violations }) {
         mode={editor.mode}
         activity={editingActivity}
         targetDayId={editor.targetDayId}
+      />
+
+      <AcknowledgeModal
+        violation={acknowledgingViolation}
+        tourId={tour.id}
+        onClose={() => setAcknowledgingViolation(null)}
       />
     </div>
   )
@@ -91,6 +114,10 @@ export default function Show({ tour, days, activities, violations }) {
       }
     )
   }
+}
+
+function fixPromptFor(v) {
+  return `请分析 ${v.message} 的硬违反，给我 3 个修正方案，每个说明原因、对其他日的影响，以及整程天数/体验是否变化。`
 }
 
 function AddDayButton({ tour, nextDayIndex, empty }) {

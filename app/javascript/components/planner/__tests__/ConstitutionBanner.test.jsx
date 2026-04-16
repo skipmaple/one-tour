@@ -53,3 +53,13 @@ test('dismisses soft violation locally when 知道了 clicked', () => {
   expect(onDismiss).toHaveBeenCalledWith(violation)
   expect(screen.queryByText(/soft issue/)).not.toBeInTheDocument()
 })
+
+test('hides 帮我修正 and 承认此违反 when readOnly', () => {
+  renderWithMantine(<ConstitutionBanner
+    violations={[{ level: 'hard', rule: 'r', scope: {}, message: 'hard issue' }]}
+    readOnly
+  />)
+  expect(screen.queryByRole('button', { name: /帮我修正/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '承认此违反' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '知道了' })).toBeInTheDocument()
+})
