@@ -10,7 +10,7 @@ const INTENSITY_COLORS = {
 
 const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-export default function DayColumn({ day, activities, constitution, onAddActivity, onEditActivity, onEditDay, readOnly }) {
+export default function DayColumn({ day, activities, constitution, onAddActivity, onEditActivity, onEditDay, readOnly, dragWarning }) {
   const maxH = Math.round((constitution?.max_daily_driving_minutes || 420) / 60)
   const maxTier1 = constitution?.max_tier_one_per_day || 3
 
@@ -67,6 +67,17 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
         )}
       </div>
 
+      {dragWarning && (
+        <div style={{
+          padding: '4px 8px',
+          background: '#fef0f0',
+          border: '1px solid #c33',
+          color: '#c33',
+          fontSize: 11
+        }}>
+          ⚠ 加入后驾驶 {Math.round(dragWarning.total)}/{dragWarning.limit} min
+        </div>
+      )}
       {!readOnly && onAddActivity && (
         <div style={{ padding: '4px 8px' }}>
           <Button size="compact-xs" variant="light" fullWidth onClick={() => onAddActivity(day.id)}>
@@ -74,7 +85,11 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
           </Button>
         </div>
       )}
-      <Stack gap={4} p="xs" ref={setNodeRef} style={{ flex: 1, minHeight: 140, background: isOver ? '#f0f7ff' : undefined }}>
+      <Stack gap={4} p="xs" ref={setNodeRef} style={{
+        flex: 1, minHeight: 140,
+        background: isOver ? '#f0f7ff' : undefined,
+        border: dragWarning ? '1px solid var(--mantine-color-red-6)' : undefined
+      }}>
         {activities.map(a => (
           <ActivityCard key={a.id} activity={a} onClick={onEditActivity} readOnly={readOnly} />
         ))}

@@ -23,6 +23,7 @@ export default function Show({ tour, days, activities, violations, members, auth
 
   // Drag overlay state
   const [activeId, setActiveId] = useState(null)
+  const [ dragWarning, setDragWarning ] = useState(null)
 
   // Optimistic drag state — overrides server activities until server confirms.
   // Shape: { [activityId]: { day_id, position } }
@@ -94,8 +95,9 @@ export default function Show({ tour, days, activities, violations, members, auth
       <DndContext
         collisionDetection={closestCenter}
         onDragStart={({ active }) => setActiveId(active.id)}
-        onDragEnd={(e) => { setActiveId(null); handleDragEnd(e) }}
-        onDragCancel={() => setActiveId(null)}
+        onDragOver={({ active, over }) => updateDragWarning(active, over)}
+        onDragEnd={(e) => { setActiveId(null); setDragWarning(null); handleDragEnd(e) }}
+        onDragCancel={() => { setActiveId(null); setDragWarning(null) }}
         autoScroll={{ acceleration: 10, threshold: { x: 0.15, y: 0.15 } }}
       >
         <div style={{ padding: 10 }}>
@@ -140,6 +142,7 @@ export default function Show({ tour, days, activities, violations, members, auth
                   onEditActivity={canEdit ? openEdit : undefined}
                   onEditDay={canEdit ? setEditingDayId : undefined}
                   readOnly={!canEdit}
+                  dragWarning={dragWarning?.dayId === d.id ? dragWarning : null}
                 />
               ))}
               <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />
@@ -188,6 +191,31 @@ export default function Show({ tour, days, activities, violations, members, auth
       />
     </div>
   )
+
+  function updateDragWarning(active, over) {
+    if (!over) { setDragWarning(null); return }
+    const targetDayId = over.data.current?.dayId
+    if (!targetDayId) { setDragWarning(null); return }
+
+    const activityId = Number(String(active.id).replace(/^activity-/, ''))
+    const draggedActivity = displayActivities.find(a => a.id === activityId)
+    if (!draggedActivity) { setDragWarning(null); return }
+
+    if (draggedActivity.day_id === targetDayId) { setDragWarning(null); return }
+
+    const targetDayActs = displayActivities.filter(a => a.day_id === targetDayId)
+    const currentDriveMin = targetDayActs.reduce((sum, a) =>
+      sum + (parseInt(a.details?.drive_min || 0, 10) || 0), 0)
+    const incomingDriveMin = parseInt(draggedActivity.details?.drive_min || 0, 10) || 0
+    const total = currentDriveMin + incomingDriveMin
+    const limit = tour.constitution?.max_daily_driving_minutes || 420
+
+    if (total > limit) {
+      setDragWarning({ dayId: targetDayId, current: currentDriveMin, incoming: incomingDriveMin, limit, total })
+    } else {
+      setDragWarning(null)
+    }
+  }
 
   function handleDragEnd({ active, over }) {
     if (!over) return
