@@ -1,15 +1,12 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 
-export default function ActivityCard({ activity }) {
+export default function ActivityCard({ activity, onClick, readOnly }) {
   const isRoadInfra = activity.kind === 'road' && activity.citizen_level === 'infrastructure'
   const isTierOne = activity.citizen_level === 'tier_one'
 
-  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: setDragRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: `activity-${activity.id}`
   })
-  // The same card is also a drop target: dropping the dragged card *onto* another
-  // card means "insert before that card", which is how we derive to_position
-  // without always appending. day_id may be null (backlog).
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `activity-drop-${activity.id}`,
     data: { dayId: activity.day_id, position: activity.position }
@@ -17,26 +14,51 @@ export default function ActivityCard({ activity }) {
 
   const setRef = (el) => { setDragRef(el); setDropRef(el) }
 
+  const handleClick = () => {
+    if (!readOnly && onClick) onClick(activity.id)
+  }
+
   const style = {
+    display: 'flex',
+    alignItems: 'stretch',
     border: isTierOne ? '1px solid #c80' : (isRoadInfra ? '1px dashed #bbb' : '1px solid #bbb'),
     background: isOver ? '#dbeafe' : (isTierOne ? '#fffaf0' : (isRoadInfra ? '#f5f5f5' : '#fafafa')),
     fontStyle: isRoadInfra ? 'italic' : 'normal',
-    padding: '4px 6px',
     marginBottom: 4,
     fontSize: 12,
-    cursor: 'grab',
     opacity: isDragging ? 0.4 : 1
   }
 
   return (
-    <div ref={setRef} style={style} {...attributes} {...listeners}>
-      <strong>{levelLabel(activity.citizen_level)} · {kindLabel(activity.kind)}</strong> {activity.name}
-      {activity.planned_start_at && (
-        <div style={{ fontSize: 10, color: '#888' }}>
-          {activity.planned_start_at}
-          {activity.planned_duration_min ? ` · ${activity.planned_duration_min} 分` : ''}
-        </div>
-      )}
+    <div ref={setRef} style={style} {...attributes}>
+      <div
+        ref={setActivatorNodeRef}
+        {...listeners}
+        data-testid="grab-handle"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          padding: '4px 2px',
+          cursor: 'grab',
+          color: '#999',
+          fontSize: 10,
+          userSelect: 'none'
+        }}
+      >
+        ⋮⋮
+      </div>
+      <div
+        onClick={handleClick}
+        style={{ flex: 1, padding: '4px 6px', cursor: readOnly ? 'default' : 'pointer' }}
+      >
+        <strong>{levelLabel(activity.citizen_level)} · {kindLabel(activity.kind)}</strong> {activity.name}
+        {activity.planned_start_at && (
+          <div style={{ fontSize: 10, color: '#888' }}>
+            {activity.planned_start_at}
+            {activity.planned_duration_min ? ` · ${activity.planned_duration_min} 分` : ''}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

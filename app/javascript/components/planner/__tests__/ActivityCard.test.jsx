@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { DndContext } from '@dnd-kit/core'
+import { vi } from 'vitest'
 import ActivityCard from '../ActivityCard'
 
 function renderInDnd(ui) {
@@ -23,4 +24,23 @@ test('road infrastructure uses italic+dashed style', () => {
   renderInDnd(<ActivityCard activity={{ id: 1, name: '通勤', kind: 'road', citizen_level: 'infrastructure' }} />)
   expect(screen.getByText('通勤')).toBeInTheDocument()
   expect(screen.getByText(/基础/)).toBeInTheDocument()
+})
+
+test('renders a grab handle element', () => {
+  renderInDnd(<ActivityCard activity={{ id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three' }} />)
+  expect(screen.getByTestId('grab-handle')).toBeInTheDocument()
+})
+
+test('fires onClick when card body is clicked', () => {
+  const onClick = vi.fn()
+  renderInDnd(<ActivityCard activity={{ id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three' }} onClick={onClick} />)
+  fireEvent.click(screen.getByText('X'))
+  expect(onClick).toHaveBeenCalledWith(1)
+})
+
+test('does not fire onClick when readOnly', () => {
+  const onClick = vi.fn()
+  renderInDnd(<ActivityCard activity={{ id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three' }} onClick={onClick} readOnly />)
+  fireEvent.click(screen.getByText('X'))
+  expect(onClick).not.toHaveBeenCalled()
 })
