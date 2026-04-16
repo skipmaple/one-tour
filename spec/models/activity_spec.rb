@@ -1,6 +1,30 @@
 require "rails_helper"
 
 RSpec.describe Activity do
+  describe "#as_json" do
+    let(:tour) { create(:tour) }
+
+    it "formats planned_start_at as HH:MM string" do
+      activity = create(:activity, tour: tour, planned_start_at: "14:30")
+      expect(activity.as_json["planned_start_at"]).to eq("14:30")
+    end
+
+    it "leaves planned_start_at nil when unset" do
+      activity = create(:activity, tour: tour, planned_start_at: nil)
+      expect(activity.as_json["planned_start_at"]).to be_nil
+    end
+
+    it "zero-pads hours and minutes" do
+      activity = create(:activity, tour: tour, planned_start_at: "09:05")
+      expect(activity.as_json["planned_start_at"]).to eq("09:05")
+    end
+
+    it "honors :only option without forcing planned_start_at to appear" do
+      activity = create(:activity, tour: tour, planned_start_at: "10:00", name: "X")
+      expect(activity.as_json(only: [ :name ])).to eq("name" => "X")
+    end
+  end
+
   describe "enums" do
     it "has kind with 6 values" do
       expect(Activity.kinds.keys).to eq(%w[scenic road food stay fuel other])

@@ -12,6 +12,18 @@ class Activity < ApplicationRecord
   validate  :details_is_hash
   validate  :details_size_within_limit
 
+  # Override default `as_json` so the `time`-typed `planned_start_at` column
+  # serializes as an `HH:MM` string instead of Rails' default ISO 8601 datetime
+  # (`2000-01-01T14:30:00.000Z`). The frontend (Planner cards, Timeline cards,
+  # ActivityDrawer time input, DayDetailPanel parseHour) all expect HH:MM.
+  def as_json(options = nil)
+    super.tap do |hash|
+      if hash.key?("planned_start_at") && planned_start_at.present?
+        hash["planned_start_at"] = planned_start_at.strftime("%H:%M")
+      end
+    end
+  end
+
   private
     def details_is_hash
       return if details.nil? || details.is_a?(Hash)
