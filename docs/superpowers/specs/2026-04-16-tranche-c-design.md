@@ -23,6 +23,24 @@ Tranche C 把这条 "0→1" 路径做出来。
 
 不在本 spec：年表 / Membership UI / drag-drop 细节（前面 tranche 已做）；"小 polish" 跳过；onboarding 中断恢复 UI。
 
+### 0.x · 开发环境验收实录（2026-04-16）
+
+用 chrome-devtools-mcp 走了一遍 "fresh user → 新建 Tour → Planner" 路径（新 user fresh-c@example.com 创建 Tour #9），对照实际看见的状态补齐 spec 里漏掉的点：
+
+**实际现状**（截图 `/tmp/tc-2-planner-empty.png`）：
+1. Tour 新建后默认标题 `新旅程`（controller 创建时从 tour_params 接收，缺省值来自前端"新建 Tour"按钮传的默认）
+2. Constitution 页 → 点 "使用默认宪法" → 落到 `/tours/:id`，Planner 打开，Chat 默认展开
+3. Backlog 区域同时显示两个 UI 元素：
+   - 标题下方的 `+ 加一个` 按钮（来自 `!readOnly && onAddActivity` 守门）
+   - "尚无候选。可手动添加或让 AI 帮忙。" 文案
+   → **与 Tranche C §3 的"空态三按钮框"会冲突**——需要明确"empty 时隐藏顶部 `+ 加一个`，只显示 dashed 三按钮框"
+4. Days 区域显示 empty-state `AddDayButton`（"还没有 Day / 从第 1 天开始 / + 新建 Day 1"）——Tranche C §1 自动建 D1 后这个 empty-state 完全不再出现，只剩 D1 column + `+ Day 2` 细条
+5. **ConstitutionBanner 立即出现 soft violation**："整程 0 个机动日（建议 ≥ 1）"——新 tour 0 activity 0 day 却立即被提示。不是 Tranche C 的 bug（是 Tranche A 落地的 `ConstitutionCheck` 行为），但**会让 onboarding 开场视觉挤**。见 §4 "不做的"选项
+6. Chat panel 已展开但 textarea **不主动聚焦**（`textarea_focused: false`）——onboarding trigger 是自动播一条 sentinel，textarea 会短暂占满，无妨
+7. 成员按钮显示（Tranche A/B 改动已生效）
+
+这次实录核心影响了 §3.1 的渲染逻辑描述（不再只是"替换文案"，而是"空态整体换成 dashed 框并隐藏顶部 `+ 加一个`"）。
+
 ---
 
 ## 0 · 子块依赖关系
@@ -260,17 +278,26 @@ reader 不触发（前端 `canEdit` 守门）。即使 reader 通过 URL 强进 
 
 ### 3.1 行为
 
-`BacklogList` 当 `activities.length === 0`：
+`BacklogList` 渲染分三种模式，**前两种互斥**——一个 activity 都没时走 empty 模式、有 1 个以上走 normal 模式：
 
-- **editable mode (`!readOnly`)**：显示 dashed 边框框，内含：
-  - 顶部小字："先把想去的点塞进这里，再拖到右侧 Day"
-  - Button 1 (primary)：`+ 手动添加 activity` → 调 `onAddActivity(null)`
-  - Button 2 (default)：`💬 让 AI 帮列候选` → 调 `onAskAI`
-  - Button 3 (subtle, 小)：`▸ 跳到 Chat 输入框` → 调 `onFocusChat`
+- **empty mode (`activities.length === 0 && !readOnly`)**：
+  - **隐藏**顶部的 `+ 加一个` 按钮（现有 `{!readOnly && onAddActivity && (...)}` 守门改为 `{!readOnly && onAddActivity && activities.length > 0 && (...)}`）
+  - **隐藏**现有筛选 selects（空列表筛什么）
+  - 显示 dashed 边框的空态框，内含：
+    - 顶部小字："先把想去的点塞进这里，再拖到右侧 Day"
+    - Button 1 (primary, fullWidth)：`+ 手动添加 activity` → 调 `onAddActivity(null)`
+    - Button 2 (default, fullWidth)：`💬 让 AI 帮列候选` → 调 `onAskAI`
+    - Button 3 (subtle, xs)：`▸ 跳到 Chat 输入框` → 调 `onFocusChat`
+  - **不**显示老文案 "尚无候选。可手动添加或让 AI 帮忙。"——被空态框替换
 
-- **readOnly mode**：显示简单文案 "尚无候选" 不带 CTA
+- **empty + readOnly mode (`activities.length === 0 && readOnly`)**：
+  - 隐藏顶部 `+ 加一个`（readOnly 本来就隐藏）
+  - 隐藏筛选 selects（reader 在空列表上筛没意义，避免视觉噪音——但这是可选优化，保留筛选也无害）
+  - 只显示简单文案 "尚无候选" 不带 CTA
 
-如果 backlog **不**为空（哪怕只有 1 个 activity）：完全不显示这个空态框，正常列卡片（保持现有行为）。
+- **normal mode (`activities.length > 0`)**：保持现有行为——顶部 `+ 加一个` 按钮 + 筛选 selects + activity 列表。过滤结果为空时显示现有的 "无匹配的候选。调整筛选或清空条件。" 文案（这是**筛没筛出来**的状态，不是**真的空**）。
+
+注意：`filtered.length === 0 && activities.length > 0` 仍走 normal mode + "无匹配" 文案——**不**要把这个和 empty mode 混淆。
 
 ### 3.2 新 props on BacklogList
 
@@ -316,11 +343,13 @@ const askAIPrompt = '请帮我再列一些候选 activity 到 backlog'
 ### 3.5 测试
 
 **Vitest**（新增）：
-- 空态 + editable：显示 3 个按钮、显示提示文案
-- 空态 + readOnly：只显示 "尚无候选" 文案
+- empty + editable：显示 3 个按钮、显示 "先把想去的点..." 提示
+- empty + editable：**不**显示顶部 `+ 加一个` 按钮
+- empty + readOnly：只显示 "尚无候选" 文案，无 CTA
 - 点 "💬 让 AI 帮列候选" 调 `onAskAI`
 - 点 "▸ 跳到 Chat 输入框" 调 `onFocusChat`
-- backlog 非空时不显示空态框（已有筛选测试可覆盖）
+- backlog 非空时：空态框不渲染；顶部 `+ 加一个` 正常显示（已有筛选测试覆盖大部分）
+- filtered empty（有 activity 但筛掉了）走 normal mode + "无匹配"，**不**走 empty mode
 
 ---
 
@@ -337,6 +366,7 @@ const askAIPrompt = '请帮我再列一些候选 activity 到 backlog'
   - 多语言提示文案
   - "小 polish"（line 502 提到但跳过）
   - Onboarding 中断恢复 UI（conversation 历史天然恢复）
+  - **压制"空 tour 立即触发 soft violation"**：dev 验收发现新建 Tour 打开 Planner 立即显示 "整程 0 个机动日（建议 ≥ 1）" 横幅。会和 onboarding 开场抢视觉焦点。但这是 `Tour::ConstitutionCheck#check_buffer_days` 的既有行为——Tranche A 落地。若本 spec 要改这个，等同于改宪法检查的触发条件，超出 "0→1 路径" 的 scope。若后续 Tranche D 想处理，选项包括：(a) 空 tour 时整体抑制 banner、(b) 把 `min_buffer_days` soft → 只在 activities.count > 0 时才 check、(c) auto-seed D1 时设 `buffer_day: true`（但这会影响后续 AI onboarding 对 day 的设定）。三选一要产品决策，不在此
 
 ---
 
@@ -347,9 +377,11 @@ const askAIPrompt = '请帮我再列一些候选 activity 到 backlog'
 | 1 JS 常量文件（onboarding.js）| Tour model · ToursController · ChatStreamJob · Show.jsx · ChatPanel · BacklogList |
 | **总**: 1 新文件 | 6 修改文件 |
 
-RSpec 预期 +5（Tour seed_first_day ×2、ToursController conversation_empty ×1、AI tool create_day idempotency 兜底 ×1、ChatStreamJob system_prompt 含 onboarding 段 ×1）。Vitest 预期 +9（BacklogList 空态 ×4、Show.jsx mount onboarding trigger ×3、ChatPanel sentinel skip ×2）。
+RSpec 预期 +5（Tour seed_first_day ×2、ToursController conversation_empty ×1、AI tool create_day idempotency 兜底 ×1、ChatStreamJob system_prompt 含 onboarding 段 ×1）。Vitest 预期 +10（BacklogList empty mode ×5、BacklogList normal-vs-empty 边界 ×1、Show.jsx mount onboarding trigger ×2、ChatPanel sentinel skip ×2）。
 
-潜在影响：Tour factory 改动后部分现有 spec 里的 `create(:day, tour: ..., day_index: 1)` 调用需修复——plan 阶段逐个梳理（grep 范围已知）。
+潜在影响：
+- Tour factory 改动后部分现有 spec 里的 `create(:day, tour: ..., day_index: 1)` 调用需修复——plan 阶段逐个梳理（grep 范围已知）。
+- Tour index 页创建 tour 时传的默认 `title`（当前看到落到 `新旅程`）不在此 spec 范围——如果未来想在新建时弹标题输入框，放 "小 polish" 再议。
 
 ---
 
