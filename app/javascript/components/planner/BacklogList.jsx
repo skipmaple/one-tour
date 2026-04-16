@@ -8,7 +8,7 @@ export default function BacklogList({ activities, onAddActivity, onEditActivity,
     data: { dayId: null, position: activities.length + 1 }
   })
   return (
-    <Paper withBorder p="sm" ref={setNodeRef} style={{ background: isOver ? '#e8f0fb' : undefined }}>
+    <Paper withBorder p="sm" ref={setNodeRef} style={{ background: isOver ? '#f0f7ff' : undefined }}>
       <Title order={5} mb="xs">Backlog（候选池）</Title>
       {!readOnly && onAddActivity && (
         <Button size="compact-xs" variant="light" fullWidth mb="xs" onClick={() => onAddActivity(null)}>

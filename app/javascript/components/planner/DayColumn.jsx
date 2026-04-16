@@ -30,7 +30,7 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
           </Button>
         </div>
       )}
-      <Stack gap={4} p="xs" ref={setNodeRef} style={{ flex: 1, minHeight: 140, background: isOver ? '#e8f0fb' : undefined }}>
+      <Stack gap={4} p="xs" ref={setNodeRef} style={{ flex: 1, minHeight: 140, background: isOver ? '#f0f7ff' : undefined }}>
         {activities.map(a => (
           <ActivityCard key={a.id} activity={a} onClick={onEditActivity} readOnly={readOnly} />
         ))}

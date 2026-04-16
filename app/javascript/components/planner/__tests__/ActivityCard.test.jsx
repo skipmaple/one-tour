@@ -3,6 +3,16 @@ import { DndContext } from '@dnd-kit/core'
 import { vi } from 'vitest'
 import ActivityCard from '../ActivityCard'
 
+// Allow tests to override useDroppable return (used by insert-indicator test)
+const mockDroppableReturn = { current: { setNodeRef: () => {}, isOver: false } }
+vi.mock('@dnd-kit/core', async () => {
+  const actual = await vi.importActual('@dnd-kit/core')
+  return {
+    ...actual,
+    useDroppable: () => mockDroppableReturn.current,
+  }
+})
+
 function renderInDnd(ui) {
   return render(<DndContext>{ui}</DndContext>)
 }
@@ -43,4 +53,17 @@ test('does not fire onClick when readOnly', () => {
   renderInDnd(<ActivityCard activity={{ id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three' }} onClick={onClick} readOnly />)
   fireEvent.click(screen.getByText('X'))
   expect(onClick).not.toHaveBeenCalled()
+})
+
+test('shows drop indicator when isOver=true', () => {
+  mockDroppableReturn.current = { setNodeRef: () => {}, isOver: true }
+  renderInDnd(<ActivityCard activity={{ id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three' }} />)
+  expect(screen.getByTestId('drop-indicator')).toBeInTheDocument()
+  mockDroppableReturn.current = { setNodeRef: () => {}, isOver: false } // reset
+})
+
+test('hides drop indicator when isOver=false', () => {
+  mockDroppableReturn.current = { setNodeRef: () => {}, isOver: false }
+  renderInDnd(<ActivityCard activity={{ id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three' }} />)
+  expect(screen.queryByTestId('drop-indicator')).not.toBeInTheDocument()
 })

@@ -22,15 +22,33 @@ export default function ActivityCard({ activity, onClick, readOnly }) {
     display: 'flex',
     alignItems: 'stretch',
     border: isTierOne ? '1px solid #c80' : (isRoadInfra ? '1px dashed #bbb' : '1px solid #bbb'),
-    background: isOver ? '#dbeafe' : (isTierOne ? '#fffaf0' : (isRoadInfra ? '#f5f5f5' : '#fafafa')),
+    background: isTierOne ? '#fffaf0' : (isRoadInfra ? '#f5f5f5' : '#fafafa'),
     fontStyle: isRoadInfra ? 'italic' : 'normal',
     marginBottom: 4,
     fontSize: 12,
-    opacity: isDragging ? 0.4 : 1
+    opacity: isDragging ? 0.4 : 1,
+    position: 'relative'
   }
 
   return (
     <div ref={setRef} style={style} {...attributes}>
+      {isOver && (
+        <div
+          data-testid="drop-indicator"
+          style={{
+            position: 'absolute',
+            top: -3,
+            left: 0,
+            right: 0,
+            height: 3,
+            background: '#1677ff',
+            borderRadius: 2,
+            boxShadow: '0 0 6px rgba(22, 119, 255, 0.4)',
+            pointerEvents: 'none',
+            zIndex: 1
+          }}
+        />
+      )}
       <div
         ref={setActivatorNodeRef}
         {...listeners}
