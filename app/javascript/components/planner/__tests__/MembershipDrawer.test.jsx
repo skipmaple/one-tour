@@ -5,13 +5,15 @@ import { Notifications } from '@mantine/notifications'
 import { vi } from 'vitest'
 import MembershipDrawer from '../MembershipDrawer'
 
+// Mutable so individual tests can swap the "logged-in" user (author vs reader).
+const mockCurrentUser = { current: { id: 1, email: 'author@test.com' } }
 vi.mock('@inertiajs/react', () => ({
   router: {
     post: vi.fn((url, data, opts) => opts?.onSuccess?.()),
     patch: vi.fn((url, data, opts) => opts?.onSuccess?.()),
     delete: vi.fn((url, opts) => opts?.onSuccess?.()),
   },
-  usePage: () => ({ props: { current_user: { id: 1, email: 'author@test.com' } } }),
+  usePage: () => ({ props: { current_user: mockCurrentUser.current } }),
 }))
 
 const tour = { id: 42, title: 'Test' }
@@ -62,4 +64,39 @@ test('shows remove button for members when user is author', () => {
 test('renders permission matrix in accordion', () => {
   renderDrawer()
   expect(screen.getByText('权限矩阵')).toBeInTheDocument()
+})
+
+describe('reader mode (current user is non-author)', () => {
+  beforeEach(() => {
+    // Pretend the logged-in user is the reader member (id=3), not the author.
+    mockCurrentUser.current = { id: 3, email: 'reader@test.com' }
+  })
+
+  afterEach(() => {
+    mockCurrentUser.current = { id: 1, email: 'author@test.com' }
+  })
+
+  test('reader can see author and member rows', () => {
+    renderDrawer()
+    expect(screen.getByText('author@test.com')).toBeInTheDocument()
+    expect(screen.getByText('editor@test.com')).toBeInTheDocument()
+    expect(screen.getByText('reader@test.com')).toBeInTheDocument()
+  })
+
+  test('reader sees "仅作者可改成员" hint and disabled invite controls', () => {
+    renderDrawer()
+    expect(screen.getByText('仅作者可改成员')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '邀请' })).toBeDisabled()
+    expect(screen.getByPlaceholderText('email@example.com')).toBeDisabled()
+  })
+
+  test('reader does not see remove buttons on member rows', () => {
+    renderDrawer()
+    expect(screen.queryAllByRole('button', { name: '移除' })).toHaveLength(0)
+  })
+
+  test('reader sees permission matrix accordion', () => {
+    renderDrawer()
+    expect(screen.getByText('权限矩阵')).toBeInTheDocument()
+  })
 })

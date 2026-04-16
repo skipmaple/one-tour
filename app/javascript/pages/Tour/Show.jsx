@@ -91,15 +91,13 @@ export default function Show({ tour, days, activities, violations, members, auth
           <TourTabs tour={tour} active="planner" />
           <Group justify="space-between" mb="xs" mt="xs">
             <Text fw={700} size="lg">{tour.title}</Text>
-            {canEdit && (
-              <Button
-                size="compact-xs"
-                variant="default"
-                onClick={() => setMembersDrawerOpen(true)}
-              >
-                成员
-              </Button>
-            )}
+            <Button
+              size="compact-xs"
+              variant="default"
+              onClick={() => setMembersDrawerOpen(true)}
+            >
+              成员
+            </Button>
           </Group>
           <ConstitutionBanner
             violations={violations}
