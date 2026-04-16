@@ -15,6 +15,7 @@ Rails.application.routes.draw do
   # Tours (Trip Planner)
   resources :tours, except: [ :new, :edit ] do
     resource  :constitution, only: [ :show, :update ], controller: "tours/constitutions"
+    resource  :overrides, only: [ :create, :destroy ], controller: :constraint_overrides
     resources :members, controller: :tour_memberships, only: [ :create, :update, :destroy ]
     resources :days, only: [ :create, :update, :destroy ] do
       resources :activities, only: [ :create ]
@@ -28,6 +29,8 @@ Rails.application.routes.draw do
   resources :activities, only: [ :update, :destroy ] do
     resource :position, only: [ :update ], controller: :activity_positions
   end
+
+  get "/poi_search", to: "poi_searches#index"
 
   # Login page
   get "/login", to: "sessions#new"
