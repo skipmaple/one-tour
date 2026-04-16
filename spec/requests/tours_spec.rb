@@ -83,6 +83,22 @@ RSpec.describe "Tours", type: :request do
     end
   end
 
+  describe "GET /tours/:id props" do
+    it "includes members and author in Inertia props" do
+      tour = create(:tour, author: user)
+      editor = create(:user, email: "editor@test.com")
+      create(:tour_membership, tour: tour, user: editor, role: :editor)
+
+      login_as(user)
+      get "/tours/#{tour.id}"
+      expect(response).to have_http_status(:ok)
+      expect(response.body).to include("members")
+      expect(response.body).to include("author")
+      expect(response.body).to include("editor@test.com")
+      expect(response.body).to include("editable_by_current_user")
+    end
+  end
+
   describe "GET /tours index payload enrichment (I8)" do
     it "includes days_count, activities_count, health, my_role, last_activity_at" do
       tour = create(:tour, author: user)

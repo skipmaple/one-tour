@@ -1,6 +1,7 @@
 import { createInertiaApp } from '@inertiajs/react'
 import { createRoot } from 'react-dom/client'
 import { MantineProvider, createTheme } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
 import { Notifications } from '@mantine/notifications'
 import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
@@ -26,8 +27,10 @@ createInertiaApp({
   setup({ el, App, props }) {
     createRoot(el).render(
       <MantineProvider theme={theme}>
-        <Notifications />
-        <App {...props} />
+        <ModalsProvider>
+          <Notifications />
+          <App {...props} />
+        </ModalsProvider>
       </MantineProvider>
     )
   },

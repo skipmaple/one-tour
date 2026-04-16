@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
-import { Button, Paper, Text, Stack } from '@mantine/core'
+import { Button, Group, Paper, Text, Stack } from '@mantine/core'
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import BacklogList from '../../components/planner/BacklogList'
 import DayColumn from '../../components/planner/DayColumn'
@@ -9,8 +9,9 @@ import ChatPanel from '../../components/planner/ChatPanel'
 import ConstitutionBanner from '../../components/planner/ConstitutionBanner'
 import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
+import MembershipDrawer from '../../components/planner/MembershipDrawer'
 
-export default function Show({ tour, days, activities, violations }) {
+export default function Show({ tour, days, activities, violations, members, author }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const [chatOpen, setChatOpen] = useState(true)
@@ -21,6 +22,9 @@ export default function Show({ tour, days, activities, violations }) {
   // Violation acknowledge state
   const [acknowledgingViolation, setAcknowledgingViolation] = useState(null)
   const [pendingChatPrompt, setPendingChatPrompt] = useState(null)
+
+  // Membership drawer state
+  const [membersDrawerOpen, setMembersDrawerOpen] = useState(false)
 
   // Activity editor state
   const [editor, setEditor] = useState({ open: false, mode: 'create', activityId: null, targetDayId: null })
@@ -36,6 +40,19 @@ export default function Show({ tour, days, activities, violations }) {
       <Head title={tour.title} />
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div style={{ padding: 10 }}>
+          <Group justify="space-between" mb="xs">
+            <Text fw={700} size="lg">{tour.title}</Text>
+            {canEdit && (
+              <Button
+                size="compact-sm"
+                variant="subtle"
+                onClick={() => setMembersDrawerOpen(true)}
+                aria-label="管理成员"
+              >
+                👥
+              </Button>
+            )}
+          </Group>
           <ConstitutionBanner
             violations={violations}
             onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
@@ -91,6 +108,14 @@ export default function Show({ tour, days, activities, violations }) {
         violation={acknowledgingViolation}
         tourId={tour.id}
         onClose={() => setAcknowledgingViolation(null)}
+      />
+
+      <MembershipDrawer
+        opened={membersDrawerOpen}
+        onClose={() => setMembersDrawerOpen(false)}
+        tour={tour}
+        members={members || []}
+        author={author || { user_id: tour.author_id, email: '' }}
       />
     </div>
   )
