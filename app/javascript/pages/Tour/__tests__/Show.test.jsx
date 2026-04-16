@@ -15,10 +15,23 @@ vi.mock('../../../components/planner/PlannerMap', () => ({
 }))
 
 vi.mock('@dnd-kit/core', () => ({
-  DndContext: ({ children }) => <div>{children}</div>,
+  DndContext: ({ children, onDragStart, onDragEnd }) => (
+    <div
+      data-testid="dnd-context"
+      data-dragstart={onDragStart ? 'has' : 'none'}
+      data-dragend={onDragEnd ? 'has' : 'none'}
+    >
+      {children}
+    </div>
+  ),
+  DragOverlay: ({ children }) => <div data-testid="drag-overlay">{children}</div>,
   closestCenter: null,
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
-  useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, isDragging: false }),
+  useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, setActivatorNodeRef: () => {}, isDragging: false }),
+}))
+
+vi.mock('@mantine/notifications', () => ({
+  notifications: { show: vi.fn() },
 }))
 
 vi.mock('../../../components/planner/ChatPanel', () => ({
@@ -51,4 +64,16 @@ test('renders backlog activity only in backlog', () => {
   render(<MantineProvider><Show {...props} /></MantineProvider>)
   // Both appear (once in pane + possibly on map). Just assert they exist.
   expect(screen.getAllByText(/那拉提/).length).toBeGreaterThan(0)
+})
+
+test('configures DndContext with drag start/end handlers', () => {
+  render(<MantineProvider><Show {...props} /></MantineProvider>)
+  const ctx = screen.getByTestId('dnd-context')
+  expect(ctx).toHaveAttribute('data-dragstart', 'has')
+  expect(ctx).toHaveAttribute('data-dragend', 'has')
+})
+
+test('renders DragOverlay container', () => {
+  render(<MantineProvider><Show {...props} /></MantineProvider>)
+  expect(screen.getByTestId('drag-overlay')).toBeInTheDocument()
 })

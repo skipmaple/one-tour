@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
 import { Button, Group, Paper, Text, Stack } from '@mantine/core'
-import { DndContext, closestCenter } from '@dnd-kit/core'
+import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core'
+import { notifications } from '@mantine/notifications'
+import { ActivityCardOverlay } from '../../components/planner/ActivityCard'
 import BacklogList from '../../components/planner/BacklogList'
 import DayColumn from '../../components/planner/DayColumn'
 import PlannerMap from '../../components/planner/PlannerMap'
@@ -15,8 +17,27 @@ export default function Show({ tour, days, activities, violations, members, auth
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const [chatOpen, setChatOpen] = useState(true)
-  const backlog = activities.filter(a => !a.day_id)
-  const byDay = Object.fromEntries(days.map(d => [ d.id, activities.filter(a => a.day_id === d.id) ]))
+
+  // Drag overlay state
+  const [activeId, setActiveId] = useState(null)
+
+  // Optimistic drag state — overrides server activities until server confirms.
+  // Shape: { [activityId]: { day_id, position } }
+  const [localOverrides, setLocalOverrides] = useState({})
+
+  // Merge server activities with local overrides
+  const displayActivities = activities.map(a =>
+    localOverrides[a.id]
+      ? { ...a, ...localOverrides[a.id] }
+      : a
+  )
+
+  const activeActivity = activeId
+    ? displayActivities.find(a => `activity-${a.id}` === activeId)
+    : null
+
+  const backlog = displayActivities.filter(a => !a.day_id)
+  const byDay = Object.fromEntries(days.map(d => [ d.id, displayActivities.filter(a => a.day_id === d.id) ]))
   const nextDayIndex = days.length === 0 ? 1 : Math.max(...days.map(d => d.day_index)) + 1
 
   // Violation acknowledge state
@@ -38,18 +59,23 @@ export default function Show({ tour, days, activities, violations, members, auth
   return (
     <div>
       <Head title={tour.title} />
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <DndContext
+        collisionDetection={closestCenter}
+        onDragStart={({ active }) => setActiveId(active.id)}
+        onDragEnd={(e) => { setActiveId(null); handleDragEnd(e) }}
+        onDragCancel={() => setActiveId(null)}
+        autoScroll={{ acceleration: 10, threshold: { x: 0.15, y: 0.15 } }}
+      >
         <div style={{ padding: 10 }}>
           <Group justify="space-between" mb="xs">
             <Text fw={700} size="lg">{tour.title}</Text>
             {canEdit && (
               <Button
-                size="compact-sm"
-                variant="subtle"
+                size="compact-xs"
+                variant="default"
                 onClick={() => setMembersDrawerOpen(true)}
-                aria-label="管理成员"
               >
-                👥
+                成员
               </Button>
             )}
           </Group>
@@ -93,6 +119,9 @@ export default function Show({ tour, days, activities, violations, members, auth
             onPromptConsumed={() => setPendingChatPrompt(null)}
           />
         </div>
+        <DragOverlay>
+          {activeActivity && <ActivityCardOverlay activity={activeActivity} />}
+        </DragOverlay>
       </DndContext>
 
       <ActivityDrawer
@@ -123,10 +152,16 @@ export default function Show({ tour, days, activities, violations, members, auth
   function handleDragEnd({ active, over }) {
     if (!over) return
     if (active.id === over.id) return
-    const activityId = String(active.id).replace(/^activity-/, '')
+    const activityId = Number(String(active.id).replace(/^activity-/, ''))
     const data = over.data.current || {}
     const toDayId = data.dayId ?? null
     const toPosition = data.position ?? 1
+
+    // Optimistic: apply locally
+    setLocalOverrides(prev => ({
+      ...prev,
+      [activityId]: { day_id: toDayId, position: toPosition }
+    }))
 
     router.patch(
       `/activities/${activityId}/position`,
@@ -135,7 +170,19 @@ export default function Show({ tour, days, activities, violations, members, auth
         preserveState: true,
         preserveScroll: true,
         only: [ 'activities', 'violations' ],
-        onError: () => { alert('拖拽未保存，请重试') }
+        onSuccess: () => {
+          setLocalOverrides(prev => {
+            const { [activityId]: _, ...rest } = prev
+            return rest
+          })
+        },
+        onError: () => {
+          setLocalOverrides(prev => {
+            const { [activityId]: _, ...rest } = prev
+            return rest
+          })
+          notifications.show({ message: '拖拽未保存，请重试', color: 'red' })
+        }
       }
     )
   }
