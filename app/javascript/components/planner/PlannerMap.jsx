@@ -3,6 +3,19 @@ import { usePage } from '@inertiajs/react'
 import { Paper, Text } from '@mantine/core'
 import useAmap from '../../hooks/useAmap'
 
+// 10-color palette using Mantine theme color names. Cycles when day_index > 10.
+// Used by buildMarkerHTML and buildPolylineConfigs to color markers/lines per day.
+export const DAY_PALETTE = [
+  'red', 'pink', 'grape', 'violet', 'indigo',
+  'blue', 'cyan', 'teal', 'green', 'yellow'
+]
+
+export function DAY_COLOR(day_index) {
+  // Handle negative / zero gracefully via positive modulo
+  const idx = ((day_index - 1) % DAY_PALETTE.length + DAY_PALETTE.length) % DAY_PALETTE.length
+  return DAY_PALETTE[idx]
+}
+
 // AMAP-backed planner map. Plots every activity that has lat/lng as a marker.
 // Backlog activities get a grey default-style marker; day-assigned activities
 // get a blue numbered label marker so you can tell at a glance which day they
