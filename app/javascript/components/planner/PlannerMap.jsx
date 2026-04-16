@@ -136,12 +136,24 @@ export default function PlannerMap({ activities, days = [] }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
+  const polylinesRef = useRef([])
 
   // Stable lookup: day.id → day_index (for marker labels like "D2")
   const dayIndexById = useMemo(
     () => Object.fromEntries(days.map(d => [ d.id, d.day_index ])),
     [ days ]
   )
+
+  // Group activities by day_id (skip backlog) for polyline construction.
+  const activitiesByDay = useMemo(() => {
+    const grouped = {}
+    for (const a of activities) {
+      if (a.day_id == null) continue
+      if (!grouped[a.day_id]) grouped[a.day_id] = []
+      grouped[a.day_id].push(a)
+    }
+    return grouped
+  }, [ activities ])
 
   // Tracks AMap's runtime auth failure (e.g. USERKEY_PLAT_NOMATCH when the key
   // is registered as Web服务/REST but not Web端JS). The SDK <script> itself
@@ -179,6 +191,8 @@ export default function PlannerMap({ activities, days = [] }) {
       resizeEnable: true
     })
     return () => {
+      polylinesRef.current.forEach(p => p.setMap(null))
+      polylinesRef.current = []
       mapRef.current?.destroy?.()
       mapRef.current = null
       console.error = origConsoleError
@@ -227,6 +241,25 @@ export default function PlannerMap({ activities, days = [] }) {
     }
     // visible.length === 0: don't move map (user keeps current view)
   }, [ activities, dayIndexById, viewMode, theme, sdkState ])
+
+  // Sync polylines with activities + days + viewMode + theme.
+  // 'backlog' mode hides polylines entirely.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !window.AMap) return
+
+    polylinesRef.current.forEach(p => p.setMap(null))
+    polylinesRef.current = []
+
+    if (viewMode === 'backlog') return  // no polylines in backlog mode
+
+    const configs = buildPolylineConfigs(activitiesByDay, days, theme)
+    configs.forEach(cfg => {
+      const polyline = new window.AMap.Polyline(cfg)
+      polyline.setMap(map)
+      polylinesRef.current.push(polyline)
+    })
+  }, [ activitiesByDay, days, viewMode, theme, sdkState ])
 
   return (
     <Paper
