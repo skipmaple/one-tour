@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
 import { Button, Group, Paper, Text, Stack } from '@mantine/core'
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core'
@@ -61,6 +61,21 @@ export default function Show({ tour, days, activities, violations, members, auth
   const closeEditor = () => setEditor({ open: false, mode: 'create', activityId: null, targetDayId: null })
 
   const editingActivity = editor.activityId ? activities.find(a => a.id === editor.activityId) : null
+
+  // On mount, check URL hash for activity anchor (#activity-{id})
+  // This supports deep links from the Timeline page.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const match = /^#activity-(\d+)$/.exec(window.location.hash)
+    if (match) {
+      const id = Number(match[1])
+      if (activities.some(a => a.id === id)) {
+        setEditor({ open: true, mode: 'edit', activityId: id, targetDayId: null })
+        // Clear the hash so navigating back doesn't re-open
+        history.replaceState(null, '', window.location.pathname)
+      }
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
