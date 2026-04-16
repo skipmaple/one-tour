@@ -17,7 +17,7 @@ class ToursController < ApplicationController
   def show
     head :not_found and return unless @tour.visible_to?(current_user)
     render inertia: "Tour/Show", props: {
-      tour: @tour.as_json,
+      tour: @tour.as_json.merge("editable_by_current_user" => @tour.editable_by?(current_user)),
       days: @tour.days.as_json,
       activities: @tour.activities.as_json,
       violations: Tour::ConstitutionCheck.for(@tour).map(&:to_h)
