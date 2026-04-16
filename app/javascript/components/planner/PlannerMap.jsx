@@ -16,6 +16,16 @@ export function DAY_COLOR(day_index) {
   return DAY_PALETTE[idx]
 }
 
+// Filter activities by current view mode.
+// 'all'     — every activity
+// 'colored' — only day-assigned (day_id != null)
+// 'backlog' — only backlog (day_id == null)
+export function filterActivitiesByViewMode(activities, viewMode) {
+  if (viewMode === 'colored') return activities.filter(a => a.day_id != null)
+  if (viewMode === 'backlog') return activities.filter(a => a.day_id == null)
+  return activities
+}
+
 // AMAP-backed planner map. Plots every activity that has lat/lng as a marker.
 // Backlog activities get a grey default-style marker; day-assigned activities
 // get a blue numbered label marker so you can tell at a glance which day they
