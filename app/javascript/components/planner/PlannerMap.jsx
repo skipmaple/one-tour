@@ -63,6 +63,68 @@ export function buildMarkerHTML(activity, dayIndexById, theme) {
   ">D${day_index}</div>`
 }
 
+// Build polyline configs for AMap.Polyline construction.
+//
+// Returns an array of { path, strokeColor, strokeWeight, strokeOpacity, strokeStyle, showDir }.
+// `path` is [[lng, lat], [lng, lat], ...] (AMap's coord order).
+//
+// Rules:
+// - Same-day lines: solid, day color, weight 3, opacity 0.7. Connects activities
+//   within a day in `position` order (NOT planned_start_at — matches Timeline).
+// - Cross-day lines: dashed, origin-day color, weight 2, opacity 0.5. Connects
+//   the last activity of D{n} to the first of D{n+visible}, skipping any day
+//   with zero activities (e.g., buffer_day with no activity).
+// - Activities with invalid lat/lng are skipped.
+// - Single-activity days produce no same-day line (1 point can't form a line).
+export function buildPolylineConfigs(activitiesGroupedByDay, days, theme) {
+  const configs = []
+
+  // Sort days by day_index ascending; build a list of "day with valid coords"
+  const orderedDays = [ ...days ].sort((a, b) => a.day_index - b.day_index)
+
+  // For each day, extract the list of [lng, lat] pairs in position order
+  const dayPaths = orderedDays.map(day => {
+    const acts = (activitiesGroupedByDay[day.id] || [])
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map(a => [ parseFloat(a.lng), parseFloat(a.lat) ])
+      .filter(([ lng, lat ]) => Number.isFinite(lng) && Number.isFinite(lat))
+    return { day, path: acts }
+  })
+
+  // Same-day lines (solid)
+  dayPaths.forEach(({ day, path }) => {
+    if (path.length < 2) return
+    configs.push({
+      path,
+      strokeColor: theme.colors[DAY_COLOR(day.day_index)][6],
+      strokeWeight: 3,
+      strokeOpacity: 0.7,
+      strokeStyle: 'solid',
+      showDir: false
+    })
+  })
+
+  // Cross-day lines (dashed): pair adjacent days with non-empty paths
+  const daysWithCoords = dayPaths.filter(d => d.path.length > 0)
+  for (let i = 0; i < daysWithCoords.length - 1; i++) {
+    const from = daysWithCoords[i]
+    const to   = daysWithCoords[i + 1]
+    const lastOfFrom  = from.path[from.path.length - 1]
+    const firstOfTo   = to.path[0]
+    configs.push({
+      path: [ lastOfFrom, firstOfTo ],
+      strokeColor: theme.colors[DAY_COLOR(from.day.day_index)][6],
+      strokeWeight: 2,
+      strokeOpacity: 0.5,
+      strokeStyle: 'dashed',
+      showDir: false
+    })
+  }
+
+  return configs
+}
+
 // AMAP-backed planner map. Plots every activity that has lat/lng as a marker.
 // Backlog activities get a grey default-style marker; day-assigned activities
 // get a blue numbered label marker so you can tell at a glance which day they

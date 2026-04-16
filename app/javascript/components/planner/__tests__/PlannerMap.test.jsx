@@ -83,3 +83,108 @@ describe('buildMarkerHTML', () => {
     expect(html).toContain('D11')
   })
 })
+
+import { buildPolylineConfigs } from '../PlannerMap'
+
+describe('buildPolylineConfigs', () => {
+  const theme = {
+    colors: {
+      red:    [, , , , , , '#fa5252'],
+      pink:   [, , , , , , '#e64980'],
+      grape:  [, , , , , , '#be4bdb'],
+      violet: [, , , , , , '#7950f2'],
+      indigo: [, , , , , , '#4c6ef5'],
+      blue:   [, , , , , , '#228be6'],
+      cyan:   [, , , , , , '#15aabf'],
+      teal:   [, , , , , , '#12b886'],
+      green:  [, , , , , , '#40c057'],
+      yellow: [, , , , , , '#fab005'],
+    }
+  }
+
+  test('returns empty when no days', () => {
+    const configs = buildPolylineConfigs({}, [], theme)
+    expect(configs).toEqual([])
+  })
+
+  test('single day with multiple activities — one solid same-day polyline', () => {
+    const days = [{ id: 10, day_index: 1, buffer_day: false }]
+    const grouped = {
+      10: [
+        { id: 1, lat: 44.6, lng: 81.3, position: 1 },
+        { id: 2, lat: 44.7, lng: 81.4, position: 2 },
+        { id: 3, lat: 44.8, lng: 81.5, position: 3 },
+      ]
+    }
+    const configs = buildPolylineConfigs(grouped, days, theme)
+    expect(configs).toHaveLength(1)
+    expect(configs[0].strokeStyle).toBe('solid')
+    expect(configs[0].strokeColor).toBe('#fa5252') // D1 = red
+    expect(configs[0].path).toEqual([[81.3, 44.6], [81.4, 44.7], [81.5, 44.8]])
+  })
+
+  test('two consecutive days — solid same-day + dashed cross-day', () => {
+    const days = [
+      { id: 10, day_index: 1, buffer_day: false },
+      { id: 11, day_index: 2, buffer_day: false },
+    ]
+    const grouped = {
+      10: [{ id: 1, lat: 44.6, lng: 81.3, position: 1 }, { id: 2, lat: 44.7, lng: 81.4, position: 2 }],
+      11: [{ id: 3, lat: 43.0, lng: 84.0, position: 1 }],
+    }
+    const configs = buildPolylineConfigs(grouped, days, theme)
+    // Same-day D1 (a1→a2) + cross-day D1→D2 (a2→a3); D2 only has 1 act so no same-day line
+    expect(configs).toHaveLength(2)
+    const sameDayD1 = configs.find(c => c.strokeStyle === 'solid')
+    expect(sameDayD1.strokeColor).toBe('#fa5252') // D1 red
+    expect(sameDayD1.path).toEqual([[81.3, 44.6], [81.4, 44.7]])
+    const crossDay = configs.find(c => c.strokeStyle === 'dashed')
+    expect(crossDay.strokeColor).toBe('#fa5252') // origin day color
+    expect(crossDay.path).toEqual([[81.4, 44.7], [84.0, 43.0]])
+  })
+
+  test('skips buffer_day with no activities — D5 → D7 connect directly', () => {
+    const days = [
+      { id: 50, day_index: 5, buffer_day: false },
+      { id: 60, day_index: 6, buffer_day: true  },
+      { id: 70, day_index: 7, buffer_day: false },
+    ]
+    const grouped = {
+      50: [{ id: 1, lat: 43.3, lng: 84.0, position: 1 }],
+      60: [],
+      70: [{ id: 2, lat: 43.1, lng: 81.1, position: 1 }],
+    }
+    const configs = buildPolylineConfigs(grouped, days, theme)
+    // No same-day for D5/D7 (1 act each), 1 cross-day D5→D7 dashed
+    expect(configs).toHaveLength(1)
+    expect(configs[0].strokeStyle).toBe('dashed')
+    expect(configs[0].strokeColor).toBe('#4c6ef5') // D5 = indigo
+    expect(configs[0].path).toEqual([[84.0, 43.3], [81.1, 43.1]])
+  })
+
+  test('skips activities with invalid lat/lng', () => {
+    const days = [{ id: 10, day_index: 1, buffer_day: false }]
+    const grouped = {
+      10: [
+        { id: 1, lat: 44.6, lng: 81.3, position: 1 },
+        { id: 2, lat: null, lng: null, position: 2 },  // skipped
+        { id: 3, lat: 44.8, lng: 81.5, position: 3 },
+      ]
+    }
+    const configs = buildPolylineConfigs(grouped, days, theme)
+    expect(configs).toHaveLength(1)
+    expect(configs[0].path).toEqual([[81.3, 44.6], [81.5, 44.8]])
+  })
+
+  test('coerces string lat/lng to numbers (Rails decimal serialization)', () => {
+    const days = [{ id: 10, day_index: 1, buffer_day: false }]
+    const grouped = {
+      10: [
+        { id: 1, lat: '44.6', lng: '81.3', position: 1 },
+        { id: 2, lat: '44.7', lng: '81.4', position: 2 },
+      ]
+    }
+    const configs = buildPolylineConfigs(grouped, days, theme)
+    expect(configs[0].path).toEqual([[81.3, 44.6], [81.4, 44.7]])
+  })
+})
