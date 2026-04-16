@@ -115,4 +115,22 @@ describe('ChatPanel', () => {
     expect(mockState.send).toHaveBeenCalledWith('请分析 D3 驾驶超时')
     expect(onPromptConsumed).toHaveBeenCalled()
   })
+
+  test('does not render a user message whose content is the onboarding sentinel', () => {
+    mockState.messages = [
+      { role: 'user', content: '__onboarding_start__' },
+      { role: 'assistant', content: '欢迎 👋 这次想去哪？' }
+    ]
+    renderPanel()
+    expect(screen.queryByText('__onboarding_start__')).not.toBeInTheDocument()
+    expect(screen.getByText(/欢迎/)).toBeInTheDocument()
+  })
+
+  test('does render a user message with normal content (not sentinel)', () => {
+    mockState.messages = [
+      { role: 'user', content: '伊犁环线' }
+    ]
+    renderPanel()
+    expect(screen.getByText('伊犁环线')).toBeInTheDocument()
+  })
 })

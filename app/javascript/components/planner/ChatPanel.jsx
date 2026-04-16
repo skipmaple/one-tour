@@ -1,6 +1,7 @@
 import { Paper, Text, Button, Textarea, Stack, Group, Badge, Code } from '@mantine/core'
 import { useEffect, useRef, useState } from 'react'
 import useChat from '../../hooks/useChat'
+import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 
 export default function ChatPanel({ tour, open, onToggle, pendingPrompt, onPromptConsumed }) {
   // Auto-expand and send when a pending prompt arrives (e.g. from ConstitutionBanner "帮我修正")
@@ -104,6 +105,13 @@ function ChatBody({ tour, pendingPrompt, onPromptConsumed }) {
 }
 
 function MessageBubble({ message }) {
+  // Sentinel is an internal protocol token sent by Show.jsx to trigger AI
+  // onboarding. It must be persisted (so we don't re-trigger on refresh) but
+  // must not appear in the UI.
+  if (message.role === 'user' && message.content === ONBOARDING_SENTINEL) {
+    return null
+  }
+
   const isUser = message.role === 'user'
   return (
     <Paper
