@@ -145,7 +145,7 @@ export default function Show({ tour, days, activities, violations, members, auth
         </div>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: `${backlogOpen ? 260 : 36}px 1fr ${chatOpen ? 320 : 36}px`,
+          gridTemplateColumns: `${backlogOpen ? 260 : 44}px 1fr ${chatOpen ? 320 : 44}px`,
           gap: 10,
           padding: 10,
         }}>
