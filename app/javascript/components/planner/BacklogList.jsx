@@ -150,10 +150,19 @@ export default function BacklogList({
               />
             </Group>
 
-            {!readOnly && onAddActivity && (
-              <Button size="compact-xs" variant="light" fullWidth mb="xs" onClick={() => onAddActivity(null)}>
-                加一个
-              </Button>
+            {!readOnly && (onAddActivity || onAskAI) && (
+              <Group gap={4} mb="xs" grow>
+                {onAddActivity && (
+                  <Button size="compact-xs" variant="default" onClick={() => onAddActivity(null)}>
+                    加一个
+                  </Button>
+                )}
+                {onAskAI && (
+                  <Button size="compact-xs" variant="default" onClick={onAskAI}>
+                    AI 帮选
+                  </Button>
+                )}
+              </Group>
             )}
 
             <Stack gap={4}>

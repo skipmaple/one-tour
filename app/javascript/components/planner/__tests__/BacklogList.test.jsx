@@ -119,7 +119,7 @@ test('empty + editable: clicking AI 帮选 calls onAskAI', () => {
 })
 
 
-test('non-empty backlog: empty-state hint not rendered, top 加一个 still shows', () => {
+test('non-empty backlog: empty-state hint not rendered, toolbar shows both buttons', () => {
   render(
     <MantineProvider>
       <DndContext>
@@ -132,7 +132,8 @@ test('non-empty backlog: empty-state hint not rendered, top 加一个 still show
     </MantineProvider>
   )
   expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '加一个' })).toBeInTheDocument()
+  expect(screen.getAllByRole('button', { name: '加一个' })).toHaveLength(1)
+  expect(screen.getAllByRole('button', { name: 'AI 帮选' })).toHaveLength(1)
 })
 
 test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
@@ -223,4 +224,21 @@ test('folded state exposes role=button with accessible name 展开候选池', ()
   expect(btn).toBeInTheDocument()
   fireEvent.click(btn)
   expect(onToggle).toHaveBeenCalledTimes(1)
+})
+
+test('non-empty backlog: clicking toolbar AI 帮选 calls onAskAI', () => {
+  const onAskAI = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          onAddActivity={() => {}}
+          onAskAI={onAskAI}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'AI 帮选' }))
+  expect(onAskAI).toHaveBeenCalled()
 })
