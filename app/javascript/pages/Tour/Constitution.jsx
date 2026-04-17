@@ -200,7 +200,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
           <>
             <Text size="xs" c="dimmed" ta="center">第 2 步（共 2 步）· 请阅读后滚动至底部同意</Text>
             <RedHeaderDocument>
-              <ConstitutionFullText constitution={c} />
+              <ConstitutionFullText constitution={c} defaults={defaults} />
             </RedHeaderDocument>
             <Group justify="center" pt="lg" pb="md" style={{
               position: 'sticky', bottom: 0, background: '#fff',
@@ -236,7 +236,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
           // ===== REVIEW MODE: READ-ONLY =====
           <>
             <RedHeaderDocument>
-              <ConstitutionFullText constitution={constitution} />
+              <ConstitutionFullText constitution={constitution} defaults={defaults} />
             </RedHeaderDocument>
             <Group justify="center" pt="lg">
               <Button variant="light" color="red" onClick={() => setEditing(true)}>修宪</Button>
