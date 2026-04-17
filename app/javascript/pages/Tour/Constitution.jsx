@@ -15,12 +15,14 @@ export default function Constitution({ tour, constitution, defaults, overrides }
   const advancedCount = Object.keys(defaults).filter(k => !KEY_FIELDS.includes(k)).length
 
   const save = () => {
-    router.patch(`/tours/${tour.id}/constitution`, { constitution: c })
+    router.patch(`/tours/${tour.id}/constitution`, { constitution: c }, {
+      onSuccess: () => router.visit(`/tours/${tour.id}?review_constitution=1`)
+    })
   }
 
   const useDefaults = () => {
     router.patch(`/tours/${tour.id}/constitution`, { constitution: defaults }, {
-      onSuccess: () => router.visit(`/tours/${tour.id}`)
+      onSuccess: () => router.visit(`/tours/${tour.id}?review_constitution=1`)
     })
   }
 
@@ -102,8 +104,7 @@ export default function Constitution({ tour, constitution, defaults, overrides }
       <Group justify="space-between" mt="lg" pt="md" style={{ borderTop: '1px solid #eee' }}>
         <Button variant="default" onClick={resetToDefaults} disabled={!dirty}>↺ 恢复默认</Button>
         <Group>
-          <Button variant="default" onClick={() => window.history.back()}>← 返回基本信息</Button>
-          {dirty ? (
+{dirty ? (
             <Button onClick={save}>保存修改并开始 →</Button>
           ) : (
             <Button onClick={useDefaults}>使用默认宪法，直接开始 →</Button>
