@@ -100,7 +100,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
             <ConstitutionFullText constitution={constitution} />
             <Divider />
             <Group justify="center" pt="md">
-              <Button variant="light" onClick={() => setEditing(true)}>修改参数</Button>
+              <Button variant="light" color="red" onClick={() => setEditing(true)}>修宪</Button>
             </Group>
           </>
         )}
