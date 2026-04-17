@@ -32,7 +32,7 @@ export default function Timeline({ tour, days, activities, violations, summary }
 
   return (
     <div>
-      <Head title={`${tour.title} · 年表`} />
+      <Head title={`${tour.title} · 总览`} />
       <Stack gap="md" p="md">
         <TourTabs tour={tour} active="timeline" />
         <TourSummaryBar summary={summary} />

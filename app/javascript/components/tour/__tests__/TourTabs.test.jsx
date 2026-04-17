@@ -18,19 +18,19 @@ function renderTabs(active = 'planner') {
 test('renders three tabs', () => {
   renderTabs()
   expect(screen.getByRole('tab', { name: '规划' })).toBeInTheDocument()
-  expect(screen.getByRole('tab', { name: '年表' })).toBeInTheDocument()
+  expect(screen.getByRole('tab', { name: '总览' })).toBeInTheDocument()
   expect(screen.getByRole('tab', { name: '宪法' })).toBeInTheDocument()
 })
 
 test('marks the active tab', () => {
   renderTabs('timeline')
-  expect(screen.getByRole('tab', { name: '年表' })).toHaveAttribute('data-active', 'true')
+  expect(screen.getByRole('tab', { name: '总览' })).toHaveAttribute('data-active', 'true')
 })
 
 test('navigates via router.visit on tab change', async () => {
   const { router } = await import('@inertiajs/react')
   renderTabs('planner')
-  fireEvent.click(screen.getByRole('tab', { name: '年表' }))
+  fireEvent.click(screen.getByRole('tab', { name: '总览' }))
   expect(router.visit).toHaveBeenCalledWith('/tours/42/timeline', expect.anything())
 })
 

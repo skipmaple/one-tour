@@ -17,7 +17,7 @@ export default function TourTabs({ tour, active }) {
       <Tabs.List>
         <Tabs.Tab value="constitution">宪法</Tabs.Tab>
         <Tabs.Tab value="planner">规划</Tabs.Tab>
-        <Tabs.Tab value="timeline">年表</Tabs.Tab>
+        <Tabs.Tab value="timeline">总览</Tabs.Tab>
       </Tabs.List>
     </Tabs>
   )
