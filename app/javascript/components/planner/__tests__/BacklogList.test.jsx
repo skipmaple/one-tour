@@ -231,3 +231,18 @@ test('when open=true (default), renders a 收起 button that calls onToggle', ()
   fireEvent.click(screen.getByRole('button', { name: /收起/ }))
   expect(onToggle).toHaveBeenCalledTimes(1)
 })
+
+test('folded state exposes role=button with accessible name 展开候选池', () => {
+  const onToggle = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList activities={fixtures} open={false} onToggle={onToggle} />
+      </DndContext>
+    </MantineProvider>
+  )
+  const btn = screen.getByRole('button', { name: '展开候选池' })
+  expect(btn).toBeInTheDocument()
+  fireEvent.click(btn)
+  expect(onToggle).toHaveBeenCalledTimes(1)
+})

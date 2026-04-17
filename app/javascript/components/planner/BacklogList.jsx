@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Paper, Title, Stack, Text, Button, Group, Select } from '@mantine/core'
+import { Paper, Title, Stack, Text, Button, Group, Select, UnstyledButton } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
 import ActivityCard from './ActivityCard'
 
@@ -54,21 +54,25 @@ export default function BacklogList({
   // Folded rendering: mirror ChatPanel's collapsed vertical strip.
   if (!open) {
     return (
-      <Paper
-        withBorder
+      <UnstyledButton
         onClick={onToggle}
+        aria-label="展开候选池"
         style={{
           cursor: 'pointer',
           background: '#f3f3f3',
+          border: '1px solid var(--mantine-color-default-border)',
+          borderRadius: 4,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          width: '100%',
+          height: '100%',
         }}
       >
-        <Text size="xs" c="dimmed" style={{ writingMode: 'vertical-rl' }}>
+        <Text size="xs" c="gray.7" style={{ writingMode: 'vertical-rl' }}>
           展开候选池 ▸
         </Text>
-      </Paper>
+      </UnstyledButton>
     )
   }
 
@@ -106,9 +110,9 @@ export default function BacklogList({
             gap="xs"
             p="md"
             align="stretch"
-            style={{ border: '2px dashed #ccc', borderRadius: 4, background: '#fafafa' }}
+            style={{ border: '2px dashed var(--mantine-color-gray-5)', borderRadius: 4, background: '#fafafa' }}
           >
-            <Text size="xs" c="dimmed" ta="center">
+            <Text size="xs" c="gray.7" ta="center">
               先把想去的点塞进这里，再拖到右侧日。
             </Text>
             {onAddActivity && (
