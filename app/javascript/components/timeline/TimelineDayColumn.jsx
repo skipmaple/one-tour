@@ -1,5 +1,6 @@
 import { Paper, Text, Stack, Group, Badge } from '@mantine/core'
 import { router } from '@inertiajs/react'
+import DayMetricBar from '../DayMetricBar'
 
 const INTENSITY_COLORS = {
   green:  '#4caf50',
@@ -18,8 +19,6 @@ export default function TimelineDayColumn({ day, activities, constitution, tourI
     .reduce((sum, a) => sum + (parseInt(a.details?.drive_min || 0, 10) || 0), 0)
   const driveH = Math.round(driveMin / 60 * 10) / 10
   const tierOneCount = activities.filter(a => a.citizen_level === 'tier_one').length
-  const driveOk = driveMin <= (constitution?.max_daily_driving_minutes || 420)
-  const tierOneOk = tierOneCount <= maxTier1
 
   const dotColor = INTENSITY_COLORS[day.intensity_derived] || '#bbb'
   const weekday = day.date ? WEEKDAY_LABELS[new Date(day.date).getDay()] : ''
@@ -67,10 +66,10 @@ export default function TimelineDayColumn({ day, activities, constitution, tourI
         ))}
       </Stack>
 
-      <div style={{ borderTop: '1px dashed #ccc', padding: '4px 8px', fontSize: 10, color: '#666' }}>
-        驾驶 {progressBar(driveH, maxH)} {driveH}/{maxH}h {driveOk ? '' : '⛔'}<br />
-        核心 {progressBar(tierOneCount, maxTier1, 3)} {tierOneCount}/{maxTier1} {tierOneOk ? '' : '⛔'}
-      </div>
+      <Stack gap={2} style={{ borderTop: '1px dashed #ccc', padding: '4px 8px' }}>
+        <DayMetricBar label="驾驶" value={driveH} max={maxH} unit="h" />
+        <DayMetricBar label="核心" value={tierOneCount} max={maxTier1} />
+      </Stack>
     </Paper>
   )
 }
@@ -102,11 +101,6 @@ function TimelineActivityCard({ activity, onClick }) {
       </div>
     </div>
   )
-}
-
-function progressBar(value, max, width = 5) {
-  const filled = Math.min(Math.round((value / max) * width), width)
-  return '█'.repeat(filled) + '░'.repeat(width - filled)
 }
 
 function levelLabel(l) { return { tier_one: '一等', tier_two: '二等', tier_three: '三等', infrastructure: '基础' }[l] || l }
