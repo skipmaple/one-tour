@@ -26,7 +26,6 @@ export default function BacklogList({
   onAddActivity,
   onEditActivity,
   onAskAI,
-  onFocusChat,
   readOnly,
   open = true,
   onToggle,
@@ -123,11 +122,6 @@ export default function BacklogList({
             {onAskAI && (
               <Button size="sm" variant="default" fullWidth onClick={onAskAI}>
                 💬 让 AI 帮列候选
-              </Button>
-            )}
-            {onFocusChat && (
-              <Button size="xs" variant="subtle" onClick={onFocusChat}>
-                ▸ 跳到对话输入框
               </Button>
             )}
           </Stack>

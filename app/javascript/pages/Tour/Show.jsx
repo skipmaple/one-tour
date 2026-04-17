@@ -154,7 +154,6 @@ export default function Show({ tour, days, activities, violations, members, auth
             onAddActivity={canEdit ? openCreate : undefined}
             onEditActivity={canEdit ? openEdit : undefined}
             onAskAI={canEdit ? () => setPendingChatPrompt(ASK_AI_BACKLOG_PROMPT) : undefined}
-            onFocusChat={canEdit ? () => setChatOpen(true) : undefined}
             readOnly={!canEdit}
             open={backlogOpen}
             onToggle={() => setBacklogOpen(v => !v)}
