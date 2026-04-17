@@ -48,6 +48,7 @@ jobs:
     env:
       RAILS_ENV: test
       DB_HOST: localhost
+      AMAP_API_KEY: test-dummy-key
 
     steps:
       - name: Checkout code
@@ -58,6 +59,15 @@ jobs:
         with:
           ruby-version: .ruby-version
           bundler-cache: true
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: "npm"
+
+      - name: Install JS dependencies
+        run: npm ci
 
       - name: Prepare test database
         run: bin/rails db:prepare
