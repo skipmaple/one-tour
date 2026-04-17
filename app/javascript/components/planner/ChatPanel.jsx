@@ -1,4 +1,4 @@
-import { Paper, Text, Button, Textarea, Stack, Group, Badge, Code } from '@mantine/core'
+import { Paper, Text, Button, Textarea, Stack, Group, Badge, Code, UnstyledButton } from '@mantine/core'
 import { useEffect, useRef, useState } from 'react'
 import useChat from '../../hooks/useChat'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
@@ -13,13 +13,23 @@ export default function ChatPanel({ tour, open, onToggle, pendingPrompt, onPromp
 
   if (!open) {
     return (
-      <Paper
-        withBorder
+      <UnstyledButton
         onClick={onToggle}
-        style={{ cursor: 'pointer', background: '#f3f3f3', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        aria-label="展开 AI 对话"
+        style={{
+          cursor: 'pointer',
+          background: '#f3f3f3',
+          border: '1px solid var(--mantine-color-default-border)',
+          borderRadius: 4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          height: '100%',
+        }}
       >
-        <Text size="xs" c="dimmed" style={{ writingMode: 'vertical-rl' }}>◂ 展开 AI 对话</Text>
-      </Paper>
+        <Text size="xs" c="gray.7" style={{ writingMode: 'vertical-rl' }}>◂ 展开 AI 对话</Text>
+      </UnstyledButton>
     )
   }
 

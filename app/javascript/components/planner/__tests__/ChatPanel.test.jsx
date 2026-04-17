@@ -134,3 +134,17 @@ describe('ChatPanel', () => {
     expect(screen.getByText('伊犁环线')).toBeInTheDocument()
   })
 })
+
+test('folded state exposes role=button with accessible name 展开 AI 对话', () => {
+  const onToggle = vi.fn()
+  const tour = { id: 42, title: 'Test Tour' }
+  render(
+    <MantineProvider>
+      <ChatPanel tour={tour} open={false} onToggle={onToggle} />
+    </MantineProvider>
+  )
+  const btn = screen.getByRole('button', { name: '展开 AI 对话' })
+  expect(btn).toBeInTheDocument()
+  fireEvent.click(btn)
+  expect(onToggle).toHaveBeenCalledTimes(1)
+})

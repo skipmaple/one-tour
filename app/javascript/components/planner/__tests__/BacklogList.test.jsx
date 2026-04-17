@@ -68,7 +68,7 @@ test('shows "no backlog" message when activities is empty and readOnly', () => {
   expect(screen.getByText(/尚无候选/)).toBeInTheDocument()
 })
 
-test('empty + editable: shows three CTA buttons and no top "+ 加一个" button', () => {
+test('empty + editable: shows CTA buttons and no toolbar 加候选 button', () => {
   render(
     <MantineProvider>
       <DndContext>
@@ -76,17 +76,16 @@ test('empty + editable: shows three CTA buttons and no top "+ 加一个" button'
           activities={[]}
           onAddActivity={() => {}}
           onAskAI={() => {}}
-          onFocusChat={() => {}}
           readOnly={false}
         />
       </DndContext>
     </MantineProvider>
   )
-  expect(screen.getByText(/先把想去的点塞进这里/)).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /\+ 手动添加行/ })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /💬 让 AI 帮列候选/ })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /跳到对话/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '加候选' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'AI 帮选' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /跳到对话/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^\+ 加一个$/ })).not.toBeInTheDocument()
+  expect(screen.getByText(/先把想去的点塞进这里/)).toBeInTheDocument()
 })
 
 test('empty + readOnly: shows simple "尚无候选" text, no CTAs', () => {
@@ -103,7 +102,7 @@ test('empty + readOnly: shows simple "尚无候选" text, no CTAs', () => {
   expect(screen.queryByRole('button', { name: /跳到对话/ })).not.toBeInTheDocument()
 })
 
-test('empty + editable: clicking 💬 让 AI 帮列候选 calls onAskAI', () => {
+test('empty + editable: clicking AI 帮选 calls onAskAI', () => {
   const onAskAI = vi.fn()
   render(
     <MantineProvider>
@@ -112,34 +111,16 @@ test('empty + editable: clicking 💬 让 AI 帮列候选 calls onAskAI', () => 
           activities={[]}
           onAddActivity={() => {}}
           onAskAI={onAskAI}
-          onFocusChat={() => {}}
         />
       </DndContext>
     </MantineProvider>
   )
-  fireEvent.click(screen.getByRole('button', { name: /💬 让 AI 帮列候选/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'AI 帮选' }))
   expect(onAskAI).toHaveBeenCalled()
 })
 
-test('empty + editable: clicking 跳到对话 calls onFocusChat', () => {
-  const onFocusChat = vi.fn()
-  render(
-    <MantineProvider>
-      <DndContext>
-        <BacklogList
-          activities={[]}
-          onAddActivity={() => {}}
-          onAskAI={() => {}}
-          onFocusChat={onFocusChat}
-        />
-      </DndContext>
-    </MantineProvider>
-  )
-  fireEvent.click(screen.getByRole('button', { name: /跳到对话/ }))
-  expect(onFocusChat).toHaveBeenCalled()
-})
 
-test('non-empty backlog: empty-CTAs not rendered, top "+ 加一个" still shows', () => {
+test('non-empty backlog: empty-state hint not rendered, toolbar shows both buttons', () => {
   render(
     <MantineProvider>
       <DndContext>
@@ -147,13 +128,13 @@ test('non-empty backlog: empty-CTAs not rendered, top "+ 加一个" still shows'
           activities={fixtures}
           onAddActivity={() => {}}
           onAskAI={() => {}}
-          onFocusChat={() => {}}
         />
       </DndContext>
     </MantineProvider>
   )
   expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '+ 加一个' })).toBeInTheDocument()
+  expect(screen.getAllByRole('button', { name: '加候选' })).toHaveLength(1)
+  expect(screen.getAllByRole('button', { name: 'AI 帮选' })).toHaveLength(1)
 })
 
 test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
@@ -164,7 +145,6 @@ test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
           activities={fixtures}
           onAddActivity={() => {}}
           onAskAI={() => {}}
-          onFocusChat={() => {}}
         />
       </DndContext>
     </MantineProvider>
@@ -172,8 +152,94 @@ test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
   // Filter to kind that no fixture matches
   openAndSelect(0, '住')
   expect(screen.getByText(/无匹配的候选/)).toBeInTheDocument()
-  // Still show top + 加一个 (normal mode)
-  expect(screen.getByRole('button', { name: '+ 加一个' })).toBeInTheDocument()
+  // Still show top 加候选 (normal mode)
+  expect(screen.getByRole('button', { name: '加候选' })).toBeInTheDocument()
   // Do NOT show empty-state three-button frame
   expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
+})
+
+test('when open=false, renders a collapsed trigger instead of filters/list', () => {
+  const onToggle = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          open={false}
+          onToggle={onToggle}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  // Folded label is present
+  expect(screen.getByText(/展开候选池/)).toBeInTheDocument()
+  // Fixtures are NOT rendered
+  expect(screen.queryByText('赛里木湖')).not.toBeInTheDocument()
+  expect(screen.queryByText('独库公路')).not.toBeInTheDocument()
+})
+
+test('clicking the collapsed trigger calls onToggle', () => {
+  const onToggle = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          open={false}
+          onToggle={onToggle}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  fireEvent.click(screen.getByText(/展开候选池/))
+  expect(onToggle).toHaveBeenCalledTimes(1)
+})
+
+test('when open=true (default), renders a 收起 button that calls onToggle', () => {
+  const onToggle = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          open={true}
+          onToggle={onToggle}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  fireEvent.click(screen.getByRole('button', { name: /收起/ }))
+  expect(onToggle).toHaveBeenCalledTimes(1)
+})
+
+test('folded state exposes role=button with accessible name 展开候选池', () => {
+  const onToggle = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList activities={fixtures} open={false} onToggle={onToggle} />
+      </DndContext>
+    </MantineProvider>
+  )
+  const btn = screen.getByRole('button', { name: '展开候选池' })
+  expect(btn).toBeInTheDocument()
+  fireEvent.click(btn)
+  expect(onToggle).toHaveBeenCalledTimes(1)
+})
+
+test('non-empty backlog: clicking toolbar AI 帮选 calls onAskAI', () => {
+  const onAskAI = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          onAddActivity={() => {}}
+          onAskAI={onAskAI}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'AI 帮选' }))
+  expect(onAskAI).toHaveBeenCalled()
 })

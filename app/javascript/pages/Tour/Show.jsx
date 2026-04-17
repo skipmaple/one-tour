@@ -23,6 +23,7 @@ export default function Show({ tour, days, activities, violations, members, auth
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const [chatOpen, setChatOpen] = useState(true)
+  const [backlogOpen, setBacklogOpen] = useState(true)
 
   const undoStack = useUndoStack()
 
@@ -142,18 +143,43 @@ export default function Show({ tour, days, activities, violations, members, auth
             readOnly={!canEdit}
           />
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: `260px 1fr ${chatOpen ? 320 : 36}px`, gap: 10, padding: 10 }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: `${backlogOpen ? 260 : 44}px 1fr ${chatOpen ? 320 : 44}px`,
+          gap: 10,
+          padding: 10,
+        }}>
           <BacklogList
             activities={backlog}
             onAddActivity={canEdit ? openCreate : undefined}
             onEditActivity={canEdit ? openEdit : undefined}
             onAskAI={canEdit ? () => setPendingChatPrompt(ASK_AI_BACKLOG_PROMPT) : undefined}
-            onFocusChat={canEdit ? () => setChatOpen(true) : undefined}
             readOnly={!canEdit}
+            open={backlogOpen}
+            onToggle={() => setBacklogOpen(v => !v)}
           />
           <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', gap: 10 }}>
             <PlannerMap activities={activities} days={days} />
-            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', alignItems: 'stretch' }}>
+            <div style={{
+              display: 'flex',
+              gap: 8,
+              overflowX: 'auto',
+              alignItems: 'stretch',
+              // Scroll-shadow trick (Roma Komarov): two white "covers" scroll
+              // with the content (background-attachment: local), two shadows
+              // stay fixed. When content doesn't overflow, the covers sit on
+              // top of the shadows and hide them.
+              background: `
+                linear-gradient(to right, white, white),
+                linear-gradient(to left, white, white),
+                linear-gradient(to right, rgba(0,0,0,0.1), rgba(0,0,0,0)),
+                linear-gradient(to left, rgba(0,0,0,0.1), rgba(0,0,0,0))
+              `,
+              backgroundPosition: 'left center, right center, left center, right center',
+              backgroundSize: '20px 100%, 20px 100%, 10px 100%, 10px 100%',
+              backgroundRepeat: 'no-repeat',
+              backgroundAttachment: 'local, local, scroll, scroll',
+            }}>
               {days.map(d => (
                 <DayColumn
                   key={d.id}

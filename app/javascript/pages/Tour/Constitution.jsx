@@ -33,24 +33,96 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   const [isSaving, setIsSaving] = useState(false)
   const [isAccepting, setIsAccepting] = useState(false)
 
-  // Bidirectional sync: date range ↔ days count
-  const handleDateRangeChange = (range) => {
-    setTourDateRange(range)
-    const [start, end] = range
-    if (start && end) {
-      const ms = new Date(end).getTime() - new Date(start).getTime()
-      const diffDays = Math.round(ms / 86400000) + 1
-      if (diffDays > 0) setTourDays(diffDays)
+  // Conflict UX: when both date range and days count are set and disagree,
+  // open a confirm modal with two branches. No silent overwrite.
+  //
+  // openConfirmModal has only two exits — confirm and cancel. Esc, backdrop
+  // click, and the close button all fire onCancel, so the "keep days, truncate
+  // range" branch is also the Esc fallback. There is no "leave both alone"
+  // third path; users who change their mind can edit again to re-trigger.
+  const askConflict = ({ implied, current, onUseRange, onUseDays }) => {
+    modals.openConfirmModal({
+      title: '日期范围和天数对不上',
+      children: (
+        <Text size="sm">
+          你选的是 <b>{implied}</b> 天的日期范围，但当前"天数"填的是 <b>{current}</b>。选一个继续：
+        </Text>
+      ),
+      labels: { confirm: `按日期改为 ${implied} 天`, cancel: `保持 ${current} 天，截断日期` },
+      onConfirm: onUseRange,
+      onCancel: onUseDays,
+    })
+  }
+
+  const handleDateRangeChange = (newRange) => {
+    const [start, end] = newRange || [null, null]
+    // Empty / half-selected / cleared: just setState. Do not autofill, do not
+    // probe for conflict.
+    if (!start || !end) {
+      setTourDateRange(newRange)
+      return
     }
+    const conflict = detectDateDaysConflict(newRange, tourDays)
+    if (!conflict) {
+      // No conflict: autofill days. Covers the "days was empty / days matches"
+      // cases. Same math as conflict detection so the two stay consistent.
+      setTourDateRange(newRange)
+      const implied = Math.round(
+        (new Date(end).getTime() - new Date(start).getTime()) / 86400000
+      ) + 1
+      if (implied > 0) setTourDays(implied)
+      return
+    }
+    askConflict({
+      implied: conflict.implied,
+      current: conflict.current,
+      onUseRange: () => {
+        setTourDateRange(newRange)
+        setTourDays(conflict.implied)
+      },
+      onUseDays: () => {
+        // Keep the user's days, truncate the range.
+        const truncatedEnd = new Date(
+          new Date(start).getTime() + (conflict.current - 1) * 86400000
+        )
+        setTourDateRange([start, truncatedEnd])
+      },
+    })
   }
 
   const handleDaysChange = (val) => {
-    setTourDays(val)
-    const [start] = tourDateRange
-    if (start && val > 0) {
+    const [start, end] = tourDateRange || [null, null]
+    // No start date, or days cleared: just setState.
+    if (!start || !val || val <= 0) {
+      setTourDays(val)
+      return
+    }
+    // Start exists but no end yet: standard autofill of end.
+    if (!end) {
+      setTourDays(val)
       const newEnd = new Date(new Date(start).getTime() + (val - 1) * 86400000)
       setTourDateRange([start, newEnd])
+      return
     }
+    const conflict = detectDateDaysConflict([start, end], val)
+    if (!conflict) {
+      setTourDays(val)
+      return
+    }
+    askConflict({
+      implied: conflict.implied,
+      current: val,
+      onUseRange: () => {
+        // User edited days but chose "use dates": roll days back to what
+        // the existing range implies.
+        setTourDays(conflict.implied)
+      },
+      onUseDays: () => {
+        setTourDays(val)
+        const newEnd = new Date(new Date(start).getTime() + (val - 1) * 86400000)
+        setTourDateRange([start, newEnd])
+      },
+    })
   }
 
   const dirty = Object.keys(defaults).some(k => String(c[k]) !== String(defaults[k]))
@@ -163,6 +235,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
                 value={tourDateRange}
                 onChange={handleDateRangeChange}
                 valueFormat="YYYY-MM-DD"
+                minDate={todayLocal()}
                 clearable
               />
               <NumberInput
@@ -369,6 +442,33 @@ export function formatDateISO(d) {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+// Returns today's LOCAL calendar date as "YYYY-MM-DD".
+// Do not use `new Date().toISOString().slice(0,10)` — in Asia/Shanghai (UTC+8)
+// that returns the previous calendar date for the first 8 hours of each day.
+export function todayLocal() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// Returns null when the date range and days count are consistent or when
+// either side is not fully specified. Returns { implied, current } when
+// both are set and disagree.
+export function detectDateDaysConflict(range, days) {
+  if (!range) return null
+  const [start, end] = range
+  if (!start || !end) return null
+  if (!days || days <= 0) return null
+  const s = new Date(start).getTime()
+  const e = new Date(end).getTime()
+  if (isNaN(s) || isNaN(e)) return null
+  const implied = Math.round((e - s) / 86400000) + 1
+  if (implied === days) return null
+  return { implied, current: days }
 }
 
 function ConstRow({ label, field, scale = 1, options, unit, hint, c, setC }) {
