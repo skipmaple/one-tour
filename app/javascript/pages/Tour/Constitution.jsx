@@ -98,12 +98,23 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
         ) : (
           // ===== REVIEW MODE: READ-ONLY =====
           <>
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #c00', paddingBottom: 12, marginBottom: 8 }}>
-              <Title order={2} style={{ color: '#c00', letterSpacing: 6 }}>《本程宪法》</Title>
+            <div style={{
+              border: '1px solid #d0c0c0',
+              padding: '32px 24px 24px',
+              background: '#fffef9',
+            }}>
+              {/* 红头 */}
+              <div style={{ textAlign: 'center', marginBottom: 8 }}>
+                <div style={{ fontSize: 28, fontWeight: 700, color: '#c00', letterSpacing: 8, fontFamily: '"SimSun", "宋体", serif' }}>
+                  《本程宪法》
+                </div>
+              </div>
+              <div style={{ borderTop: '4px solid #c00', margin: '12px 0 4px' }} />
+              <div style={{ borderTop: '1px solid #c00', margin: '0 0 20px' }} />
+
+              <ConstitutionFullText constitution={constitution} />
             </div>
-            <ConstitutionFullText constitution={constitution} />
-            <Divider />
-            <Group justify="center" pt="md">
+            <Group justify="center" pt="lg">
               <Button variant="light" color="red" onClick={() => setEditing(true)}>修宪</Button>
             </Group>
           </>
