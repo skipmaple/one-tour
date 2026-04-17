@@ -175,18 +175,12 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
 // 红头文件 document wrapper
 function RedHeaderDocument({ children }) {
   return (
-    <div style={{
-      border: '1px solid #d0c0c0',
-      padding: '32px 24px 24px',
-      background: '#fffef9',
-    }}>
-      <div style={{ textAlign: 'center', marginBottom: 8 }}>
+    <div>
+      <div style={{ textAlign: 'center', borderBottom: '2px solid #c00', paddingBottom: 12, marginBottom: 16 }}>
         <div style={{ fontSize: 28, fontWeight: 700, color: '#c00', letterSpacing: 8, fontFamily: '"SimSun", "宋体", serif' }}>
           《本程宪法》
         </div>
       </div>
-      <div style={{ borderTop: '4px solid #c00', margin: '12px 0 4px' }} />
-      <div style={{ borderTop: '1px solid #c00', margin: '0 0 20px' }} />
       {children}
     </div>
   )
