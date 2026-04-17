@@ -38,32 +38,31 @@ export default function ConstitutionFullText({ constitution }) {
         <Table.Thead>
           <Table.Tr>
             <Table.Th>等级</Table.Th>
-            <Table.Th>代号</Table.Th>
             <Table.Th>含义</Table.Th>
             <Table.Th>角色</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
-          <Table.Tr><Table.Td>一等公民</Table.Td><Table.Td>⭐</Table.Td><Table.Td>行程存在的理由</Table.Td><Table.Td>景、路（部分）</Table.Td></Table.Tr>
-          <Table.Tr><Table.Td>二等公民</Table.Td><Table.Td>🔸</Table.Td><Table.Td>有独立吸引力</Table.Td><Table.Td>特色饭店、路（部分）</Table.Td></Table.Tr>
-          <Table.Tr><Table.Td>三等公民</Table.Td><Table.Td>◽</Table.Td><Table.Td>服务性角色</Table.Td><Table.Td>普通饭店、宾馆</Table.Td></Table.Tr>
-          <Table.Tr><Table.Td>基础设施</Table.Td><Table.Td>⚙️</Table.Td><Table.Td>无它不行但不构成目的</Table.Td><Table.Td>加油站、厕所</Table.Td></Table.Tr>
+          <Table.Tr><Table.Td>一等公民</Table.Td><Table.Td>行程存在的理由</Table.Td><Table.Td>景、路（部分）</Table.Td></Table.Tr>
+          <Table.Tr><Table.Td>二等公民</Table.Td><Table.Td>有独立吸引力</Table.Td><Table.Td>特色饭店、路（部分）</Table.Td></Table.Tr>
+          <Table.Tr><Table.Td>三等公民</Table.Td><Table.Td>服务性角色</Table.Td><Table.Td>普通饭店、宾馆</Table.Td></Table.Tr>
+          <Table.Tr><Table.Td>基础设施</Table.Td><Table.Td>无它不行但不构成目的</Table.Td><Table.Td>加油站、厕所</Table.Td></Table.Tr>
         </Table.Tbody>
       </Table>
 
-      <Text size="sm" fw={600}>第五条 景（⭐ 一等公民）</Text>
+      <Text size="sm" fw={600}>第五条 景（一等公民）</Text>
       <Text size="sm">自然景观是核心目的。选景原则：不可替代性优先；同类景观做减法；每个景需标注最佳光线时段、停留时间、是否需预约、海拔。</Text>
 
-      <Text size="sm" fw={600}>第六条 路（⭐ 或 🔸）</Text>
+      <Text size="sm" fw={600}>第六条 路（一等或二等公民）</Text>
       <Text size="sm">路不是管道。一等公民路（独库、伊昭）行驶过程本身就是目的；二等公民路（果子沟大桥段）沿途有景观但不需全程慢行；普通路段仅追求效率。</Text>
 
-      <Text size="sm" fw={600}>第七条 食（🔸 或 ◽）</Text>
+      <Text size="sm" fw={600}>第七条 食（二等或三等公民）</Text>
       <Text size="sm">默认三等公民。满足必吃清单 / 当地特色 / 路线重合条件时可升级为二等公民，但整程不超过 <strong>{t2Food} 家</strong>。</Text>
 
-      <Text size="sm" fw={600}>第八条 住（◽ 三等公民）</Text>
+      <Text size="sm" fw={600}>第八条 住（三等公民）</Text>
       <Text size="sm">围绕当日最后一个景点就近安排。底线：女生可接受的卫生条件、独立卫浴、手机可充电。毡房/蒙古包体验整程最多 1 晚。</Text>
 
-      <Text size="sm" fw={600}>第九条 油（⚙️ 基础设施）</Text>
+      <Text size="sm" fw={600}>第九条 油（基础设施）</Text>
       <Text size="sm">铁律：逢镇必加，半箱即补。油量低于 1/4 且前方 100km 无站时升级为一等公民，整程此类升级不超过 <strong>{fuelEmg} 次</strong>。</Text>
 
       <Divider />
