@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Stack, Group, Title, Button, Paper, Text, Select, Divider, TextInput, NumberInput } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
 import { Head, router } from '@inertiajs/react'
+import { notifications } from '@mantine/notifications'
+import * as Sentry from '@sentry/react'
 import TourTabs from '../../components/tour/TourTabs'
 import ConstitutionFullText from '../../components/planner/ConstitutionFullText'
 
@@ -27,6 +29,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   })
   const [tourTeamSize, setTourTeamSize] = useState(tour.team_size || '')
   const [tourDays, setTourDays] = useState(tour.days_count || 1)
+  const [isSaving, setIsSaving] = useState(false)
 
   // Bidirectional sync: date range ↔ days count
   const handleDateRangeChange = (range) => {
@@ -53,39 +56,40 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
 
   // Setup mode: save params via fetch (avoid Inertia redirect), then show full text
   const proceedToReview = async () => {
-    if (!tourTitle.trim()) return  // prevent empty title
-    const token = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
-    // Format date range for backend
-    const [startDate, endDate] = tourDateRange
-    const dateRangeStr = (startDate && endDate)
-      ? `${formatDateISO(startDate)} ~ ${formatDateISO(endDate)}`
-      : null
-    // Save tour metadata
-    await fetch(`/tours/${tour.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token },
-      body: JSON.stringify({ tour: { title: tourTitle.trim(), date_range: dateRangeStr, team_size: tourTeamSize || null } })
-    })
-    // Save constitution params
-    await fetch(`/tours/${tour.id}/constitution`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token },
-      body: JSON.stringify({ constitution: c })
-    })
-    // Batch create Days if needed (tour already has 1 Day from seed_first_day)
-    const currentDayCount = tour.days_count || 1
-    const targetDayCount = tourDays || 1
-    if (targetDayCount > currentDayCount) {
-      for (let i = currentDayCount + 1; i <= targetDayCount; i++) {
-        await fetch(`/tours/${tour.id}/days`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token },
-          body: JSON.stringify({ day: { day_index: i } })
-        })
-      }
+    if (!tourTitle.trim()) {
+      notifications.show({ message: '请先填写程名', color: 'red' })
+      return
     }
-    setSetupStep(2)
-    window.scrollTo(0, 0)
+    if (isSaving) return
+    setIsSaving(true)
+    try {
+      const [startDate, endDate] = tourDateRange
+      const s = formatDateISO(startDate)
+      const e = formatDateISO(endDate)
+      const dateRangeStr = (s && e) ? `${s} ~ ${e}` : null
+
+      await postJson(`/tours/${tour.id}`, 'PATCH', {
+        tour: { title: tourTitle.trim(), date_range: dateRangeStr, team_size: tourTeamSize || null },
+      })
+      await postJson(`/tours/${tour.id}/constitution`, 'PATCH', { constitution: c })
+
+      const currentDayCount = tour.days_count || 1
+      const targetDayCount = tourDays || 1
+      for (let i = currentDayCount + 1; i <= targetDayCount; i++) {
+        await postJson(`/tours/${tour.id}/days`, 'POST', { day: { day_index: i } })
+      }
+
+      setSetupStep(2)
+      window.scrollTo(0, 0)
+    } catch (err) {
+      notifications.show({ message: `保存失败：${err.message}`, color: 'red' })
+      Sentry.captureException(err, {
+        tags: { area: 'tour_setup', op: 'save_params' },
+        extra: { tour_id: tour.id },
+      })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   // Setup mode step 2: mark accepted, then go to planner
@@ -166,7 +170,9 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
             />
             <Group justify="space-between" mt="lg" pt="md" style={{ borderTop: '1px solid #eee' }}>
               <Button variant="default" onClick={resetToDefaults} disabled={!dirty}>↺ 恢复默认</Button>
-              <Button onClick={proceedToReview}>下一步 →</Button>
+              <Button onClick={proceedToReview} loading={isSaving} disabled={isSaving}>
+                {isSaving ? '保存中…' : '下一步 →'}
+              </Button>
             </Group>
           </>
 
@@ -315,6 +321,21 @@ function formatDate(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
   return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+async function postJson(url, method, body) {
+  const token = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-CSRF-Token': token,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (!res.ok) throw new Error(`${method} ${url} 失败 (${res.status})`)
+  return res
 }
 
 export function formatDateISO(d) {
