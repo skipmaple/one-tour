@@ -34,6 +34,13 @@ vi.mock('@mantine/notifications', () => ({
   notifications: { show: vi.fn() },
 }))
 
+const mockUndoStack = { push: vi.fn(), executeTop: vi.fn(), stack: [] }
+vi.mock('../../../hooks/useUndoStack', () => ({
+  useUndoStack: () => mockUndoStack,
+  UndoStackProvider: ({ children }) => children,
+  UNDO_CAP: 10,
+}))
+
 // Module-scope ref so tests can inspect what Show.jsx passed to ChatPanel.
 // Mutated (not reassigned) so the closure captured by vi.mock stays valid.
 const chatPanelProps = { pendingPrompt: undefined }

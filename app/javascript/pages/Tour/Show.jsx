@@ -16,11 +16,14 @@ import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 import MembershipDrawer from '../../components/planner/MembershipDrawer'
 import DayEditModal from '../../components/planner/DayEditModal'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
+import { useUndoStack } from '../../hooks/useUndoStack'
 
 export default function Show({ tour, days, activities, violations, members, author, conversation_empty }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const [chatOpen, setChatOpen] = useState(true)
+
+  const undoStack = useUndoStack()
 
   // Drag overlay state
   const [activeId, setActiveId] = useState(null)
@@ -254,6 +257,12 @@ export default function Show({ tour, days, activities, violations, members, auth
   }
 
   function performMove(activityId, toDayId, toPosition) {
+    // Snapshot prev position for undo
+    const draggedActivity = displayActivities.find(a => a.id === activityId)
+    const prevDayId = draggedActivity?.day_id ?? null
+    const prevPosition = draggedActivity?.position ?? 1
+    const label = `移动 ${draggedActivity?.name || 'activity'}`
+
     // Optimistic: apply locally
     setLocalOverrides(prev => ({
       ...prev,
@@ -271,6 +280,20 @@ export default function Show({ tour, days, activities, violations, members, auth
           setLocalOverrides(prev => {
             const { [activityId]: _, ...rest } = prev
             return rest
+          })
+          undoStack.push({
+            label,
+            undoFn: () => new Promise((resolve, reject) =>
+              router.patch(`/activities/${activityId}/position`,
+                { to_day_id: prevDayId, to_position: prevPosition },
+                {
+                  preserveState: true,
+                  only: [ 'activities', 'violations' ],
+                  onSuccess: () => resolve(),
+                  onError: () => reject(new Error('服务器拒绝'))
+                }
+              )
+            )
           })
         },
         onError: () => {

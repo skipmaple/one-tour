@@ -2,7 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { DatesProvider } from '@mantine/dates'
-import { vi } from 'vitest'
+import { vi, beforeEach } from 'vitest'
 import DayEditModal from '../DayEditModal'
 
 vi.mock('@inertiajs/react', () => ({
@@ -11,6 +11,17 @@ vi.mock('@inertiajs/react', () => ({
     delete: vi.fn((url, opts) => opts?.onSuccess?.()),
   },
 }))
+
+const mockUndoStack = { push: vi.fn(), executeTop: vi.fn(), stack: [] }
+vi.mock('../../../hooks/useUndoStack', () => ({
+  useUndoStack: () => mockUndoStack,
+  UndoStackProvider: ({ children }) => children,
+  UNDO_CAP: 10,
+}))
+
+beforeEach(() => {
+  mockUndoStack.push.mockClear()
+})
 
 function renderModal(props = {}) {
   const defaults = {
@@ -69,4 +80,17 @@ test('toggles buffer_day checkbox', () => {
   expect(cb).not.toBeChecked()
   fireEvent.click(cb)
   expect(cb).toBeChecked()
+})
+
+test('save pushes undo entry with prev attrs', async () => {
+  const { router } = await import('@inertiajs/react')
+  router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())
+  const onClose = vi.fn()
+  renderModal({ onClose })
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => {
+    expect(mockUndoStack.push).toHaveBeenCalledWith(
+      expect.objectContaining({ label: expect.stringContaining('D3') })
+    )
+  })
 })

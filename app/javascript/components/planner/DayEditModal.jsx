@@ -3,12 +3,14 @@ import { Modal, Textarea, Checkbox, Button, Group, Stack } from '@mantine/core'
 import { DateInput } from '@mantine/dates'
 import { modals } from '@mantine/modals'
 import { router } from '@inertiajs/react'
+import { useUndoStack } from '../../hooks/useUndoStack'
 
 export default function DayEditModal({ day, tourId, onClose }) {
   const [theme, setTheme] = useState('')
   const [date, setDate] = useState(null)
   const [bufferDay, setBufferDay] = useState(false)
   const [saving, setSaving] = useState(false)
+  const undoStack = useUndoStack()
 
   useEffect(() => {
     if (day) {
@@ -22,6 +24,12 @@ export default function DayEditModal({ day, tourId, onClose }) {
 
   const handleSave = () => {
     setSaving(true)
+    // Snapshot prev for undo
+    const prevAttrs = {
+      theme: day.theme,
+      date: day.date,
+      buffer_day: day.buffer_day,
+    }
     const payload = {
       day: {
         theme: theme || null,
@@ -32,7 +40,21 @@ export default function DayEditModal({ day, tourId, onClose }) {
     router.patch(`/tours/${tourId}/days/${day.id}`, payload, {
       preserveScroll: true,
       only: ['days', 'activities', 'violations'],
-      onSuccess: () => { setSaving(false); onClose() },
+      onSuccess: () => {
+        setSaving(false)
+        onClose()
+        undoStack.push({
+          label: `修改 D${day.day_index}`,
+          undoFn: () => new Promise((resolve, reject) =>
+            router.patch(`/tours/${tourId}/days/${day.id}`, { day: prevAttrs }, {
+              preserveScroll: true,
+              only: ['days', 'activities', 'violations'],
+              onSuccess: () => resolve(),
+              onError: () => reject(new Error('服务器拒绝'))
+            })
+          )
+        })
+      },
       onError: () => setSaving(false),
     })
   }

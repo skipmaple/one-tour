@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Drawer, Button, Group, Stack } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { modals } from '@mantine/modals'
+import { notifications } from '@mantine/notifications'
 import { router } from '@inertiajs/react'
+import { useUndoStack } from '../../hooks/useUndoStack'
 import { KIND_SCHEMA } from './detailsSchema'
 import CommonFields from './CommonFields'
 import DetailsFields from './DetailsFields'
@@ -11,6 +13,7 @@ import PoiSearchCombobox from './PoiSearchCombobox'
 export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId }) {
   const isEdit = mode === 'edit'
   const [saving, setSaving] = useState(false)
+  const undoStack = useUndoStack()
 
   const form = useForm({
     initialValues: {
@@ -84,7 +87,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     }
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (form.validate().hasErrors) return
     setSaving(true)
 
@@ -108,19 +111,59 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       },
     }
 
-    const inertiaOpts = {
-      preserveScroll: true,
-      only: ['activities', 'violations'],
-      onSuccess: () => { setSaving(false); onClose() },
-      onError: () => setSaving(false),
-    }
-
     if (isEdit) {
-      router.patch(`/activities/${activity.id}`, payload, inertiaOpts)
-    } else if (targetDayId) {
-      router.post(`/tours/${tourId}/days/${targetDayId}/activities`, payload, inertiaOpts)
+      // UPDATE path: snapshot prev for undo
+      const prevAttrs = { ...activity }
+      router.patch(`/activities/${activity.id}`, payload, {
+        preserveScroll: true,
+        only: ['activities', 'violations'],
+        onSuccess: () => {
+          setSaving(false)
+          onClose()
+          undoStack.push({
+            label: `修改 ${form.values.name}`,
+            undoFn: () => new Promise((resolve, reject) =>
+              router.patch(`/activities/${activity.id}`, { activity: prevAttrs }, {
+                preserveScroll: true,
+                only: ['activities', 'violations'],
+                onSuccess: () => resolve(),
+                onError: () => reject(new Error('服务器拒绝'))
+              })
+            )
+          })
+        },
+        onError: () => setSaving(false),
+      })
     } else {
-      router.post(`/tours/${tourId}/backlog_activities`, payload, inertiaOpts)
+      // CREATE path: fetch to get id, then push delete-undo
+      const url = targetDayId
+        ? `/tours/${tourId}/days/${targetDayId}/activities`
+        : `/tours/${tourId}/backlog_activities`
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
+          body: JSON.stringify(payload)
+        })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const { id: newId } = await res.json()
+        router.reload({ only: ['activities', 'violations'] })
+        setSaving(false)
+        onClose()
+        undoStack.push({
+          label: `新建 ${form.values.name}`,
+          undoFn: () => fetch(`/activities/${newId}`, {
+            method: 'DELETE',
+            headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() }
+          }).then(r => {
+            if (!r.ok) throw new Error('删除失败')
+            router.reload({ only: ['activities', 'violations'] })
+          })
+        })
+      } catch (err) {
+        setSaving(false)
+        notifications.show({ message: `保存失败：${err.message}`, color: 'red' })
+      }
     }
   }
 
@@ -130,10 +173,41 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       labels: { confirm: '删除', cancel: '取消' },
       confirmProps: { color: 'red' },
       onConfirm: () => {
+        const savedAttrs = { ...activity }
+        const wasInDay = activity.day_id
         router.delete(`/activities/${activity.id}`, {
           preserveScroll: true,
           only: ['activities', 'violations'],
-          onSuccess: onClose,
+          onSuccess: () => {
+            onClose()
+            undoStack.push({
+              label: `删除 ${activity.name}`,
+              undoFn: async () => {
+                const url = wasInDay
+                  ? `/tours/${tourId}/days/${wasInDay}/activities`
+                  : `/tours/${tourId}/backlog_activities`
+                const payload = {
+                  activity: {
+                    name: savedAttrs.name,
+                    kind: savedAttrs.kind,
+                    citizen_level: savedAttrs.citizen_level,
+                    lat: savedAttrs.lat,
+                    lng: savedAttrs.lng,
+                    planned_start_at: savedAttrs.planned_start_at,
+                    planned_duration_min: savedAttrs.planned_duration_min,
+                    details: savedAttrs.details || {}
+                  }
+                }
+                const res = await fetch(url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
+                  body: JSON.stringify(payload)
+                })
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                router.reload({ only: ['activities', 'violations'] })
+              }
+            })
+          },
         })
       },
     })
@@ -191,4 +265,8 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       </Stack>
     </Drawer>
   )
+}
+
+function csrfToken() {
+  return document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
 }
