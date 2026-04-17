@@ -1,6 +1,7 @@
 import { Paper, Text, Stack, Group, Button } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
 import ActivityCard from './ActivityCard'
+import DayMetricBar from '../DayMetricBar'
 
 const INTENSITY_COLORS = {
   green:  '#4caf50',
@@ -95,16 +96,12 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
         ))}
         {activities.length === 0 && <Text size="xs" c="dimmed" ta="center" mt="md">空</Text>}
       </Stack>
-      <div style={{ borderTop: '1px dashed #ccc', padding: '4px 8px', fontSize: 10, color: '#666' }}>
-        驾驶 {progressBar(driveH, maxH)} {driveH}/{maxH}h<br />
-        核心 {progressBar(tierOneCount, maxTier1, 3)} {tierOneCount}/{maxTier1}
-        {day.buffer_day && <> · 机动</>}
+      <div style={{ borderTop: '1px dashed #ccc', padding: '4px 8px' }}>
+        <DayMetricBar label="驾驶" value={driveH} max={maxH} unit="h" />
+        <DayMetricBar label="核心" value={tierOneCount} max={maxTier1} />
+        {day.buffer_day && <Text size="xs" c="dimmed" mt={2}>机动</Text>}
       </div>
     </Paper>
   )
 }
 
-function progressBar(value, max, width = 5) {
-  const filled = Math.min(Math.round((value / max) * width), width)
-  return '█'.repeat(filled) + '░'.repeat(width - filled)
-}
