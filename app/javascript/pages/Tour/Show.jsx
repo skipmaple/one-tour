@@ -15,6 +15,7 @@ import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 import MembershipDrawer from '../../components/planner/MembershipDrawer'
 import DayEditModal from '../../components/planner/DayEditModal'
+import TourSettingsModal from '../../components/planner/TourSettingsModal'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 
@@ -60,6 +61,9 @@ export default function Show({ tour, days, activities, violations, members, auth
 
   // Day edit state
   const [editingDayId, setEditingDayId] = useState(null)
+
+  // Tour settings modal state
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const editingDay = editingDayId ? days.find(d => d.id === editingDayId) : null
 
   const openCreate = (dayId) => setEditor({ open: true, mode: 'create', activityId: null, targetDayId: dayId })
@@ -108,7 +112,7 @@ export default function Show({ tour, days, activities, violations, members, auth
         <div style={{ padding: 10 }}>
           <TourTabs tour={tour} active="planner" />
           <Group justify="space-between" mb="xs" mt="sm">
-            <Text fw={700} size="lg">{tour.title}</Text>
+            <Text fw={700} size="lg" onClick={() => canEdit && setSettingsOpen(true)} style={{ cursor: canEdit ? 'pointer' : 'default' }}>{tour.title}</Text>
             <Button
               size="compact-xs"
               variant="default"
@@ -193,6 +197,12 @@ export default function Show({ tour, days, activities, violations, members, auth
         day={editingDay}
         tourId={tour.id}
         onClose={() => setEditingDayId(null)}
+      />
+
+      <TourSettingsModal
+        tour={tour}
+        opened={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
       />
     </div>
   )

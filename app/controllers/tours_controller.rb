@@ -40,7 +40,10 @@ class ToursController < ApplicationController
   def update
     head :forbidden and return unless @tour.editable_by?(current_user)
     @tour.update!(tour_params)
-    redirect_to @tour
+    respond_to do |format|
+      format.json { render json: { ok: true } }
+      format.html { redirect_to @tour }
+    end
   end
 
   def destroy

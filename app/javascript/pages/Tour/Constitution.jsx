@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Stack, Group, Title, Button, Paper, Text, Select, Divider } from '@mantine/core'
+import { Stack, Group, Title, Button, Paper, Text, Select, Divider, TextInput, NumberInput } from '@mantine/core'
 import { Head, router } from '@inertiajs/react'
 import TourTabs from '../../components/tour/TourTabs'
 import ConstitutionFullText from '../../components/planner/ConstitutionFullText'
@@ -12,21 +12,30 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   const [editing, setEditing] = useState(false)
   // Setup mode: step 1 = parameter editor, step 2 = full text review
   const [setupStep, setSetupStep] = useState(1)
+  const [tourTitle, setTourTitle] = useState(tour.title || '')
+  const [tourDateRange, setTourDateRange] = useState(tour.date_range || '')
+  const [tourTeamSize, setTourTeamSize] = useState(tour.team_size || '')
   const dirty = Object.keys(defaults).some(k => String(c[k]) !== String(defaults[k]))
   const advancedCount = Object.keys(defaults).filter(k => !KEY_FIELDS.includes(k)).length
 
   // Setup mode: save params via fetch (avoid Inertia redirect), then show full text
   const proceedToReview = async () => {
+    if (!tourTitle.trim()) return  // prevent empty title
     const token = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
-    const res = await fetch(`/tours/${tour.id}/constitution`, {
+    // Save tour metadata
+    await fetch(`/tours/${tour.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token },
+      body: JSON.stringify({ tour: { title: tourTitle.trim(), date_range: tourDateRange, team_size: tourTeamSize || null } })
+    })
+    // Save constitution params
+    await fetch(`/tours/${tour.id}/constitution`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token },
       body: JSON.stringify({ constitution: c })
     })
-    if (res.ok) {
-      setSetupStep(2)
-      window.scrollTo(0, 0)
-    }
+    setSetupStep(2)
+    window.scrollTo(0, 0)
   }
 
   // Setup mode step 2: mark accepted, then go to planner
@@ -66,6 +75,29 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
             <Text size="xs" c="dimmed" ta="center">第 1 步（共 2 步）</Text>
             <Title order={3} ta="center">调整本程参数</Title>
             <Text size="sm" c="dimmed" ta="center">大多数情况下默认值就够用，直接点"下一步"即可</Text>
+            <TextInput
+              label="程名"
+              placeholder="例如：伊犁环线 10 日"
+              value={tourTitle}
+              onChange={e => setTourTitle(e.currentTarget.value)}
+              required
+            />
+            <Group grow>
+              <TextInput
+                label="日期范围"
+                placeholder="例如：2026年6月10日-19日"
+                value={tourDateRange}
+                onChange={e => setTourDateRange(e.currentTarget.value)}
+              />
+              <NumberInput
+                label="人数"
+                placeholder="例如：5"
+                value={tourTeamSize}
+                onChange={setTourTeamSize}
+                min={1}
+                max={50}
+              />
+            </Group>
             <ParameterEditor
               c={c} setC={setC} dirty={dirty} advancedOpen={advancedOpen}
               setAdvancedOpen={setAdvancedOpen} advancedCount={advancedCount}
