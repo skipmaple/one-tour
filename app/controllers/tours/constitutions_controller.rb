@@ -9,7 +9,7 @@ class Tours::ConstitutionsController < ApplicationController
       constitution: @tour.constitution,
       defaults: Constitution::DEFAULTS.deep_stringify_keys,
       overrides: @tour.constraint_overrides,
-      is_setup: !@tour.activities.exists?
+      is_setup: !@tour.constitution_accepted
     }
   end
 
@@ -22,6 +22,13 @@ class Tours::ConstitutionsController < ApplicationController
       format.json { render json: { ok: true } }
       format.html { redirect_to @tour }
     end
+  end
+
+  # POST /tours/:tour_id/constitution/accept
+  def accept
+    head :forbidden and return unless @tour.editable_by?(current_user)
+    @tour.update!(constitution_accepted: true)
+    head :ok
   end
 
   private

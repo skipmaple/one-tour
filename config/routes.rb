@@ -14,7 +14,9 @@ Rails.application.routes.draw do
 
   # Tours (Trip Planner)
   resources :tours, except: [ :new, :edit ] do
-    resource  :constitution, only: [ :show, :update ], controller: "tours/constitutions"
+    resource  :constitution, only: [ :show, :update ], controller: "tours/constitutions" do
+      post :accept, on: :member
+    end
     resource  :timeline, only: [ :show ], controller: "tours/timelines"
     resource  :overrides, only: [ :create, :destroy ], controller: :constraint_overrides
     resources :members, controller: :tour_memberships, only: [ :create, :update, :destroy ]

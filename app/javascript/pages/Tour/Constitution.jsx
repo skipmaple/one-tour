@@ -29,8 +29,13 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
     }
   }
 
-  // Setup mode step 2: agree and go to planner
-  const agreeAndStart = () => {
+  // Setup mode step 2: mark accepted, then go to planner
+  const agreeAndStart = async () => {
+    const token = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
+    await fetch(`/tours/${tour.id}/constitution/accept`, {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': token }
+    })
     router.visit(`/tours/${tour.id}`)
   }
 
