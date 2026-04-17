@@ -15,15 +15,18 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   const dirty = Object.keys(defaults).some(k => String(c[k]) !== String(defaults[k]))
   const advancedCount = Object.keys(defaults).filter(k => !KEY_FIELDS.includes(k)).length
 
-  // Setup mode: save params then show full text for review (step 2)
-  const proceedToReview = () => {
-    router.patch(`/tours/${tour.id}/constitution`, { constitution: c }, {
-      preserveState: true,
-      onSuccess: () => {
-        setSetupStep(2)
-        window.scrollTo(0, 0)
-      }
+  // Setup mode: save params via fetch (avoid Inertia redirect), then show full text
+  const proceedToReview = async () => {
+    const token = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
+    const res = await fetch(`/tours/${tour.id}/constitution`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token },
+      body: JSON.stringify({ constitution: c })
     })
+    if (res.ok) {
+      setSetupStep(2)
+      window.scrollTo(0, 0)
+    }
   }
 
   // Setup mode step 2: agree and go to planner

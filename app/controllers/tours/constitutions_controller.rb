@@ -9,7 +9,7 @@ class Tours::ConstitutionsController < ApplicationController
       constitution: @tour.constitution,
       defaults: Constitution::DEFAULTS.deep_stringify_keys,
       overrides: @tour.constraint_overrides,
-      is_setup: !@tour.days.exists?
+      is_setup: !@tour.activities.exists?
     }
   end
 
@@ -18,7 +18,10 @@ class Tours::ConstitutionsController < ApplicationController
     allowed = Constitution::DEFAULTS.keys.map(&:to_s)
     safe = params.require(:constitution).permit(*allowed).to_h
     @tour.update!(constitution: @tour.constitution.merge(safe))
-    redirect_to @tour
+    respond_to do |format|
+      format.json { render json: { ok: true } }
+      format.html { redirect_to @tour }
+    end
   end
 
   private
