@@ -45,10 +45,14 @@ export default function BacklogList({
 
   // Droppable uses full activities.length so dropped items are appended to
   // the true end (not after the filtered subset).
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef, isOver, active } = useDroppable({
     id: 'backlog',
     data: { dayId: null, position: activities.length + 1 }
   })
+
+  // Three-state drop zone visual: idle (no drag) → active (drag in progress
+  // but not hovering this droppable) → over (hovering this droppable).
+  const dragState = active ? (isOver ? 'over' : 'active') : 'idle'
 
   // Folded rendering: mirror ChatPanel's collapsed vertical strip.
   if (!open) {
@@ -106,8 +110,13 @@ export default function BacklogList({
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
-          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.04)',
-          background: isOver ? '#f0f7ff' : undefined,
+          border: dragState === 'idle' ? 'none' : '2px dashed var(--mantine-color-gray-5)',
+          borderRadius: 4,
+          background:
+            dragState === 'over' ? '#e7f5ff' :
+            dragState === 'active' ? 'var(--mantine-color-gray-0)' :
+            undefined,
+          transition: 'border-color 120ms ease, background-color 120ms ease',
         }}
       >
         {isEmpty && readOnly && (
@@ -115,17 +124,7 @@ export default function BacklogList({
         )}
 
         {isEmpty && !readOnly && (
-          <Stack
-            gap="xs"
-            p="md"
-            justify="center"
-            style={{
-              flex: 1,
-              border: '2px dashed var(--mantine-color-gray-5)',
-              borderRadius: 4,
-              background: '#fafafa',
-            }}
-          >
+          <Stack gap="xs">
             {onAddActivity && (
               <Button size="sm" variant="default" fullWidth onClick={() => onAddActivity(null)}>
                 加候选
