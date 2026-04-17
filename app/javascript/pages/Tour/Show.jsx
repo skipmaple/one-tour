@@ -239,6 +239,7 @@ export default function Show({ tour, days, activities, violations, members, auth
         confirmProps: { color: 'orange' },
         onConfirm: () => {
           router.patch(`/tours/${tour.id}/days/${toDayId}`, { day: { buffer_day: false } }, {
+            preserveState: true,
             preserveScroll: true,
             only: ['days', 'violations'],
             onSuccess: () => performMove(activityId, toDayId, toPosition),
