@@ -5,7 +5,7 @@ class Tours::ConstitutionsController < ApplicationController
   def show
     head :not_found and return unless @tour.visible_to?(current_user)
     render inertia: "Tour/Constitution", props: {
-      tour: @tour.as_json,
+      tour: @tour.as_json.merge("days_count" => @tour.days.count),
       constitution: @tour.constitution,
       defaults: Constitution::DEFAULTS.deep_stringify_keys,
       overrides: @tour.constraint_overrides,

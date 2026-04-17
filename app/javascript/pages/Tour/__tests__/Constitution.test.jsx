@@ -53,3 +53,8 @@ test('review mode shows full constitution text and 修宪 button', () => {
   expect(screen.getByText('《本程宪法》')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /修宪/ })).toBeInTheDocument()
 })
+
+test('setup step 1 shows 天数 field', () => {
+  renderPage()
+  expect(screen.getByLabelText('天数')).toBeInTheDocument()
+})

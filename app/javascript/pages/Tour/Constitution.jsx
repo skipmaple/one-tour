@@ -15,6 +15,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   const [tourTitle, setTourTitle] = useState(tour.title || '')
   const [tourDateRange, setTourDateRange] = useState(tour.date_range || '')
   const [tourTeamSize, setTourTeamSize] = useState(tour.team_size || '')
+  const [tourDays, setTourDays] = useState(tour.days_count || 1)
   const dirty = Object.keys(defaults).some(k => String(c[k]) !== String(defaults[k]))
   const advancedCount = Object.keys(defaults).filter(k => !KEY_FIELDS.includes(k)).length
 
@@ -34,6 +35,18 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token },
       body: JSON.stringify({ constitution: c })
     })
+    // Batch create Days if needed (tour already has 1 Day from seed_first_day)
+    const currentDayCount = tour.days_count || 1
+    const targetDayCount = tourDays || 1
+    if (targetDayCount > currentDayCount) {
+      for (let i = currentDayCount + 1; i <= targetDayCount; i++) {
+        await fetch(`/tours/${tour.id}/days`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token },
+          body: JSON.stringify({ day: { day_index: i } })
+        })
+      }
+    }
     setSetupStep(2)
     window.scrollTo(0, 0)
   }
@@ -96,6 +109,14 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
                 onChange={setTourTeamSize}
                 min={1}
                 max={50}
+              />
+              <NumberInput
+                label="天数"
+                placeholder="例如：7"
+                value={tourDays}
+                onChange={setTourDays}
+                min={1}
+                max={30}
               />
             </Group>
             <ParameterEditor
