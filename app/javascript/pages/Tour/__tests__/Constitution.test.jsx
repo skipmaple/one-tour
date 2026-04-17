@@ -36,19 +36,20 @@ function renderPage(constitutionOverrides = {}, pageProps = {}) {
   )
 }
 
-test('renders 3 key constraints always visible', () => {
+test('renders 3 key constraints always visible in setup step 1', () => {
   renderPage()
   expect(screen.getByText('每天最多驾驶')).toBeInTheDocument()
   expect(screen.getByText(/每天最多.*核心景点/)).toBeInTheDocument()
   expect(screen.getByText('整程至少机动日')).toBeInTheDocument()
 })
 
-test('shows "use defaults" button when unmodified', () => {
+test('shows "下一步" button in setup step 1', () => {
   renderPage()
-  expect(screen.getByRole('button', { name: /使用默认宪法/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /下一步/ })).toBeInTheDocument()
 })
 
-test('switches to "save" button when dirty', () => {
-  renderPage({ max_daily_driving_minutes: 360 })
-  expect(screen.getByText(/保存修改并开始/)).toBeInTheDocument()
+test('review mode shows full constitution text and 修宪 button', () => {
+  renderPage({}, { is_setup: false })
+  expect(screen.getByText('《本程宪法》')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /修宪/ })).toBeInTheDocument()
 })

@@ -15,7 +15,6 @@ import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 import MembershipDrawer from '../../components/planner/MembershipDrawer'
 import DayEditModal from '../../components/planner/DayEditModal'
-import ConstitutionReviewModal from '../../components/planner/ConstitutionReviewModal'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 
@@ -94,16 +93,6 @@ export default function Show({ tour, days, activities, violations, members, auth
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Show constitution review modal when arriving from constitution setup
-  const [constitutionReviewOpen, setConstitutionReviewOpen] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return new URLSearchParams(window.location.search).has('review_constitution')
-  })
-
-  const closeConstitutionReview = () => {
-    setConstitutionReviewOpen(false)
-    history.replaceState(null, '', window.location.pathname)
-  }
 
   return (
     <div>
@@ -204,12 +193,6 @@ export default function Show({ tour, days, activities, violations, members, auth
         day={editingDay}
         tourId={tour.id}
         onClose={() => setEditingDayId(null)}
-      />
-
-      <ConstitutionReviewModal
-        opened={constitutionReviewOpen}
-        onClose={closeConstitutionReview}
-        constitution={tour.constitution}
       />
     </div>
   )

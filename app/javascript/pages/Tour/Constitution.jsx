@@ -4,29 +4,31 @@ import { Head, router } from '@inertiajs/react'
 import TourTabs from '../../components/tour/TourTabs'
 import ConstitutionFullText from '../../components/planner/ConstitutionFullText'
 
-// "关键约束" section shows these three keys; everything else in DEFAULTS
-// renders as "高级参数". Keep this list here, not hardcoded in the
-// "剩余 N 条" label, so the count stays accurate when DEFAULTS changes.
 const KEY_FIELDS = [ 'max_daily_driving_minutes', 'max_tier_one_per_day', 'min_buffer_days' ]
 
 export default function Constitution({ tour, constitution, defaults, overrides, is_setup }) {
   const [c, setC] = useState({ ...constitution })
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [editing, setEditing] = useState(false)
+  // Setup mode: step 1 = parameter editor, step 2 = full text review
+  const [setupStep, setSetupStep] = useState(1)
   const dirty = Object.keys(defaults).some(k => String(c[k]) !== String(defaults[k]))
   const advancedCount = Object.keys(defaults).filter(k => !KEY_FIELDS.includes(k)).length
 
-  // Setup mode: save and go to planner with review modal
-  const saveAndStart = () => {
+  // Setup mode: save params then show full text for review (step 2)
+  const proceedToReview = () => {
     router.patch(`/tours/${tour.id}/constitution`, { constitution: c }, {
-      onSuccess: () => router.visit(`/tours/${tour.id}?review_constitution=1`)
+      preserveState: true,
+      onSuccess: () => {
+        setSetupStep(2)
+        window.scrollTo(0, 0)
+      }
     })
   }
 
-  const useDefaultsAndStart = () => {
-    router.patch(`/tours/${tour.id}/constitution`, { constitution: defaults }, {
-      onSuccess: () => router.visit(`/tours/${tour.id}?review_constitution=1`)
-    })
+  // Setup mode step 2: agree and go to planner
+  const agreeAndStart = () => {
+    router.visit(`/tours/${tour.id}`)
   }
 
   // Review mode: save and stay on page
@@ -50,18 +52,11 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
       <Stack gap="lg" maw={820} mx="auto" mt="md">
         <Head title="宪法" />
 
-        {is_setup ? (
-          // ===== SETUP MODE =====
+        {is_setup && setupStep === 1 ? (
+          // ===== SETUP STEP 1: PARAMETER EDITOR =====
           <>
-            <div style={{ textAlign: 'center', borderBottom: '2px solid #c00', paddingBottom: 12, marginBottom: 8 }}>
-              <Title order={2} style={{ color: '#c00', letterSpacing: 6 }}>《本程宪法》</Title>
-            </div>
-            <Paper p="md" bg="yellow.0" withBorder>
-              <Text size="sm">
-                💡 这份宪法是给你这次旅行的基础规则。<strong>大多数情况下默认值就够用</strong> —— 可以直接 "使用默认宪法，直接开始"。
-                若情况特殊（老人小孩、长距离赶路、特殊饮食），往下调整相应参数。
-              </Text>
-            </Paper>
+            <Title order={3} ta="center">调整本程参数</Title>
+            <Text size="sm" c="dimmed" ta="center">大多数情况下默认值就够用，直接点"下一步"即可</Text>
             <ParameterEditor
               c={c} setC={setC} dirty={dirty} advancedOpen={advancedOpen}
               setAdvancedOpen={setAdvancedOpen} advancedCount={advancedCount}
@@ -69,19 +64,26 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
             />
             <Group justify="space-between" mt="lg" pt="md" style={{ borderTop: '1px solid #eee' }}>
               <Button variant="default" onClick={resetToDefaults} disabled={!dirty}>↺ 恢复默认</Button>
-              <Group>
-                {dirty ? (
-                  <Button onClick={saveAndStart}>保存修改并开始 →</Button>
-                ) : (
-                  <Button onClick={useDefaultsAndStart}>使用默认宪法，直接开始 →</Button>
-                )}
-              </Group>
+              <Button onClick={proceedToReview}>下一步 →</Button>
             </Group>
           </>
+
+        ) : is_setup && setupStep === 2 ? (
+          // ===== SETUP STEP 2: FULL TEXT REVIEW + AGREE =====
+          <>
+            <RedHeaderDocument>
+              <ConstitutionFullText constitution={c} />
+            </RedHeaderDocument>
+            <Group justify="center" pt="lg" pb="md">
+              <Button variant="default" onClick={() => setSetupStep(1)}>← 返回修改参数</Button>
+              <Button color="red" onClick={agreeAndStart}>同意并开始规划 →</Button>
+            </Group>
+          </>
+
         ) : editing ? (
           // ===== REVIEW MODE: EDITING =====
           <>
-            <Title order={2}>修改宪法参数</Title>
+            <Title order={3} ta="center">修改宪法参数</Title>
             <ParameterEditor
               c={c} setC={setC} dirty={dirty} advancedOpen={advancedOpen}
               setAdvancedOpen={setAdvancedOpen} advancedCount={advancedCount}
@@ -95,33 +97,21 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
               </Group>
             </Group>
           </>
+
         ) : (
           // ===== REVIEW MODE: READ-ONLY =====
           <>
-            <div style={{
-              border: '1px solid #d0c0c0',
-              padding: '32px 24px 24px',
-              background: '#fffef9',
-            }}>
-              {/* 红头 */}
-              <div style={{ textAlign: 'center', marginBottom: 8 }}>
-                <div style={{ fontSize: 28, fontWeight: 700, color: '#c00', letterSpacing: 8, fontFamily: '"SimSun", "宋体", serif' }}>
-                  《本程宪法》
-                </div>
-              </div>
-              <div style={{ borderTop: '4px solid #c00', margin: '12px 0 4px' }} />
-              <div style={{ borderTop: '1px solid #c00', margin: '0 0 20px' }} />
-
+            <RedHeaderDocument>
               <ConstitutionFullText constitution={constitution} />
-            </div>
+            </RedHeaderDocument>
             <Group justify="center" pt="lg">
               <Button variant="light" color="red" onClick={() => setEditing(true)}>修宪</Button>
             </Group>
           </>
         )}
 
-        {/* Overrides table — show in all modes */}
-        {overrides && overrides.length > 0 && (
+        {/* Overrides table — show in all modes except setup */}
+        {!is_setup && overrides && overrides.length > 0 && (
           <Stack gap="xs" mt="lg" pt="md" style={{ borderTop: '1px solid #eee' }}>
             <Title order={4}>已承认的违反 ({overrides.length})</Title>
             <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
@@ -168,7 +158,26 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   )
 }
 
-// Extracted parameter editor — shared between setup and edit modes
+// 红头文件 document wrapper
+function RedHeaderDocument({ children }) {
+  return (
+    <div style={{
+      border: '1px solid #d0c0c0',
+      padding: '32px 24px 24px',
+      background: '#fffef9',
+    }}>
+      <div style={{ textAlign: 'center', marginBottom: 8 }}>
+        <div style={{ fontSize: 28, fontWeight: 700, color: '#c00', letterSpacing: 8, fontFamily: '"SimSun", "宋体", serif' }}>
+          《本程宪法》
+        </div>
+      </div>
+      <div style={{ borderTop: '4px solid #c00', margin: '12px 0 4px' }} />
+      <div style={{ borderTop: '1px solid #c00', margin: '0 0 20px' }} />
+      {children}
+    </div>
+  )
+}
+
 function ParameterEditor({ c, setC, dirty, advancedOpen, setAdvancedOpen, advancedCount, resetToDefaults }) {
   return (
     <>
@@ -182,10 +191,6 @@ function ParameterEditor({ c, setC, dirty, advancedOpen, setAdvancedOpen, advanc
       <Button variant="subtle" size="sm" onClick={() => setAdvancedOpen(o => !o)}>
         {advancedOpen ? '▴ 收起高级参数' : `▾ 高级参数（剩余 ${advancedCount} 条，大多数情况不用改）`}
       </Button>
-      {/* Previously wrapped in <Collapse in={advancedOpen}> but Mantine 9's
-          Collapse leaks the `in` prop to the child DOM when in={false},
-          producing a React "non-boolean attribute" warning on every render.
-          Drop the slide animation and just conditionally render. */}
       {advancedOpen && (
         <Stack gap="xs">
           <Title order={5}>硬约束剩余</Title>
