@@ -68,7 +68,7 @@ test('shows "no backlog" message when activities is empty and readOnly', () => {
   expect(screen.getByText(/尚无候选/)).toBeInTheDocument()
 })
 
-test('empty + editable: shows CTA buttons and no top "+ 加一个" button', () => {
+test('empty + editable: shows CTA buttons and no toolbar 加候选 button', () => {
   render(
     <MantineProvider>
       <DndContext>
@@ -81,7 +81,7 @@ test('empty + editable: shows CTA buttons and no top "+ 加一个" button', () =
       </DndContext>
     </MantineProvider>
   )
-  expect(screen.getByRole('button', { name: '加一个' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '加候选' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'AI 帮选' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /跳到对话/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^\+ 加一个$/ })).not.toBeInTheDocument()
@@ -133,7 +133,7 @@ test('non-empty backlog: empty-state hint not rendered, toolbar shows both butto
     </MantineProvider>
   )
   expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
-  expect(screen.getAllByRole('button', { name: '加一个' })).toHaveLength(1)
+  expect(screen.getAllByRole('button', { name: '加候选' })).toHaveLength(1)
   expect(screen.getAllByRole('button', { name: 'AI 帮选' })).toHaveLength(1)
 })
 
@@ -152,8 +152,8 @@ test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
   // Filter to kind that no fixture matches
   openAndSelect(0, '住')
   expect(screen.getByText(/无匹配的候选/)).toBeInTheDocument()
-  // Still show top 加一个 (normal mode)
-  expect(screen.getByRole('button', { name: '加一个' })).toBeInTheDocument()
+  // Still show top 加候选 (normal mode)
+  expect(screen.getByRole('button', { name: '加候选' })).toBeInTheDocument()
   // Do NOT show empty-state three-button frame
   expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
 })

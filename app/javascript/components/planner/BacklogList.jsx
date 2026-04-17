@@ -128,7 +128,7 @@ export default function BacklogList({
           >
             {onAddActivity && (
               <Button size="sm" variant="default" fullWidth onClick={() => onAddActivity(null)}>
-                加一个
+                加候选
               </Button>
             )}
             {onAskAI && (
@@ -145,7 +145,7 @@ export default function BacklogList({
               <Group gap={4} mb="xs" grow>
                 {onAddActivity && (
                   <Button size="compact-xs" variant="default" onClick={() => onAddActivity(null)}>
-                    加一个
+                    加候选
                   </Button>
                 )}
                 {onAskAI && (
