@@ -63,6 +63,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
         {is_setup && setupStep === 1 ? (
           // ===== SETUP STEP 1: PARAMETER EDITOR =====
           <>
+            <Text size="xs" c="dimmed" ta="center">第 1 步（共 2 步）</Text>
             <Title order={3} ta="center">调整本程参数</Title>
             <Text size="sm" c="dimmed" ta="center">大多数情况下默认值就够用，直接点"下一步"即可</Text>
             <ParameterEditor
@@ -79,10 +80,15 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
         ) : is_setup && setupStep === 2 ? (
           // ===== SETUP STEP 2: FULL TEXT REVIEW + AGREE =====
           <>
+            <Text size="xs" c="dimmed" ta="center">第 2 步（共 2 步）· 请阅读后滚动至底部同意</Text>
             <RedHeaderDocument>
               <ConstitutionFullText constitution={c} />
             </RedHeaderDocument>
-            <Group justify="center" pt="lg" pb="md">
+            <Group justify="center" pt="lg" pb="md" style={{
+              position: 'sticky', bottom: 0, background: '#fff',
+              padding: '16px 0', borderTop: '1px solid #eee',
+              boxShadow: '0 -2px 8px rgba(0,0,0,0.06)'
+            }}>
               <Button variant="default" onClick={() => setSetupStep(1)}>← 返回修改参数</Button>
               <Button color="red" onClick={agreeAndStart}>同意并开始规划 →</Button>
             </Group>
@@ -239,7 +245,6 @@ function ConstRow({ label, field, scale = 1, options, unit, hint, c, setC }) {
         allowDeselect={false}
       />
       <Text size="xs" c="dimmed" style={{ flex: 1 }}>{hint}</Text>
-      <Text size="xs" c="dimmed" ff="monospace" opacity={0.5}>{field}</Text>
     </Group>
   )
 }

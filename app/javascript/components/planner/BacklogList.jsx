@@ -71,7 +71,7 @@ export default function BacklogList({ activities, onAddActivity, onEditActivity,
           style={{ border: '2px dashed #ccc', borderRadius: 4, background: '#fafafa' }}
         >
           <Text size="xs" c="dimmed" ta="center">
-            先把想去的点塞进这里，再拖到右侧 Day。
+            先把想去的点塞进这里，再拖到右侧日。
           </Text>
           {onAddActivity && (
             <Button size="sm" fullWidth onClick={() => onAddActivity(null)}>
@@ -85,7 +85,7 @@ export default function BacklogList({ activities, onAddActivity, onEditActivity,
           )}
           {onFocusChat && (
             <Button size="xs" variant="subtle" onClick={onFocusChat}>
-              ▸ 跳到 Chat 输入框
+              ▸ 跳到对话输入框
             </Button>
           )}
         </Stack>

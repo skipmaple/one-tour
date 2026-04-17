@@ -85,7 +85,7 @@ test('empty + editable: shows three CTA buttons and no top "+ 加一个" button'
   expect(screen.getByText(/先把想去的点塞进这里/)).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /\+ 手动添加行/ })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /💬 让 AI 帮列候选/ })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /跳到 Chat/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /跳到对话/ })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^\+ 加一个$/ })).not.toBeInTheDocument()
 })
 
@@ -100,7 +100,7 @@ test('empty + readOnly: shows simple "尚无候选" text, no CTAs', () => {
   expect(screen.getByText('尚无候选')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /手动添加/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /帮列/ })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: /跳到 Chat/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /跳到对话/ })).not.toBeInTheDocument()
 })
 
 test('empty + editable: clicking 💬 让 AI 帮列候选 calls onAskAI', () => {
@@ -121,7 +121,7 @@ test('empty + editable: clicking 💬 让 AI 帮列候选 calls onAskAI', () => 
   expect(onAskAI).toHaveBeenCalled()
 })
 
-test('empty + editable: clicking 跳到 Chat calls onFocusChat', () => {
+test('empty + editable: clicking 跳到对话 calls onFocusChat', () => {
   const onFocusChat = vi.fn()
   render(
     <MantineProvider>
@@ -135,7 +135,7 @@ test('empty + editable: clicking 跳到 Chat calls onFocusChat', () => {
       </DndContext>
     </MantineProvider>
   )
-  fireEvent.click(screen.getByRole('button', { name: /跳到 Chat/ }))
+  fireEvent.click(screen.getByRole('button', { name: /跳到对话/ }))
   expect(onFocusChat).toHaveBeenCalled()
 })
 

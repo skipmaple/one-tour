@@ -107,7 +107,7 @@ export default function Show({ tour, days, activities, violations, members, auth
       >
         <div style={{ padding: 10 }}>
           <TourTabs tour={tour} active="planner" />
-          <Group justify="space-between" mb="xs" mt="xs">
+          <Group justify="space-between" mb="xs" mt="sm">
             <Text fw={700} size="lg">{tour.title}</Text>
             <Button
               size="compact-xs"
@@ -345,12 +345,12 @@ function AddDayButton({ tour, nextDayIndex, empty }) {
         }}
       >
         <Stack gap={6} align="center">
-          <Text fw={600} size="sm">还没有 Day</Text>
+          <Text fw={600} size="sm">还没有日</Text>
           <Text size="xs" c="dimmed" ta="center">
             从第 1 天开始，或让 AI 帮你一次排完
           </Text>
           <Button size="xs" onClick={handleAdd} data-testid="add-day-empty">
-            + 新建 Day 1
+            + 新建 D1
           </Button>
         </Stack>
       </Paper>
@@ -373,7 +373,7 @@ function AddDayButton({ tour, nextDayIndex, empty }) {
       }}
       data-testid="add-day-slot"
     >
-      <Text size="sm" fw={500}>+ Day {nextDayIndex}</Text>
+      <Text size="sm" fw={500}>+ D{nextDayIndex}</Text>
     </Paper>
   )
 }
