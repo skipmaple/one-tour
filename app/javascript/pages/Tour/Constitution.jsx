@@ -163,6 +163,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
                 value={tourDateRange}
                 onChange={handleDateRangeChange}
                 valueFormat="YYYY-MM-DD"
+                minDate={todayLocal()}
                 clearable
               />
               <NumberInput
