@@ -53,7 +53,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
         {is_setup ? (
           // ===== SETUP MODE =====
           <>
-            <Title order={2}>《本程宪法》</Title>
+            <Title order={2} ta="center">《本程宪法》</Title>
             <Paper p="md" bg="yellow.0" withBorder>
               <Text size="sm">
                 💡 这份宪法是给你这次旅行的基础规则。<strong>大多数情况下默认值就够用</strong> —— 可以直接 "使用默认宪法，直接开始"。
@@ -96,7 +96,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
         ) : (
           // ===== REVIEW MODE: READ-ONLY =====
           <>
-            <Title order={2}>《本程宪法》</Title>
+            <Title order={2} ta="center">《本程宪法》</Title>
             <ConstitutionFullText constitution={constitution} />
             <Divider />
             <Group justify="center" pt="md">
