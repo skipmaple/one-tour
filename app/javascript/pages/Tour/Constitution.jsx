@@ -30,6 +30,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   const [tourTeamSize, setTourTeamSize] = useState(tour.team_size || '')
   const [tourDays, setTourDays] = useState(tour.days_count || 1)
   const [isSaving, setIsSaving] = useState(false)
+  const [isAccepting, setIsAccepting] = useState(false)
 
   // Bidirectional sync: date range ↔ days count
   const handleDateRangeChange = (range) => {
@@ -94,12 +95,20 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
 
   // Setup mode step 2: mark accepted, then go to planner
   const agreeAndStart = async () => {
-    const token = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
-    await fetch(`/tours/${tour.id}/constitution/accept`, {
-      method: 'POST',
-      headers: { 'X-CSRF-Token': token }
-    })
-    router.visit(`/tours/${tour.id}`)
+    if (isAccepting) return
+    setIsAccepting(true)
+    try {
+      await postJson(`/tours/${tour.id}/constitution/accept`, 'POST')
+      router.visit(`/tours/${tour.id}`)
+    } catch (err) {
+      notifications.show({ message: `无法开始规划：${err.message}`, color: 'red' })
+      Sentry.captureException(err, {
+        tags: { area: 'tour_setup', op: 'accept_constitution' },
+        extra: { tour_id: tour.id },
+      })
+      setIsAccepting(false)
+    }
+    // On success: router.visit leaves the page; no need to reset isAccepting.
   }
 
   // Review mode: save and stay on page
@@ -189,7 +198,9 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
               boxShadow: '0 -2px 8px rgba(0,0,0,0.06)'
             }}>
               <Button variant="default" onClick={() => setSetupStep(1)}>← 返回修改参数</Button>
-              <Button color="red" onClick={agreeAndStart}>同意并开始规划 →</Button>
+              <Button color="red" onClick={agreeAndStart} loading={isAccepting} disabled={isAccepting}>
+                {isAccepting ? '开始规划中…' : '同意并开始规划 →'}
+              </Button>
             </Group>
           </>
 
