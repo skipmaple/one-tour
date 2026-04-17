@@ -33,7 +33,8 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
     setTourDateRange(range)
     const [start, end] = range
     if (start && end) {
-      const diffDays = Math.round((end - start) / 86400000) + 1
+      const ms = new Date(end).getTime() - new Date(start).getTime()
+      const diffDays = Math.round(ms / 86400000) + 1
       if (diffDays > 0) setTourDays(diffDays)
     }
   }
@@ -42,7 +43,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
     setTourDays(val)
     const [start] = tourDateRange
     if (start && val > 0) {
-      const newEnd = new Date(start.getTime() + (val - 1) * 86400000)
+      const newEnd = new Date(new Date(start).getTime() + (val - 1) * 86400000)
       setTourDateRange([start, newEnd])
     }
   }
