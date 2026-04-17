@@ -85,7 +85,7 @@ test('empty + editable: shows CTA buttons and no toolbar 加候选 button', () =
   expect(screen.getByRole('button', { name: 'AI 帮选' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /跳到对话/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^\+ 加一个$/ })).not.toBeInTheDocument()
-  expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
+  expect(screen.getByText(/先把想去的点塞进这里/)).toBeInTheDocument()
 })
 
 test('empty + readOnly: shows simple "尚无候选" text, no CTAs', () => {

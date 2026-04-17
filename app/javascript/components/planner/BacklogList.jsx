@@ -88,7 +88,7 @@ export default function BacklogList({
   //  - !isEmpty → normal behavior (filters + top "+ 加一个" + cards)
 
   return (
-    <Paper style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Paper withBorder style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Group justify="space-between" p="xs" bg="gray.1">
         <Title order={5} m={0}>
           候选池
@@ -124,37 +124,25 @@ export default function BacklogList({
         )}
 
         {isEmpty && !readOnly && (
-          <Stack gap="xs">
-            {onAddActivity && (
-              <Button size="sm" variant="default" fullWidth onClick={() => onAddActivity(null)}>
-                加候选
-              </Button>
-            )}
-            {onAskAI && (
-              <Button size="sm" variant="default" fullWidth onClick={onAskAI}>
-                AI 帮选
-              </Button>
-            )}
+          <Stack gap="xs" mt="auto">
+            <Text size="xs" c="gray.7">先把想去的点塞进这里，再拖到右侧日。</Text>
+            <Group gap={4} grow>
+              {onAddActivity && (
+                <Button size="sm" variant="default" fw={500} onClick={() => onAddActivity(null)}>
+                  加候选
+                </Button>
+              )}
+              {onAskAI && (
+                <Button size="sm" variant="default" fw={700} onClick={onAskAI}>
+                  AI 帮选
+                </Button>
+              )}
+            </Group>
           </Stack>
         )}
 
         {!isEmpty && (
           <>
-            {!readOnly && (onAddActivity || onAskAI) && (
-              <Group gap={4} mb="xs" grow>
-                {onAddActivity && (
-                  <Button size="compact-xs" variant="default" onClick={() => onAddActivity(null)}>
-                    加候选
-                  </Button>
-                )}
-                {onAskAI && (
-                  <Button size="compact-xs" variant="default" onClick={onAskAI}>
-                    AI 帮选
-                  </Button>
-                )}
-              </Group>
-            )}
-
             <Group gap={4} mb="xs">
               <Select
                 data={KIND_FILTER_OPTIONS}
@@ -184,6 +172,21 @@ export default function BacklogList({
                 <Text size="xs" c="dimmed">无匹配的候选。调整筛选或清空条件。</Text>
               )}
             </Stack>
+
+            {!readOnly && (onAddActivity || onAskAI) && (
+              <Group gap={4} mt="auto" grow>
+                {onAddActivity && (
+                  <Button size="compact-xs" variant="default" fw={500} onClick={() => onAddActivity(null)}>
+                    加候选
+                  </Button>
+                )}
+                {onAskAI && (
+                  <Button size="compact-xs" variant="default" fw={700} onClick={onAskAI}>
+                    AI 帮选
+                  </Button>
+                )}
+              </Group>
+            )}
           </>
         )}
       </div>
