@@ -114,7 +114,7 @@ export default function Show({ tour, days, activities, violations, members, auth
           <Group justify="space-between" mb="xs" mt="sm">
             <Group gap={6} onClick={() => canEdit && setSettingsOpen(true)} style={{ cursor: canEdit ? 'pointer' : 'default' }} className={canEdit ? 'tour-title-editable' : undefined}>
               <Text fw={700} size="lg">{tour.title}</Text>
-              {canEdit && <Text size="sm" c="dimmed" style={{ opacity: 0.4 }}>✎</Text>}
+              {canEdit && <Text size="lg" c="gray.5">✎</Text>}
             </Group>
             <Button
               size="compact-xs"
