@@ -7,8 +7,6 @@ import { router } from '@inertiajs/react'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import { KIND_SCHEMA } from './detailsSchema'
 import CommonFields from './CommonFields'
-import DetailsFields from './DetailsFields'
-import PoiSearchCombobox from './PoiSearchCombobox'
 
 export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId }) {
   const isEdit = mode === 'edit'
@@ -244,9 +242,13 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       padding="md"
     >
       <Stack gap="md">
-        <CommonFields form={formWithKindHook} />
-        <PoiSearchCombobox onPick={handlePoiPick} />
-        <DetailsFields kind={form.values.kind} details={details} onChange={setDetails} />
+        <CommonFields
+          form={formWithKindHook}
+          onPoiPick={handlePoiPick}
+          kind={form.values.kind}
+          details={details}
+          onDetailsChange={setDetails}
+        />
 
         <Group justify="space-between" mt="md" pt="md" style={{ borderTop: '1px solid #eee' }}>
           <Group>

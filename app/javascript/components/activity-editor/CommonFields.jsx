@@ -1,15 +1,26 @@
-import { TextInput, Textarea, Select, Radio, Group, Stack } from '@mantine/core'
+import { useState } from 'react'
+import { TextInput, Textarea, Select, Radio, Group, Stack, Text, Button, Collapse } from '@mantine/core'
 import { KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS } from './detailsSchema'
+import PoiSearchCombobox from './PoiSearchCombobox'
+import DetailsFields from './DetailsFields'
 
-export default function CommonFields({ form }) {
+export default function CommonFields({ form, onPoiPick, kind, details, onDetailsChange }) {
+  const [moreOpen, setMoreOpen] = useState(false)
+  const lat = form.values.lat
+  const lng = form.values.lng
+
   return (
     <Stack gap="sm">
+      <PoiSearchCombobox onPick={onPoiPick} />
       <TextInput
         label="名称"
         required
         maxLength={80}
         {...form.getInputProps('name')}
       />
+      {(lat && lng) && (
+        <Text size="xs" c="dimmed">📍 {Number(lat).toFixed(2)}, {Number(lng).toFixed(2)}</Text>
+      )}
       <Group grow>
         <Select
           label="类型"
@@ -30,20 +41,6 @@ export default function CommonFields({ form }) {
       </Radio.Group>
       <Group grow>
         <TextInput
-          label="纬度"
-          type="number"
-          step="any"
-          {...form.getInputProps('lat')}
-        />
-        <TextInput
-          label="经度"
-          type="number"
-          step="any"
-          {...form.getInputProps('lng')}
-        />
-      </Group>
-      <Group grow>
-        <TextInput
           label="开始时间"
           placeholder="HH:MM"
           {...form.getInputProps('planned_start_at')}
@@ -54,20 +51,29 @@ export default function CommonFields({ form }) {
           {...form.getInputProps('planned_duration_min')}
         />
       </Group>
-      <Textarea
-        label="描述"
-        minRows={2}
-        maxRows={4}
-        autosize
-        {...form.getInputProps('description')}
-      />
-      <Textarea
-        label="贴士"
-        minRows={1}
-        maxRows={3}
-        autosize
-        {...form.getInputProps('tips')}
-      />
+
+      <Button variant="subtle" size="sm" onClick={() => setMoreOpen(o => !o)}>
+        {moreOpen ? '▴ 收起' : '▾ 更多设置'}
+      </Button>
+      <Collapse in={moreOpen}>
+        <Stack gap="sm">
+          <Textarea
+            label="描述"
+            minRows={2}
+            maxRows={4}
+            autosize
+            {...form.getInputProps('description')}
+          />
+          <Textarea
+            label="贴士"
+            minRows={1}
+            maxRows={3}
+            autosize
+            {...form.getInputProps('tips')}
+          />
+          <DetailsFields kind={kind} details={details} onChange={onDetailsChange} />
+        </Stack>
+      </Collapse>
     </Stack>
   )
 }
