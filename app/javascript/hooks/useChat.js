@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react'
 import { router } from '@inertiajs/react'
+import * as Sentry from '@sentry/react'
 import consumer from '../channels/consumer'
 
 export const INITIAL = {
@@ -86,7 +87,9 @@ export default function useChat({ tourId }) {
           dispatch({ type: 'load_history', messages: data.messages })
         }
       })
-      .catch(() => { /* silent — chat starts empty on error */ })
+      .catch((err) => {
+        Sentry.captureException(err, { tags: { area: 'chat', op: 'load_history' } })
+      })
   }, [ tourId ])
 
   useEffect(() => {
@@ -120,6 +123,9 @@ export default function useChat({ tourId }) {
         'X-CSRF-Token': csrfToken()
       },
       body: JSON.stringify({ content })
+    }).catch((err) => {
+      Sentry.captureException(err, { tags: { area: 'chat', op: 'send_message' } })
+      dispatch({ type: 'error', message: err.message })
     })
   }
 

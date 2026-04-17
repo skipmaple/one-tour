@@ -19,6 +19,11 @@ class ChatStreamJob < ApplicationJob
     save_assistant_message(conversation, full_text)
     broadcast(channel, type: "complete", content: full_text)
   rescue => e
+    Sentry.capture_exception(e, extra: {
+      conversation_id: conversation_id,
+      tour_id: tour_id,
+      user_id: user_id
+    })
     broadcast(channel, type: "error", message: e.message)
   end
 

@@ -54,6 +54,7 @@ env:
     - R2_SECRET_ACCESS_KEY
     - R2_ENDPOINT
     - R2_BUCKET
+    - SENTRY_DSN_BACKEND
   clear:
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
     # When you start using multiple servers, you should split out job processing to a dedicated machine.
@@ -95,15 +96,14 @@ asset_path: /rails/public/assets
 builder:
   arch: amd64
 
-  # # Build image via remote server (useful for faster amd64 builds on arm64 computers)
-  # remote: ssh://docker@docker-builder-server
-  #
-  # # Pass arguments and secrets to the Docker build process
-  # args:
-  #   RUBY_VERSION: ruby-3.4.8
-  # secrets:
-  #   - GITHUB_TOKEN
-  #   - RAILS_MASTER_KEY
+  # Build-time secrets (mounted via BuildKit during RUN, not baked into layers).
+  # VITE_SENTRY_DSN_FRONTEND is technically public (ends up in the browser bundle)
+  # but piggybacks on the secrets mechanism so everything flows through .kamal/secrets.
+  secrets:
+    - VITE_SENTRY_DSN_FRONTEND
+    - SENTRY_AUTH_TOKEN
+    - SENTRY_ORG
+    - SENTRY_PROJECT_FRONTEND
 
 # Use a different ssh user than root
 # ssh:

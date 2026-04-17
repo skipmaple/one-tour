@@ -51,6 +51,10 @@ gem "omniauth-feishu", "~> 0.1"
 # LLM
 gem "ruby_llm"
 
+# Error monitoring
+gem "sentry-ruby"
+gem "sentry-rails"
+
 gem "dotenv-rails", groups: [ :development, :test ]
 
 group :development, :test do
