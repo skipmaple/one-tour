@@ -3,6 +3,7 @@ import { Stack, Group, Title, Button, Paper, Text, Select, Divider, TextInput, N
 import { DatePickerInput } from '@mantine/dates'
 import { Head, router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
+import { modals } from '@mantine/modals'
 import * as Sentry from '@sentry/react'
 import TourTabs from '../../components/tour/TourTabs'
 import ConstitutionFullText from '../../components/planner/ConstitutionFullText'
@@ -120,10 +121,19 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
 
   const resetToDefaults = () => {
     if (!dirty) return
-    const changedCount = Object.keys(defaults).filter(k => String(c[k]) !== String(defaults[k])).length
-    if (window.confirm(`恢复默认会丢弃你已修改的 ${changedCount} 个参数，确认吗？`)) {
-      setC({ ...defaults })
-    }
+    const changedCount = Object.keys(defaults)
+      .filter(k => String(c[k]) !== String(defaults[k])).length
+    modals.openConfirmModal({
+      title: '恢复默认参数？',
+      children: (
+        <Text size="sm">
+          恢复默认会丢弃你已修改的 {changedCount} 个参数，确认吗？
+        </Text>
+      ),
+      labels: { confirm: '恢复默认', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => setC({ ...defaults }),
+    })
   }
 
   return (
