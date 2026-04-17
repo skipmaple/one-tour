@@ -55,7 +55,7 @@ export default function CommonFields({ form, onPoiPick, kind, details, onDetails
       <Button variant="subtle" size="sm" onClick={() => setMoreOpen(o => !o)}>
         {moreOpen ? '▴ 收起' : '▾ 更多设置'}
       </Button>
-      <Collapse in={moreOpen}>
+      <Collapse expanded={moreOpen}>
         <Stack gap="sm">
           <Textarea
             label="描述"
