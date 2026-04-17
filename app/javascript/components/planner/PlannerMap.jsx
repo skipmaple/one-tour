@@ -274,7 +274,7 @@ export default function PlannerMap({ activities, days = [] }) {
         <Overlay>地图加载中…</Overlay>
       )}
       {sdkState === 'idle' && (
-        <Overlay>未配置 AMAP_API_KEY，地图禁用</Overlay>
+        <Overlay>未配置 AMAP_JS_API_KEY / AMAP_JS_API_SECURITY_CODE，地图禁用</Overlay>
       )}
       {sdkState === 'error' && (
         <Overlay>地图 SDK 无法加载，检查网络或 CDN</Overlay>
