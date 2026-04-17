@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Stack, Group, Title, Button, Paper, Text, Select, Divider, TextInput, NumberInput } from '@mantine/core'
+import { DatePickerInput } from '@mantine/dates'
 import { Head, router } from '@inertiajs/react'
 import TourTabs from '../../components/tour/TourTabs'
 import ConstitutionFullText from '../../components/planner/ConstitutionFullText'
@@ -13,7 +14,17 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   // Setup mode: step 1 = parameter editor, step 2 = full text review
   const [setupStep, setSetupStep] = useState(1)
   const [tourTitle, setTourTitle] = useState(tour.title || '')
-  const [tourDateRange, setTourDateRange] = useState(tour.date_range || '')
+  const [tourDateRange, setTourDateRange] = useState(() => {
+    if (!tour.date_range) return [null, null]
+    // Try to parse "YYYY-MM-DD ~ YYYY-MM-DD" or similar stored format
+    const parts = tour.date_range.split(/[~\-–—]/).map(s => s.trim()).filter(Boolean)
+    if (parts.length === 2) {
+      const d1 = new Date(parts[0])
+      const d2 = new Date(parts[1])
+      if (!isNaN(d1) && !isNaN(d2)) return [d1, d2]
+    }
+    return [null, null]
+  })
   const [tourTeamSize, setTourTeamSize] = useState(tour.team_size || '')
   const [tourDays, setTourDays] = useState(tour.days_count || 1)
   const dirty = Object.keys(defaults).some(k => String(c[k]) !== String(defaults[k]))
@@ -23,11 +34,16 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   const proceedToReview = async () => {
     if (!tourTitle.trim()) return  // prevent empty title
     const token = document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
+    // Format date range for backend
+    const [startDate, endDate] = tourDateRange
+    const dateRangeStr = (startDate && endDate)
+      ? `${formatDateISO(startDate)} ~ ${formatDateISO(endDate)}`
+      : null
     // Save tour metadata
     await fetch(`/tours/${tour.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': token },
-      body: JSON.stringify({ tour: { title: tourTitle.trim(), date_range: tourDateRange, team_size: tourTeamSize || null } })
+      body: JSON.stringify({ tour: { title: tourTitle.trim(), date_range: dateRangeStr, team_size: tourTeamSize || null } })
     })
     // Save constitution params
     await fetch(`/tours/${tour.id}/constitution`, {
@@ -96,11 +112,14 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
               required
             />
             <Group grow>
-              <TextInput
+              <DatePickerInput
+                type="range"
                 label="日期范围"
-                placeholder="例如：2026年6月10日-19日"
+                placeholder="选择出发和返回日期"
                 value={tourDateRange}
-                onChange={e => setTourDateRange(e.currentTarget.value)}
+                onChange={setTourDateRange}
+                valueFormat="YYYY-MM-DD"
+                clearable
               />
               <NumberInput
                 label="人数"
@@ -275,6 +294,13 @@ function formatDate(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
   return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function formatDateISO(d) {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function ConstRow({ label, field, scale = 1, options, unit, hint, c, setC }) {
