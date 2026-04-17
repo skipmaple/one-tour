@@ -8,7 +8,8 @@ class Tours::ConstitutionsController < ApplicationController
       tour: @tour.as_json,
       constitution: @tour.constitution,
       defaults: Constitution::DEFAULTS.deep_stringify_keys,
-      overrides: @tour.constraint_overrides
+      overrides: @tour.constraint_overrides,
+      is_setup: !@tour.days.exists?
     }
   end
 

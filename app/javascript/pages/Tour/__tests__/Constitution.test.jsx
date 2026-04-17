@@ -22,10 +22,16 @@ const defaults = {
   max_yurt_nights: 1
 }
 
-function renderPage(overrides = {}) {
+function renderPage(constitutionOverrides = {}, pageProps = {}) {
   return render(
     <MantineProvider>
-      <Constitution tour={{ id: 42 }} constitution={{ ...defaults, ...overrides }} defaults={defaults} />
+      <Constitution
+        tour={{ id: 42 }}
+        constitution={{ ...defaults, ...constitutionOverrides }}
+        defaults={defaults}
+        is_setup={true}
+        {...pageProps}
+      />
     </MantineProvider>
   )
 }
