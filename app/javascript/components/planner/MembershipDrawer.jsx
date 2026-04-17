@@ -42,14 +42,16 @@ function CurrentMembers({ tour, members, author, isAuthor }) {
       <Text fw={600} size="sm">当前成员</Text>
 
       {/* Author row -- always first, not editable */}
-      <Group justify="space-between" p="xs" style={{ background: '#f9f9f9', borderRadius: 4 }}>
-        <Text size="sm">{author.email}</Text>
-        <Badge color="gray" variant="light">作者</Badge>
+      <Group justify="space-between" p="xs" wrap="nowrap" style={{ background: '#f9f9f9', borderRadius: 4 }}>
+        <Text size="sm" title={author.email} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {author.email}
+        </Text>
+        <Badge color="gray" variant="light" style={{ flexShrink: 0 }}>作者</Badge>
       </Group>
 
       {members.map(m => (
-        <Group key={m.id} justify="space-between" p="xs" style={{ borderBottom: '1px solid #eee' }}>
-          <Text size="sm" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Group key={m.id} justify="space-between" p="xs" wrap="nowrap" style={{ borderBottom: '1px solid #eee' }}>
+          <Text size="sm" title={m.email} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {m.email}
           </Text>
           <Group gap="xs">
