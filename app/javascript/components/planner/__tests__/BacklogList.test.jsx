@@ -81,8 +81,8 @@ test('empty + editable: shows CTA buttons and no top "+ 加一个" button', () =
       </DndContext>
     </MantineProvider>
   )
-  expect(screen.getByRole('button', { name: /\+ 手动添加行/ })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /💬 让 AI 帮列候选/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '加一个' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'AI 帮选' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /跳到对话/ })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^\+ 加一个$/ })).not.toBeInTheDocument()
 })
@@ -101,7 +101,7 @@ test('empty + readOnly: shows simple "尚无候选" text, no CTAs', () => {
   expect(screen.queryByRole('button', { name: /跳到对话/ })).not.toBeInTheDocument()
 })
 
-test('empty + editable: clicking 💬 让 AI 帮列候选 calls onAskAI', () => {
+test('empty + editable: clicking AI 帮选 calls onAskAI', () => {
   const onAskAI = vi.fn()
   render(
     <MantineProvider>
@@ -110,17 +110,16 @@ test('empty + editable: clicking 💬 让 AI 帮列候选 calls onAskAI', () => 
           activities={[]}
           onAddActivity={() => {}}
           onAskAI={onAskAI}
-          onFocusChat={() => {}}
         />
       </DndContext>
     </MantineProvider>
   )
-  fireEvent.click(screen.getByRole('button', { name: /💬 让 AI 帮列候选/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'AI 帮选' }))
   expect(onAskAI).toHaveBeenCalled()
 })
 
 
-test('non-empty backlog: empty-CTAs not rendered, top "+ 加一个" still shows', () => {
+test('non-empty backlog: empty-state hint not rendered, top 加一个 still shows', () => {
   render(
     <MantineProvider>
       <DndContext>
@@ -128,13 +127,12 @@ test('non-empty backlog: empty-CTAs not rendered, top "+ 加一个" still shows'
           activities={fixtures}
           onAddActivity={() => {}}
           onAskAI={() => {}}
-          onFocusChat={() => {}}
         />
       </DndContext>
     </MantineProvider>
   )
   expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '+ 加一个' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '加一个' })).toBeInTheDocument()
 })
 
 test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
@@ -145,7 +143,6 @@ test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
           activities={fixtures}
           onAddActivity={() => {}}
           onAskAI={() => {}}
-          onFocusChat={() => {}}
         />
       </DndContext>
     </MantineProvider>
@@ -153,8 +150,8 @@ test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
   // Filter to kind that no fixture matches
   openAndSelect(0, '住')
   expect(screen.getByText(/无匹配的候选/)).toBeInTheDocument()
-  // Still show top + 加一个 (normal mode)
-  expect(screen.getByRole('button', { name: '+ 加一个' })).toBeInTheDocument()
+  // Still show top 加一个 (normal mode)
+  expect(screen.getByRole('button', { name: '加一个' })).toBeInTheDocument()
   // Do NOT show empty-state three-button frame
   expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
 })

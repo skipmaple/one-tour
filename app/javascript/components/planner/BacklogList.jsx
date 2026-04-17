@@ -115,13 +115,13 @@ export default function BacklogList({
               先把想去的点塞进这里，再拖到右侧日。
             </Text>
             {onAddActivity && (
-              <Button size="sm" fullWidth onClick={() => onAddActivity(null)}>
-                + 手动添加行
+              <Button size="sm" variant="default" fullWidth onClick={() => onAddActivity(null)}>
+                加一个
               </Button>
             )}
             {onAskAI && (
               <Button size="sm" variant="default" fullWidth onClick={onAskAI}>
-                💬 让 AI 帮列候选
+                AI 帮选
               </Button>
             )}
           </Stack>
@@ -152,7 +152,7 @@ export default function BacklogList({
 
             {!readOnly && onAddActivity && (
               <Button size="compact-xs" variant="light" fullWidth mb="xs" onClick={() => onAddActivity(null)}>
-                + 加一个
+                加一个
               </Button>
             )}
 
