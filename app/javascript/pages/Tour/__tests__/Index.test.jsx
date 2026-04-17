@@ -24,7 +24,7 @@ describe('Tour Index', () => {
 
   it('shows empty state when no tours', () => {
     renderWithMantine(<Index tours={[]} />)
-    expect(screen.getByText(/还没有旅行程/)).toBeInTheDocument()
+    expect(screen.getByText(/还没有旅程/)).toBeInTheDocument()
   })
 
   it('routes to planner when tour has days (BUG #9)', () => {

@@ -6,9 +6,9 @@ export default function Index({ tours }) {
 
   return (
     <Stack gap="lg" p="md">
-      <Head title="我的旅行程" />
+      <Head title="我的旅程" />
       <Group justify="space-between">
-        <Title order={2}>我的旅行程</Title>
+        <Title order={2}>我的旅程</Title>
         <Button onClick={createTour}>+ 新建程</Button>
       </Group>
 
@@ -41,7 +41,7 @@ export default function Index({ tours }) {
                   {formatRelative(t.last_activity_at)}
                 </Text>
               </Table.Td>
-              <Table.Td>{t.my_role || 'author'}</Table.Td>
+              <Table.Td>{t.my_role === 'author' ? '作者' : t.my_role === 'editor' ? '编辑' : t.my_role === 'reader' ? '只读' : t.my_role || '作者'}</Table.Td>
               <Table.Td>
                 <Button component={Link} href={openHref(t)} size="xs" variant="light">
                   {(t.days_count ?? 0) > 0 ? '打开 →' : '继续设置 →'}
@@ -53,7 +53,7 @@ export default function Index({ tours }) {
       </Table>
 
       {tours.length === 0 && (
-        <Text c="dimmed" ta="center" py="xl">还没有旅行程。点"新建程"开始。</Text>
+        <Text c="dimmed" ta="center" py="xl">还没有旅程。点"+ 新建程"开始。</Text>
       )}
     </Stack>
   )
