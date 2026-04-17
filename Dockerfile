@@ -58,8 +58,14 @@ COPY --from=node_modules /rails/node_modules ./node_modules
 # Precompile bootsnap code for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
 
-# Precompile assets; node_modules are not needed in the final image
-RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile && \
+# Precompile assets; node_modules are not needed in the final image.
+# Sentry secrets are mounted so Vite can (a) bake the frontend DSN into the
+# bundle and (b) upload source maps via @sentry/vite-plugin.
+RUN --mount=type=secret,id=VITE_SENTRY_DSN_FRONTEND,env=VITE_SENTRY_DSN_FRONTEND \
+    --mount=type=secret,id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN \
+    --mount=type=secret,id=SENTRY_ORG,env=SENTRY_ORG \
+    --mount=type=secret,id=SENTRY_PROJECT_FRONTEND,env=SENTRY_PROJECT_FRONTEND \
+    SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile && \
     rm -rf node_modules
 
 

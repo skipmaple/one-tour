@@ -72,6 +72,14 @@ The top-churned files are where recent bugs are still warm. Before editing one o
 
 Everything else (Inertia bridge, authorization predicates, dual frontmatter parsing, auto-save semantics) is documented in [README.md](README.md) and/or apparent from the code — don't duplicate it here.
 
+**Error monitoring (Sentry SaaS)**:
+
+- Org `skipmaple` @ [sentry.io](https://skipmaple.sentry.io). Two projects: `one-tour-rails` (backend, `sentry-rails`) and `one-tour-react` (browser, `@sentry/react`). Events tagged `environment=development|production`.
+- Secrets live in `.env.production` (git-ignored): `SENTRY_DSN_BACKEND`, `SENTRY_DSN_FRONTEND`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT_FRONTEND`. Dev uses `.env`. `.kamal/secrets` grep's these into BuildKit secret mounts (see [Dockerfile](Dockerfile)'s `assets:precompile` RUN step).
+- **Debugging live issues**: Sentry MCP is registered at user scope (`https://mcp.sentry.dev/sse`, OAuth). Any Claude Code session can call `search_issues` / `get_issue_details` directly — don't ask the user to paste stacktraces by hand.
+- PII filter is load-bearing: `send_default_pii: false` on both ends, browser `beforeSend` drops `request.data.content`, `ChatStreamJob` passes `extra: { conversation_id, tour_id, user_id }` — never the message body. Don't remove these without discussing.
+- Source maps upload on Vite build via `@sentry/vite-plugin` (disabled locally when `SENTRY_AUTH_TOKEN` is unset).
+
 ## Testing patterns
 
 - Request specs log in via the test-only route: `post "/login_test", params: { user_id: user.id }`. Conventional helper: `def login_as(user); post "/login_test", params: { user_id: user.id }; end`

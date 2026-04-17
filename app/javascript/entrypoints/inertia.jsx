@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react'
 import { createInertiaApp } from '@inertiajs/react'
 import { createRoot } from 'react-dom/client'
 import { MantineProvider, createTheme } from '@mantine/core'
@@ -10,6 +11,26 @@ import '@mantine/notifications/styles.css'
 import '@mantine/dates/styles.css'
 import AppLayout from '../layouts/AppLayout'
 import { UndoStackProvider } from '../hooks/useUndoStack'
+import ErrorFallback from '../components/ErrorFallback'
+
+if (import.meta.env.VITE_SENTRY_DSN_FRONTEND) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN_FRONTEND,
+    environment: import.meta.env.MODE,
+    release: import.meta.env.VITE_KAMAL_VERSION,
+    tracesSampleRate: import.meta.env.MODE === 'production' ? 0.1 : 1.0,
+    sendDefaultPii: false,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+    ],
+    beforeSend(event) {
+      if (event.request?.data?.content) {
+        delete event.request.data.content
+      }
+      return event
+    },
+  })
+}
 
 const theme = createTheme({
   primaryColor: 'blue',
@@ -30,16 +51,18 @@ createInertiaApp({
   },
   setup({ el, App, props }) {
     createRoot(el).render(
-      <MantineProvider theme={theme}>
-        <DatesProvider settings={{ locale: 'zh-cn', firstDayOfWeek: 1 }}>
-          <ModalsProvider>
-            <Notifications />
-            <UndoStackProvider>
-              <App {...props} />
-            </UndoStackProvider>
-          </ModalsProvider>
-        </DatesProvider>
-      </MantineProvider>
+      <Sentry.ErrorBoundary fallback={<ErrorFallback />} showDialog={false}>
+        <MantineProvider theme={theme}>
+          <DatesProvider settings={{ locale: 'zh-cn', firstDayOfWeek: 1 }}>
+            <ModalsProvider>
+              <Notifications />
+              <UndoStackProvider>
+                <App {...props} />
+              </UndoStackProvider>
+            </ModalsProvider>
+          </DatesProvider>
+        </MantineProvider>
+      </Sentry.ErrorBoundary>
     )
   },
 })
