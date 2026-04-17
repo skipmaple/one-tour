@@ -124,20 +124,22 @@ export default function BacklogList({
         )}
 
         {isEmpty && !readOnly && (
-          <Stack
-            gap="xs"
-            p="md"
-            justify="center"
-            style={{
-              flex: 1,
-              border: '2px dashed ' + (dragState === 'idle' ? 'var(--mantine-color-gray-5)' : 'transparent'),
-              borderRadius: 4,
-              background: dragState === 'idle' ? '#fafafa' : 'transparent',
-              transition: 'border-color 120ms ease, background-color 120ms ease',
-            }}
-          >
-            <Text size="xs" c="gray.7" ta="center">先把想去的点塞进这里，再拖到右侧日。</Text>
-            <Group gap={4} grow>
+          <>
+            <Stack
+              gap="xs"
+              p="md"
+              justify="center"
+              style={{
+                flex: 1,
+                border: '2px dashed ' + (dragState === 'idle' ? 'var(--mantine-color-gray-5)' : 'transparent'),
+                borderRadius: 4,
+                background: dragState === 'idle' ? '#fafafa' : 'transparent',
+                transition: 'border-color 120ms ease, background-color 120ms ease',
+              }}
+            >
+              <Text size="xs" c="gray.7" ta="center">先把想去的点塞进这里，再拖到右侧日。</Text>
+            </Stack>
+            <Group gap={4} grow mt="xs">
               {onAddActivity && (
                 <Button size="sm" variant="default" fw={500} onClick={() => onAddActivity(null)}>
                   加候选
@@ -149,7 +151,7 @@ export default function BacklogList({
                 </Button>
               )}
             </Group>
-          </Stack>
+          </>
         )}
 
         {!isEmpty && (
