@@ -27,6 +27,26 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
   })
   const [tourTeamSize, setTourTeamSize] = useState(tour.team_size || '')
   const [tourDays, setTourDays] = useState(tour.days_count || 1)
+
+  // Bidirectional sync: date range ↔ days count
+  const handleDateRangeChange = (range) => {
+    setTourDateRange(range)
+    const [start, end] = range
+    if (start && end) {
+      const diffDays = Math.round((end - start) / 86400000) + 1
+      if (diffDays > 0) setTourDays(diffDays)
+    }
+  }
+
+  const handleDaysChange = (val) => {
+    setTourDays(val)
+    const [start] = tourDateRange
+    if (start && val > 0) {
+      const newEnd = new Date(start.getTime() + (val - 1) * 86400000)
+      setTourDateRange([start, newEnd])
+    }
+  }
+
   const dirty = Object.keys(defaults).some(k => String(c[k]) !== String(defaults[k]))
   const advancedCount = Object.keys(defaults).filter(k => !KEY_FIELDS.includes(k)).length
 
@@ -117,7 +137,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
                 label="日期范围"
                 placeholder="选择出发和返回日期"
                 value={tourDateRange}
-                onChange={setTourDateRange}
+                onChange={handleDateRangeChange}
                 valueFormat="YYYY-MM-DD"
                 clearable
               />
@@ -133,7 +153,7 @@ export default function Constitution({ tour, constitution, defaults, overrides, 
                 label="天数"
                 placeholder="例如：7"
                 value={tourDays}
-                onChange={setTourDays}
+                onChange={handleDaysChange}
                 min={1}
                 max={30}
               />
