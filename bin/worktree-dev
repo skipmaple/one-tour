@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# bin/worktree-dev up     — start an isolated dev server for the current git worktree
+# bin/worktree-dev down   — stop + drop DB + remove symlinks (KEEP_DB=1 to preserve DB)
+#
+# For secondary git worktrees only. Picks free ports, creates an isolated
+# Postgres DB, symlinks .env + master.key from the main worktree, and
+# writes .env.development.local so Rails/Vite pick up the per-worktree
+# overrides via dotenv-rails.
+#
+# Assumptions (fine for this repo; revisit if team grows):
+# - Postgres runs in Docker container "one-tour-postgres" with postgres/postgres
+# - mise is used for Ruby/Node; bin/rails, bin/vite shebangs are bypassed via
+#   `mise exec -- bundle exec ...` (see CLAUDE.md Gotchas)
+set -euo pipefail
+
+cmd="${1:-}"
+case "$cmd" in
+  up|down) ;;
+  *) echo "Usage: bin/worktree-dev up|down" >&2; exit 64 ;;
+esac
+
+WT_ROOT=$(git rev-parse --show-toplevel)
+MAIN_ROOT=$(git worktree list --porcelain | awk '/^worktree / {print $2; exit}')
+if [ "$WT_ROOT" = "$MAIN_ROOT" ]; then
+  echo "Run bin/dev in the main worktree; this script is for secondary worktrees." >&2
+  exit 1
+fi
+cd "$WT_ROOT"
+
+WT_NAME=$(basename "$WT_ROOT")
+DB_NAME="one_tour_dev_$(echo "$WT_NAME" | tr -c 'a-zA-Z0-9' '_' | sed 's/_*$//')"
+STATE_FILE="tmp/worktree-dev.state"
+PG_CONTAINER="one-tour-postgres"
+
+pick_port() {
+  local p=$1
+  while lsof -iTCP:"$p" -sTCP:LISTEN -P -n >/dev/null 2>&1; do p=$((p+1)); done
+  echo "$p"
+}
+
+require_docker_pg() {
+  if ! docker exec "$PG_CONTAINER" pg_isready -U postgres >/dev/null 2>&1; then
+    echo "Error: Postgres container '$PG_CONTAINER' is not running. Start your main stack first." >&2
+    exit 1
+  fi
+}
+
+wt_up() {
+  if [ -f "$STATE_FILE" ]; then
+    echo "Already running:" && cat "$STATE_FILE"
+    echo "Run 'bin/worktree-dev down' first." && exit 1
+  fi
+
+  require_docker_pg
+  mise trust . >/dev/null 2>&1 || true
+
+  local rails_port vite_port
+  rails_port=$(pick_port 9100)
+  vite_port=$(pick_port 3100)
+
+  [ -e .env ]              || ln -s "$MAIN_ROOT/.env" .env
+  [ -e config/master.key ] || ln -s "$MAIN_ROOT/config/master.key" config/master.key
+
+  cat > .env.development.local <<EOF
+DATABASE_URL=postgres://postgres:postgres@localhost/$DB_NAME
+PORT=$rails_port
+VITE_RUBY_PORT=$vite_port
+EOF
+
+  if ! docker exec "$PG_CONTAINER" psql -U postgres -lqt | cut -d'|' -f1 | grep -qw "$DB_NAME"; then
+    echo "Creating DB $DB_NAME + loading schema…"
+    docker exec "$PG_CONTAINER" createdb -U postgres "$DB_NAME"
+    mise exec -- bundle exec rails db:schema:load >/dev/null
+  fi
+
+  mkdir -p log tmp
+  mise exec -- bundle exec rails s -p "$rails_port" &>log/dev-rails.log &
+  local rails_pid=$!
+  VITE_RUBY_PORT="$vite_port" mise exec -- bundle exec vite dev &>log/dev-vite.log &
+  local vite_pid=$!
+
+  cat > "$STATE_FILE" <<EOF
+RAILS_PID=$rails_pid
+VITE_PID=$vite_pid
+RAILS_PORT=$rails_port
+VITE_PORT=$vite_port
+DB_NAME=$DB_NAME
+EOF
+
+  echo -n "Waiting for Rails on $rails_port"
+  local i
+  for i in $(seq 1 60); do
+    if curl -sf "http://127.0.0.1:$rails_port/up" >/dev/null 2>&1; then
+      echo " ✓"
+      echo "→ http://127.0.0.1:$rails_port  (logs: log/dev-rails.log, log/dev-vite.log)"
+      return 0
+    fi
+    sleep 1; echo -n "."
+  done
+  echo " TIMEOUT"
+  echo "Check log/dev-rails.log; run 'bin/worktree-dev down' to clean up." >&2
+  exit 1
+}
+
+wt_down() {
+  if [ ! -f "$STATE_FILE" ]; then
+    echo "Not running (no $STATE_FILE)"
+    # Fall through: still try to remove stale symlinks / env
+  else
+    # shellcheck disable=SC1090
+    source "$STATE_FILE"
+    echo "Stopping Rails (pid $RAILS_PID) + Vite (pid $VITE_PID)…"
+    kill "$RAILS_PID" "$VITE_PID" 2>/dev/null || true
+    sleep 2
+    local p
+    for p in "${RAILS_PORT:-}" "${VITE_PORT:-}"; do
+      [ -z "$p" ] && continue
+      local orphan
+      orphan=$(lsof -iTCP:"$p" -sTCP:LISTEN -P -n -t 2>/dev/null | head -1 || true)
+      [ -n "$orphan" ] && kill "$orphan" 2>/dev/null || true
+    done
+
+    if [ "${KEEP_DB:-0}" = "1" ]; then
+      echo "Keeping DB $DB_NAME (KEEP_DB=1)"
+    else
+      echo "Dropping DB $DB_NAME…"
+      docker exec "$PG_CONTAINER" psql -U postgres -c "DROP DATABASE IF EXISTS $DB_NAME;" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  [ -L .env ] && rm .env || true
+  [ -L config/master.key ] && rm config/master.key || true
+  rm -f .env.development.local "$STATE_FILE"
+  echo "Done."
+}
+
+case "$cmd" in
+  up)   wt_up ;;
+  down) wt_down ;;
+esac
