@@ -2,11 +2,11 @@ require "rails_helper"
 
 RSpec.describe Conversation, type: :model do
   let(:user) { create(:user) }
-  let(:guidebook) { create(:guidebook, author: user) }
+  let(:tour) { create(:tour, author: user) }
 
   describe "associations" do
-    it "belongs to a guidebook" do
-      association = described_class.reflect_on_association(:guidebook)
+    it "belongs to a tour" do
+      association = described_class.reflect_on_association(:tour)
       expect(association.macro).to eq :belongs_to
     end
 
@@ -23,16 +23,16 @@ RSpec.describe Conversation, type: :model do
   end
 
   describe "validations" do
-    it "enforces one conversation per guidebook per user" do
-      create(:conversation, guidebook: guidebook, user: user)
-      duplicate = build(:conversation, guidebook: guidebook, user: user)
+    it "enforces one conversation per tour per user" do
+      create(:conversation, tour: tour, user: user)
+      duplicate = build(:conversation, tour: tour, user: user)
       expect(duplicate).not_to be_valid
     end
 
-    it "allows different users to have conversations on the same guidebook" do
-      create(:conversation, guidebook: guidebook, user: user)
+    it "allows different users to have conversations on the same tour" do
+      create(:conversation, tour: tour, user: user)
       other_user = create(:user)
-      other_conversation = build(:conversation, guidebook: guidebook, user: other_user)
+      other_conversation = build(:conversation, tour: tour, user: other_user)
       expect(other_conversation).to be_valid
     end
   end

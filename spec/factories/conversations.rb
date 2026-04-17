@@ -1,6 +1,6 @@
 FactoryBot.define do
   factory :conversation do
-    guidebook
+    tour
     user
   end
 end

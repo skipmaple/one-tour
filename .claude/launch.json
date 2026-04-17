@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rails-dev",
+      "runtimeExecutable": "mise",
+      "runtimeArgs": ["exec", "--", "bin/dev"],
+      "port": 9000
+    }
+  ]
+}

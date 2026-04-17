@@ -1,208 +1,141 @@
 class ChatStreamJob < ApplicationJob
   queue_as :default
 
-  REPETITION_THRESHOLD = 50
-  SHORT_CHUNK_MAX_STRIP_SIZE = 8
-  DEGENERATE_RUN_THRESHOLD = 100
-  DEGENERATE_MIN_SIZE = 400
+  # Short-word token-loop pattern we've seen when a local/Kimi-style model
+  # degrades mid-stream, e.g. "DIN DIN DIN DIN DIN DIN…". Replaying such a
+  # prior assistant message into chat history reliably re-triggers the
+  # same degenerate loop on the next turn. See CLAUDE.md (load-bearing).
+  KIMI_LOOP_PATTERN  = /(\S{1,4})(\s+\1){5,}/
+  KIMI_MAX_CONTENT   = 20_000
+  ONBOARDING_SENTINEL = "__onboarding_start__".freeze
 
-  def perform(conversation_id, guidebook_id, user_id, mode = "ask")
+  def perform(conversation_id, tour_id, user_id)
     conversation = Conversation.find(conversation_id)
-    guidebook = Guidebook.find(guidebook_id)
-    channel = "chat_guidebook_#{guidebook_id}_user_#{user_id}"
+    tour         = Tour.find(tour_id)
+    user         = User.find(user_id)
+    channel      = "chat_tour_#{tour_id}_user_#{user_id}"
 
-    full_response = stream_llm_response(conversation, guidebook, channel, mode)
-    save_and_broadcast_complete(conversation, guidebook, channel, full_response)
+    full_text = stream_response(conversation, tour, user, channel)
+    save_assistant_message(conversation, full_text)
+    broadcast(channel, type: "complete", content: full_text)
+  rescue => e
+    broadcast(channel, type: "error", message: e.message)
   end
 
   private
-    def stream_llm_response(conversation, guidebook, channel, mode)
-      model = ENV.fetch("LLM_MODEL", "moonshotai/Kimi-K2-Instruct-0905")
-      chat = RubyLLM.chat(model: model, provider: :openai, assume_model_exists: true)
-      chat.with_temperature(0.7)
-      chat.with_params(
-        frequency_penalty: 0.3,
-        presence_penalty: 0.3,
-        max_tokens: 32_768
+    def stream_response(conversation, tour, user, channel)
+      chat = RubyLLM.chat(
+        model: ENV.fetch("LLM_MODEL", "moonshotai/Kimi-K2-Instruct-0905"),
+        provider: :openai,
+        assume_model_exists: true
       )
-      chat.with_instructions(system_prompt(guidebook, mode))
-      chat.with_tool(GeocodeTool)
+      chat.with_instructions(system_prompt(tour))
+      # Bind tour+user into each tool instance so the LLM never sees a tour_id
+      # param (it cannot hallucinate or target a foreign tour) and every DB
+      # lookup is already scoped to the authorised tour.
+      AITools::Schema.all.each { |tool_class| chat.with_tool(tool_class.new(tour: tour, user: user)) }
 
-      all_messages = conversation.messages.order(:created_at).to_a
-      replay_history(chat, all_messages[0..-2])
-      latest_message = all_messages.last.content
+      prior = conversation.messages.order(:created_at)[0..-2].to_a
+      replay_history(chat, prior)
 
-      full_response = ""
-      repeat_count = 0
-      last_chunk_content = nil
+      attach_tool_callbacks(chat, channel)
 
-      chat.ask(latest_message) do |chunk|
-        next unless chunk.content
+      latest = conversation.messages.order(:created_at).last.content
+      full_text = "".dup
 
-        # Detect degenerate token repetition (e.g. qwen stuck emitting "DIN DIN DIN…")
-        if chunk.content == last_chunk_content && chunk.content.strip.size <= SHORT_CHUNK_MAX_STRIP_SIZE
-          repeat_count += 1
-          if repeat_count >= REPETITION_THRESHOLD
-            Rails.logger.warn(
-              "ChatStreamJob: aborting stream, detected #{repeat_count} consecutive " \
-              "identical chunks (#{chunk.content.inspect})"
-            )
-            raise "模型生成异常（检测到重复输出），已中止"
-          end
-        else
-          repeat_count = 0
-        end
-        last_chunk_content = chunk.content
-
-        full_response << chunk.content
-        ActionCable.server.broadcast(channel, { type: "chunk", content: chunk.content })
+      chat.ask(latest) do |chunk|
+        text = chunk.content.to_s
+        next if text.empty?
+        full_text << text
+        broadcast(channel, type: "assistant_text", delta: text)
       end
 
-      full_response
-    rescue => e
-      ActionCable.server.broadcast(channel, { type: "error", content: e.message })
-      ""
+      full_text
+    end
+
+    def attach_tool_callbacks(chat, channel)
+      # Tool calls and results fire strictly in sequence inside
+      # RubyLLM::Chat#handle_tool_calls, so a single ivar-like local is
+      # enough to correlate a result back to the call it came from.
+      current_call_id = nil
+
+      chat.on_tool_call do |tool_call|
+        current_call_id = tool_call.id
+        broadcast(channel,
+          type: "tool_call_start",
+          id: tool_call.id,
+          name: tool_call.name,
+          arguments: tool_call.arguments
+        )
+      end
+
+      chat.on_tool_result do |result|
+        broadcast(channel, type: "tool_call_result", id: current_call_id, result: result)
+        current_call_id = nil
+      end
     end
 
     def replay_history(chat, prior_messages)
-      prior_messages.reject { |msg| degenerate_message?(msg) }.each do |msg|
-        chat.messages << RubyLLM::Message.new(role: msg.role.to_sym, content: msg.content)
+      prior_messages.each do |m|
+        next if degenerate_assistant_output?(m)
+        chat.messages << RubyLLM::Message.new(role: m.role.to_sym, content: m.content)
       end
     end
 
-    def degenerate_message?(msg)
-      return false unless msg.role == "assistant"
-      return false if msg.content.bytesize < DEGENERATE_MIN_SIZE
-
-      msg.content.scan(/(\S{1,#{SHORT_CHUNK_MAX_STRIP_SIZE}})(?: \1){#{DEGENERATE_RUN_THRESHOLD - 1},}/).any?
+    def degenerate_assistant_output?(message)
+      return false unless message.role.to_s == "assistant"
+      content = message.content.to_s
+      content.length > KIMI_MAX_CONTENT || content.match?(KIMI_LOOP_PATTERN)
     end
 
-    def save_and_broadcast_complete(conversation, guidebook, channel, full_response)
-      if full_response.present?
-        conversation.messages.create!(role: :assistant, content: full_response)
-      end
-
-      ActionCable.server.broadcast(channel, {
-        type: "complete",
-        content: full_response,
-        has_guidebook_content: valid_guidebook?(full_response)
-      })
+    def save_assistant_message(conversation, content)
+      conversation.messages.create!(role: :assistant, content: content) if content.present?
     end
 
-    def valid_guidebook?(content)
-      return false if content.blank?
-
-      parsed = FrontmatterParser.new(content).parse
-      parsed.valid? && parsed.frontmatter["days"].is_a?(Array) && parsed.frontmatter["days"].any?
+    def broadcast(channel, **payload)
+      ActionCable.server.broadcast(channel, payload)
     end
 
-    def system_prompt(guidebook, mode)
-      existing_content = if guidebook.frontmatter_cache.present?
-        "\n\n当前路书概要：\n#{guidebook.frontmatter_cache.slice('title', 'date_range', 'days').to_yaml}"
-      else
-        ""
-      end
-
-      plan_mode_instruction = if mode == "plan"
-        "\n\n你现在处于计划模式。只描述你打算做的变更，不要输出完整路书内容。用列表说明将要增删改的内容。"
-      else
-        ""
-      end
-
+    def system_prompt(tour)
       <<~PROMPT
-        你是一个旅行规划助手。#{existing_content}
+        你是一个旅行规划助手。当前 Tour：#{tour.title}。
+        所有 Day / Activity 工具已经自动绑定到这个 Tour —— 你不需要（也无法）
+        指定目标 Tour，操作必然发生在当前 Tour 上。
+        你通过调用工具修改 Day / Activity，不要直接输出 JSON 或 Markdown。
 
-        ## 输出格式（严格遵守）
+        ## 宪法约束（本程独立）
+        #{tour.constitution.map { |k, v| "- #{k}: #{v}" }.join("\n")}
 
-        当用户要求生成或修改路书时，输出**必须**是以下三段式纯文本，不加任何额外包装：
+        ## 当前 Tour 状态
+        - Days: #{tour.days.count}
+        - Activities: #{tour.activities.count}
 
-        ```
-        ---
-        <YAML 内容>
-        ---
+        ## 工具
+        #{AITools::Schema.to_prompt_description}
 
-        # <标题>
-        <Markdown 正文>
-        ```
+        ## 交互原则
+        - 先调用工具修改状态，再用自然语言简要解释
+        - 需要时调用 run_constitution_check 验证，违反硬约束要主动提议修正
+        - 需要 POI 或坐标时调用 search_poi，不要编造经纬度；从返回的候选里选一条 add_activity
 
-        **禁止**：
-        - 不要在开头 `---` 后加 ` ```yaml ` 或任何代码围栏
-        - 不要把整个回复包进 ``` ``` ``` 代码块
-        - 不要只输出 YAML 而省略结尾的 `---` 和 Markdown 正文
-        - 输出里必须有两次 `---`（开头一次、YAML 结束一次），缺一不可
+        ## Onboarding 模式
 
-        当用户只是提问（不需要修改路书）时，直接用自然语言回答，不要输出 `---`。
+        如果用户消息是 "#{ONBOARDING_SENTINEL}"，按以下节奏开始 4 轮对话：
 
-        ## Schema 参考
-        #{FrontmatterSchema.to_prompt_description}
+        ① "欢迎 👋 我先问几个问题，搞清楚方向再开始。\n这次想去哪？（例如：伊犁环线、川西、河西走廊）"
+        ② 用户答完 ① 后："几天？我会据此建 Day 骨架。"
+        ③ 用户答完 ② 后："几个人、什么车？"
+        ④ 用户答完 ③ 后："主要想看什么？（景观 / 人文 / 带娃 / 徒步…）"
 
-        ## 关键格式规则
+        一次只问一件事，不要一口气问 4 个。
 
-        1. coordinates 是单个坐标对 [lat, lng]（仅 2 个数字），表示当天主要目的地。例如：coordinates: [43.82, 87.61]。绝对不能放 4 个数字。
-        2. 每个 point 必须有 lat 和 lng，使用 geocode 工具获取精确坐标，不要编造。
-        3. schedule 每项是二元数组：["时间", "活动"]，如 ["09:00", "出发前往景区"]
-        4. tags 每项是二元数组：["类型key", "显示文字"]，如 ["scenic", "赛里木湖"]
-        5. route_coordinates、startIdx/endIdx、point_photos 不需要生成。
+        收到第 ④ 个回答后，开始批量执行：
+        - 当前 Tour 已有 #{tour.days.count} 个 Day（day_index 从 1 起步）。如果用户说 N 天，调用 create_day 创建 day_index = (#{tour.days.count} + 1)..N，跳过已存在的天。
+        - 调 search_poi 搜索用户提到的地点，从候选里挑 add_activity 到 backlog（不指定 day_id，让用户自己拖）。
+        - 添加 ~20-30 个 POI 即可，太多用户处理不过来。
+        - 添加完毕回一句简短总结："已往 backlog 加了 N 个候选 + N 个 Day 骨架，往左拖到对应 Day 即可。"
 
-        ## 路书结构要求
-
-        路书文件由两部分组成，缺一不可：
-
-        **第一部分：YAML frontmatter**（--- 包裹）— 给机器解析的结构化数据
-        **第二部分：Markdown 正文**（--- 之后）— 给人阅读的详细行程描述
-
-        Markdown 正文必须包含：
-        - # 标题
-        - ## 行程总览（表格，列出每天的行程、里程、强度）
-        - 每天一个段落，格式为 ### Dn · 日期 强度emoji 标题，包含：
-          - 时间线表格（| 时间 | 事项 |）
-          - 🍽️ 美食推荐
-          - 🏨 住宿建议
-          - 📝 当日提醒
-
-        ## 单天输出示例
-
-        frontmatter 中的一天：
-        ```yaml
-          - day: 1
-            date: "6/13 周六"
-            title: "抵达乌鲁木齐"
-            intensity: green
-            km: "—"
-            drive: "—"
-            desc: "航班抵达，市区休整，适应时差。"
-            coordinates: [43.825, 87.617]
-            points:
-              - name: "乌鲁木齐"
-                lat: 43.825
-                lng: 87.617
-                type: city
-            schedule:
-              - ["下午", "航班抵达乌鲁木齐"]
-              - ["19:00", "采购路上零食和水"]
-              - ["20:00", "晚餐：大巴扎附近"]
-            tags:
-              - ["food", "大巴扎美食"]
-              - ["stay", "市区酒店"]
-            tips: "新疆实际作息比北京晚2h"
-            food: "海尔巴格餐厅、血站大盘鸡"
-            stay: "乌鲁木齐市区，280-400元/间"
-        ```
-
-        对应的 Markdown 正文段落：
-        ```markdown
-        ### D1 · 6月13日（周六）🟢 抵达乌鲁木齐
-
-        | 时间 | 事项 |
-        |------|------|
-        | 下午 | 航班抵达乌鲁木齐天山国际机场 |
-        | 19:00 | 采购路上零食和水 |
-        | 20:00 | 晚餐：大巴扎附近 |
-
-        🍽️ **美食推荐**：海尔巴格餐厅、血站大盘鸡
-        🏨 **住宿**：乌鲁木齐市区，280-400元/间
-        📝 **提醒**：新疆实际作息比北京晚2h
-        ```#{plan_mode_instruction}
+        如果用户首条消息**不是** sentinel（例如直接说 "我想去伊犁"），跳过欢迎语，直接确认+进入第 ② 个问题。
       PROMPT
     end
 end

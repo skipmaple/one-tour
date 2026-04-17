@@ -25,5 +25,28 @@ RSpec.describe Message, type: :model do
       message = create(:message, conversation: conversation, role: :system)
       expect(message).to be_system
     end
+
+    it "supports tool role" do
+      m = create(:message, role: :tool, content: "{result}")
+      expect(m.role).to eq("tool")
+    end
+
+    it "has all 4 roles" do
+      expect(Message.roles).to eq("user" => 0, "assistant" => 1, "system" => 2, "tool" => 3)
+    end
+  end
+
+  describe "#as_json" do
+    let(:conversation) { create(:conversation) }
+
+    it "serializes role as string ('user'), not integer" do
+      msg = conversation.messages.create!(role: :user, content: "hi")
+      expect(msg.as_json["role"]).to eq("user")
+    end
+
+    it "serializes role 'assistant' as string" do
+      msg = conversation.messages.create!(role: :assistant, content: "ok")
+      expect(msg.as_json["role"]).to eq("assistant")
+    end
   end
 end

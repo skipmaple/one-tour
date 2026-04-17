@@ -42,3 +42,4 @@ node_modules
 *.local
 
 .superpowers
+.playwright-mcp

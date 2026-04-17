@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_14_085634) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_17_045949) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -42,14 +42,51 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_14_085634) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "activities", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.bigint "day_id"
+    t.integer "position", null: false
+    t.integer "citizen_level", default: 2, null: false
+    t.integer "kind", null: false
+    t.string "name", null: false
+    t.decimal "lat", precision: 9, scale: 6
+    t.decimal "lng", precision: 9, scale: 6
+    t.string "address"
+    t.time "planned_start_at"
+    t.integer "planned_duration_min"
+    t.text "desc"
+    t.text "tips"
+    t.jsonb "details", default: {}, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["day_id"], name: "index_activities_on_day_id"
+    t.index ["tour_id", "day_id", "position"], name: "index_activities_on_tour_id_and_day_id_and_position"
+    t.index ["tour_id", "kind", "citizen_level"], name: "index_activities_on_tour_id_and_kind_and_citizen_level"
+    t.index ["tour_id"], name: "index_activities_on_tour_id"
+  end
+
   create_table "conversations", force: :cascade do |t|
-    t.bigint "guidebook_id", null: false
     t.bigint "user_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["guidebook_id", "user_id"], name: "index_conversations_on_guidebook_id_and_user_id", unique: true
-    t.index ["guidebook_id"], name: "index_conversations_on_guidebook_id"
+    t.bigint "tour_id", null: false
+    t.index ["tour_id", "user_id"], name: "index_conversations_on_tour_id_and_user_id", unique: true
+    t.index ["tour_id"], name: "index_conversations_on_tour_id"
     t.index ["user_id"], name: "index_conversations_on_user_id"
+  end
+
+  create_table "days", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.integer "day_index", null: false
+    t.date "date"
+    t.string "title"
+    t.text "theme"
+    t.integer "intensity"
+    t.boolean "buffer_day", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["tour_id", "day_index"], name: "index_days_on_tour_id_and_day_index", unique: true
+    t.index ["tour_id"], name: "index_days_on_tour_id"
   end
 
   create_table "email_verifications", force: :cascade do |t|
@@ -64,28 +101,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_14_085634) do
     t.index ["email", "created_at"], name: "index_email_verifications_on_email_and_created_at"
     t.index ["email"], name: "index_email_verifications_on_email"
     t.index ["requested_ip"], name: "index_email_verifications_on_requested_ip"
-  end
-
-  create_table "guidebook_memberships", force: :cascade do |t|
-    t.bigint "guidebook_id", null: false
-    t.bigint "user_id", null: false
-    t.integer "role", default: 0, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["guidebook_id", "user_id"], name: "index_guidebook_memberships_on_guidebook_id_and_user_id", unique: true
-    t.index ["guidebook_id"], name: "index_guidebook_memberships_on_guidebook_id"
-    t.index ["user_id"], name: "index_guidebook_memberships_on_user_id"
-  end
-
-  create_table "guidebooks", force: :cascade do |t|
-    t.string "title", null: false
-    t.text "content", default: "", null: false
-    t.jsonb "frontmatter_cache", default: {}
-    t.bigint "author_id", null: false
-    t.boolean "published", default: false, null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.index ["author_id"], name: "index_guidebooks_on_author_id"
   end
 
   create_table "messages", force: :cascade do |t|
@@ -110,6 +125,34 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_14_085634) do
     t.index ["user_id"], name: "index_oauth_identities_on_user_id"
   end
 
+  create_table "tour_memberships", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.bigint "user_id", null: false
+    t.integer "role", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["tour_id", "user_id"], name: "index_tour_memberships_on_tour_id_and_user_id", unique: true
+    t.index ["tour_id"], name: "index_tour_memberships_on_tour_id"
+    t.index ["user_id"], name: "index_tour_memberships_on_user_id"
+  end
+
+  create_table "tours", force: :cascade do |t|
+    t.bigint "author_id", null: false
+    t.string "title", null: false
+    t.string "date_range"
+    t.string "vehicle"
+    t.integer "team_size"
+    t.string "trip_style"
+    t.string "budget_per_person"
+    t.jsonb "constitution", default: {}, null: false
+    t.jsonb "constraint_overrides", default: [], null: false
+    t.boolean "archived", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.boolean "constitution_accepted", default: false, null: false
+    t.index ["author_id"], name: "index_tours_on_author_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "name", null: false
     t.string "email", null: false
@@ -121,11 +164,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_14_085634) do
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
-  add_foreign_key "conversations", "guidebooks"
+  add_foreign_key "activities", "days"
+  add_foreign_key "activities", "tours"
+  add_foreign_key "conversations", "tours"
   add_foreign_key "conversations", "users"
-  add_foreign_key "guidebook_memberships", "guidebooks"
-  add_foreign_key "guidebook_memberships", "users"
-  add_foreign_key "guidebooks", "users", column: "author_id"
+  add_foreign_key "days", "tours"
   add_foreign_key "messages", "conversations"
   add_foreign_key "oauth_identities", "users"
+  add_foreign_key "tour_memberships", "tours"
+  add_foreign_key "tour_memberships", "users"
+  add_foreign_key "tours", "users", column: "author_id"
 end

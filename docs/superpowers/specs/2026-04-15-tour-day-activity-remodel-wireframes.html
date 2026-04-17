@@ -1,0 +1,2143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Tour Planner 低保真原型 — spec 2026-04-15</title>
+<style>
+  :root {
+    --border: #777;
+    --border-soft: #bbb;
+    --bg: #fff;
+    --bg-soft: #f3f3f3;
+    --bg-drop: #e8f0fb;
+    --ink: #222;
+    --ink-soft: #666;
+    --ink-note: #888;
+    --red: #c33;
+    --yellow: #c80;
+    --blue: #36c;
+    --green: #2a7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "SF Pro", system-ui, "PingFang SC", sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.5;
+  }
+
+  /* ========== 顶部导航 ========== */
+  nav.toc {
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    border-bottom: 2px solid var(--border);
+    padding: 10px 20px;
+    z-index: 100;
+    font-size: 13px;
+  }
+  nav.toc strong { margin-right: 12px; }
+  nav.toc a { margin-right: 10px; color: var(--blue); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  /* ========== 通用布局 ========== */
+  section.screen {
+    border-top: 1px dashed var(--border-soft);
+    padding: 30px 20px 50px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  section.screen > h2 {
+    margin: 0 0 4px;
+    font-size: 18px;
+  }
+  section.screen > .spec-ref {
+    font-size: 12px;
+    color: var(--ink-note);
+    margin-bottom: 20px;
+  }
+
+  /* ========== 组件：框 / 卡 / 标签 ========== */
+  .box {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    padding: 10px;
+  }
+  .box.soft { border-color: var(--border-soft); }
+  .box.dashed { border-style: dashed; }
+  .box-title {
+    background: var(--bg-soft);
+    margin: -10px -10px 8px;
+    padding: 6px 10px;
+    font-weight: 600;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .note {
+    font-size: 11px;
+    color: var(--ink-note);
+    font-style: italic;
+    margin-top: 4px;
+    display: block;
+  }
+  .spec-tag {
+    font-size: 10px;
+    color: var(--blue);
+    background: #eef4ff;
+    padding: 1px 5px;
+    border-radius: 2px;
+    margin-left: 4px;
+    font-family: ui-monospace, Menlo, monospace;
+    font-style: normal;
+    opacity: 0.35;
+    transition: opacity 0.15s;
+  }
+  .spec-tag:hover { opacity: 1; }
+  /* 当鼠标在任一容器内，内部的 spec-tag 同时提亮，避免逐个 hover */
+  .box:hover .spec-tag,
+  .screen:hover .spec-tag { opacity: 0.75; }
+
+  /* ========== 3 栏布局（Planner 主视图） ========== */
+  .planner-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr 320px;
+    grid-template-rows: auto auto;
+    gap: 10px;
+    min-height: 620px;
+    position: relative;
+  }
+  .planner-grid .backlog { grid-column: 1; grid-row: 1 / span 2; }
+  .planner-grid .map     { grid-column: 2; grid-row: 1; min-height: 260px; }
+  .planner-grid .days    { grid-column: 2; grid-row: 2; min-height: 260px; }
+  .planner-grid .chat    { grid-column: 3; grid-row: 1 / span 2; }
+
+  /* 收起态：chat 折叠成一个窄条，提示 "展开 AI" */
+  .planner-grid.chat-collapsed {
+    grid-template-columns: 260px 1fr 36px;
+  }
+  .planner-grid.chat-collapsed .chat > * { display: none; }
+  .planner-grid.chat-collapsed .chat {
+    background: var(--bg-soft);
+    padding: 6px 2px;
+    cursor: pointer;
+    color: var(--ink-soft);
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .planner-grid.chat-collapsed .chat::after {
+    content: "◂ 展开 AI 对话";
+    writing-mode: vertical-rl;
+  }
+  .chat-toggle {
+    cursor: pointer;
+    background: var(--bg-soft);
+    border: 1px solid var(--border-soft);
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 11px;
+    float: right;
+    user-select: none;
+  }
+  .chat-toggle:hover { background: #e8e8e8; }
+
+  /* ========== Activity 卡片 ========== */
+  .act {
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    background: #fafafa;
+    cursor: grab;
+  }
+  .act .meta { color: var(--ink-soft); font-size: 10px; }
+  .act[data-kind="road"][data-level="infrastructure"] {
+    border-style: dashed;
+    border-color: var(--border-soft);
+    background: #f7f7f7;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+  .act .citizen { font-weight: 600; }
+
+  /* ========== Day 列 ========== */
+  .day-col {
+    border: 1px solid var(--border);
+    padding: 0;
+    min-width: 170px;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+  }
+  .day-col > header {
+    background: var(--bg-soft);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-soft);
+    font-size: 12px;
+  }
+  .day-col > .body {
+    padding: 6px;
+    flex: 1;
+    min-height: 140px;
+  }
+  .day-col > footer {
+    border-top: 1px dashed var(--border-soft);
+    padding: 4px 8px;
+    font-size: 10px;
+    color: var(--ink-soft);
+  }
+  .intensity-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+  .int-green  { background: var(--green); }
+  .int-yellow { background: var(--yellow); }
+  .int-red    { background: var(--red); }
+
+  /* ========== Map 占位 ========== */
+  .map-placeholder {
+    background:
+      linear-gradient(45deg, transparent 49%, var(--border-soft) 49%, var(--border-soft) 51%, transparent 51%),
+      linear-gradient(-45deg, transparent 49%, var(--border-soft) 49%, var(--border-soft) 51%, transparent 51%),
+      #fafafa;
+    background-size: 40px 40px;
+    border: 1px solid var(--border);
+    position: relative;
+    min-height: 260px;
+  }
+  .pin {
+    position: absolute;
+    font-size: 11px;
+    background: var(--bg);
+    border: 1px solid var(--ink);
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+  .pin.backlog { border-style: dashed; color: var(--ink-soft); }
+  .pin.assigned { background: var(--blue); color: #fff; }
+  .pin.dragging { background: #fff; border-color: var(--blue); color: var(--blue); }
+  .route-line {
+    position: absolute;
+    border-top: 2px solid var(--blue);
+    transform-origin: 0 0;
+  }
+
+  /* ========== Chat 消息 ========== */
+  .chat-body { max-height: 600px; overflow-y: auto; padding: 4px; }
+  .msg { margin-bottom: 10px; font-size: 12px; }
+  .msg.user { text-align: right; }
+  .msg.user .bubble { background: var(--bg-soft); }
+  .msg .bubble {
+    display: inline-block;
+    background: #fff;
+    border: 1px solid var(--border-soft);
+    padding: 6px 8px;
+    max-width: 90%;
+    text-align: left;
+  }
+  .tool-call {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    background: #fffaf0;
+    border: 1px dashed var(--yellow);
+    padding: 4px 6px;
+    margin: 3px 0;
+    color: var(--ink-soft);
+  }
+  .tool-call .fn { color: var(--blue); font-weight: 600; }
+  .tool-call .result { color: var(--green); }
+
+  /* ========== Constitution banner ========== */
+  .const-banner {
+    border: 1px solid;
+    padding: 6px 10px;
+    margin: 6px 0;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .const-banner.hard { border-color: var(--red); background: #fef0f0; color: var(--red); }
+  .const-banner.soft { border-color: var(--yellow); background: #fef8e8; color: var(--yellow); }
+  .const-banner button {
+    background: #fff;
+    border: 1px solid currentColor;
+    padding: 2px 8px;
+    cursor: pointer;
+    font-size: 11px;
+  }
+
+  /* ========== 通用 ========== */
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  table th, table td {
+    border: 1px solid var(--border-soft);
+    padding: 4px 8px;
+    text-align: left;
+  }
+  table th { background: var(--bg-soft); }
+  .btn { background: var(--bg-soft); border: 1px solid var(--border); padding: 3px 8px; cursor: pointer; font-size: 12px; }
+  .btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); }
+  code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; background: #f3f3f3; padding: 1px 3px; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  .drop-target {
+    background: var(--bg-drop);
+    border: 2px dashed var(--blue);
+    padding: 8px;
+    text-align: center;
+    color: var(--blue);
+    font-size: 11px;
+  }
+
+  .caption {
+    font-size: 11px;
+    color: var(--ink-note);
+    text-align: center;
+    margin: 6px 0 12px;
+    font-style: italic;
+  }
+
+  details { margin: 4px 0; }
+  summary { cursor: pointer; font-size: 12px; }
+
+  .legend {
+    background: #fcfcf7;
+    border: 1px dashed var(--border-soft);
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+  .legend h3 { margin: 0 0 6px; font-size: 13px; }
+  .legend dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; }
+  .legend dt { font-family: ui-monospace, Menlo, monospace; color: var(--blue); }
+
+  /* ========== Tour 全程年表视图（Screen 11）========== */
+  .tour-timeline-wrap {
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .rhythm-bar {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 2px;
+    margin-bottom: 12px;
+    min-width: 1400px;
+  }
+  .rhythm-slot {
+    padding: 6px 4px;
+    font-size: 11px;
+    text-align: center;
+    border: 1px solid transparent;
+    position: relative;
+  }
+  .rhythm-slot.green  { background: #d8ecd9; }
+  .rhythm-slot.yellow { background: #fcecc2; }
+  .rhythm-slot.red    { background: #f4ccc7; }
+  .rhythm-slot.buffer { background: #fff; border: 1px dashed var(--border); }
+  .rhythm-slot.violation { outline: 2px solid var(--red); outline-offset: -2px; }
+  .rhythm-slot .slot-label { display:block; font-weight:600; }
+  .rhythm-slot .slot-meta  { display:block; font-size:10px; color: var(--ink-soft); margin-top:2px; }
+
+  .days-timeline {
+    display: grid;
+    grid-template-columns: repeat(10, 140px);
+    gap: 4px;
+    min-width: 1400px;
+  }
+  .tour-day-col {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-soft);
+    background: #fff;
+    font-size: 11px;
+  }
+  .tour-day-col > header {
+    padding: 6px 8px;
+    background: var(--bg-soft);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .tour-day-col > header strong { font-size: 13px; }
+  .tour-day-col > header .sub { font-size: 10px; color: var(--ink-soft); display: block; margin-top: 2px; }
+  .tour-day-col > .body {
+    flex: 1;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 240px;
+  }
+  .tour-day-col > footer {
+    padding: 4px 8px;
+    border-top: 1px dashed var(--border-soft);
+    color: var(--ink-soft);
+    font-size: 10px;
+  }
+  .tour-day-col.buffer { background: #fcfcfc; }
+  .tour-day-col.buffer > .body { justify-content: center; text-align: center; color: var(--ink-soft); font-style: italic; }
+  .tour-day-col.violation > footer { color: var(--red); font-weight: 600; }
+  .tour-day-col.violation { border-color: var(--red); }
+  .tour-day-col.selected { outline: 2px solid var(--blue); outline-offset: -1px; }
+
+  .t-act {
+    font-size: 10px;
+    padding: 4px 5px;
+    border: 1px solid var(--border-soft);
+    background: #fafafa;
+    line-height: 1.3;
+  }
+  .t-act.tier-one { border-color: var(--yellow); background: #fffaf0; }
+  .t-act.infra { border-style: dashed; color: var(--ink-soft); background: #f5f5f5; font-style: italic; }
+  .t-act .time { color: var(--ink-note); font-size: 9px; display: block; }
+  .t-act.tier-one .name { font-weight: 600; }
+
+  .tour-summary {
+    display: flex;
+    gap: 20px;
+    font-size: 12px;
+    padding: 8px 12px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border-soft);
+    margin-bottom: 12px;
+  }
+  .tour-summary > div strong { display: block; font-size: 16px; }
+
+  /* ========== 宪法参数行（Screen 2） ========== */
+  .const-row {
+    display: grid;
+    grid-template-columns: 200px 140px 1fr 220px;
+    gap: 10px;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--border-soft);
+    font-size: 12px;
+  }
+  .const-row label { font-weight: 500; }
+  .const-row select { padding: 2px 4px; font-size: 12px; }
+  .const-hint { color: var(--ink-soft); font-style: italic; font-size: 11px; }
+  .const-code {
+    font-family: ui-monospace, Menlo, monospace;
+    font-size: 10px;
+    color: var(--ink-note);
+    text-align: right;
+    opacity: 0.6;
+  }
+  details.const-advanced > summary {
+    cursor: pointer;
+    color: var(--blue);
+    font-size: 12px;
+    padding: 10px 0 6px;
+    user-select: none;
+  }
+  details.const-advanced > summary:hover { opacity: 0.75; }
+  details.const-advanced h4 {
+    margin: 10px 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+  }
+
+  /* ========== 模态对话框（Screen 9 承认违反） ========== */
+  .modal-backdrop {
+    background: rgba(0,0,0,0.4);
+    padding: 40px 20px;
+    border-radius: 3px;
+  }
+  .modal-dialog {
+    background: #fff;
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+  .modal-dialog h3 { margin: 0 0 8px; font-size: 14px; }
+  .modal-dialog .impact {
+    background: #fef0f0;
+    border-left: 3px solid var(--red);
+    padding: 8px 12px;
+    margin: 10px 0;
+    font-size: 12px;
+  }
+  .modal-dialog .impact strong { color: var(--red); }
+
+  /* ========== Toast（Screen 5 undo） ========== */
+  .toast {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: #333;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 3px;
+    font-size: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  .toast .toast-undo {
+    color: #6af;
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 600;
+  }
+  .toast .toast-countdown {
+    color: #aaa;
+    font-size: 10px;
+  }
+
+  /* ========== AI 修正候选（Screen 9 帮我修正子屏） ========== */
+  .fix-option {
+    border: 1px solid var(--border-soft);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: #fafafa;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .fix-option:hover { border-color: var(--blue); background: #f0f6ff; }
+  .fix-option .fix-title { font-weight: 600; display: block; margin-bottom: 4px; }
+  .fix-option .fix-detail { color: var(--ink-soft); font-size: 11px; }
+  .fix-option .fix-impact {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-soft);
+    font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<nav class="toc">
+  <strong>OneTour 原型</strong>
+  <a href="#s0">图例</a>
+  <a href="#s1">1 · Tour 列表</a>
+  <a href="#s-const">2 · 确认宪法</a>
+  <a href="#s2a">3 · 新建空白起点</a>
+  <a href="#s2">4 · Planner 填充后</a>
+  <a href="#s3">5 · 拖拽分配</a>
+  <a href="#s4">6 · Activity 编辑</a>
+  <a href="#s5">7 · road 双形态</a>
+  <a href="#s6">8 · AI tool-call 流</a>
+  <a href="#s7">9 · 宪法违反处理</a>
+  <a href="#s8">10 · Membership</a>
+  <a href="#s9">11 · Tour 全程年表</a>
+  <a href="#s10">12 · 端到端流程</a>
+</nav>
+
+<!-- =============================================================== -->
+<!-- 图例 -->
+<!-- =============================================================== -->
+<section class="screen" id="s0">
+  <h2>图例与约定</h2>
+  <div class="spec-ref">低保真原型。不重视 UI 风格，重视功能与交互逻辑。所有符号跟 spec 一一对应。</div>
+
+  <div class="two-col">
+    <div class="legend">
+      <h3>Activity 公民等级（宪法 §4）</h3>
+      <dl>
+        <dt>一等</dt><dd>tier_one — 行程存在的理由（路线围绕它规划）</dd>
+        <dt>二等</dt><dd>tier_two — 有独立吸引力，值得专程安排</dd>
+        <dt>三等</dt><dd>tier_three — 服务性，就近解决</dd>
+        <dt>基础</dt><dd>infrastructure — 不构成目的但必须（油、厕所、补给）</dd>
+      </dl>
+      <span class="note" style="margin-top:6px;">卡片里每行以 "一等 · 景"、"基础 · 路" 这样的前缀自带等级 + kind，不靠图标记忆</span>
+    </div>
+    <div class="legend">
+      <h3>Activity kind（spec §2 activities 表）</h3>
+      <dl>
+        <dt>景</dt><dd>scenic（自然/人文景观）</dd>
+        <dt>路</dt><dd>road（独库/伊昭 / 通勤驾驶段）</dd>
+        <dt>食</dt><dd>food（餐饮）</dd>
+        <dt>住</dt><dd>stay（住宿）</dd>
+        <dt>油</dt><dd>fuel（加油）</dd>
+        <dt>其他</dt><dd>other</dd>
+      </dl>
+    </div>
+  </div>
+
+  <div class="legend" style="margin-top: 12px;">
+    <h3>UI 符号</h3>
+    <dl>
+      <dt>虚线边框</dt><dd>未分配 / 占位 / drop target</dd>
+      <dt>实线边框</dt><dd>已分配到某 Day</dd>
+      <dt>蓝色</dt><dd>拖拽中、AI 生成的变更、当前选中</dd>
+      <dt>红色 banner</dt><dd>宪法硬约束违反（hard violation）</dd>
+      <dt>黄色 banner</dt><dd>宪法软违反（soft violation）</dd>
+      <dt>🔧 monospace 小条</dt><dd>AI 的 tool-call 事件（非自然语言）</dd>
+    </dl>
+  </div>
+
+  <div class="legend" style="margin-top: 12px;">
+    <h3>响应式 / 屏幕尺寸支持</h3>
+    <dl>
+      <dt>≥ 1280px</dt><dd>桌面首选。三栏 Planner 默认展开：Backlog 260 + Map/Days 1fr + Chat 320</dd>
+      <dt>1024–1280px</dt><dd>Chat 默认收起（只剩 36px 窄条），Backlog + Map/Days 占满余下空间；用户可主动展开 Chat</dd>
+      <dt>&lt; 1024px</dt><dd><strong>不支持</strong>。显示引导页 "请用笔记本或更大屏使用 Planner"，只允许查看 Tour 列表（Screen 1）和 Tour 年表（Screen 11）</dd>
+      <dt>移动端</dt><dd>本 spec 不支持。后续如做，路径是独立 mobile-optimized 页面而非响应式 —— trip planner 拖拽/地图/Chat 三件套在手机上拆开才能可用</dd>
+    </dl>
+    <span class="note">spec 里"范围边界" 将明列 "不支持移动端"。原型所有 Planner 屏默认按 ≥1280px 绘制。</span>
+  </div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 1 · Tour 列表 -->
+<!-- =============================================================== -->
+<section class="screen" id="s1">
+  <h2>1 · Tour 列表（入口页）</h2>
+  <div class="spec-ref">对应 spec §2 <code>tours</code> 表 + <code>tour_memberships</code>；Controller <code>ToursController#index</code></div>
+
+  <div class="box">
+    <div class="box-title">我的旅行程 <span class="note" style="font-style:normal;float:right;"><button class="btn primary">+ 新建 Tour</button></span></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>标题</th>
+          <th>日期 / 人数</th>
+          <th>进度</th>
+          <th>健康度</th>
+          <th>最近活动</th>
+          <th>我的角色</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>
+            <strong>伊犁环线自驾</strong>
+            <span class="spec-tag">tours.title</span>
+          </td>
+          <td>
+            2026-06-10 ~ 06-20<br>
+            <span class="note" style="font-style:normal;">5 人 · 越野车</span>
+          </td>
+          <td>
+            10 Day · 34 行<br>
+            <span class="note" style="font-style:normal;">2 待分配</span>
+          </td>
+          <td>
+            <span style="color:var(--red);">● 1 硬违反</span><br>
+            <span style="color:var(--yellow);">● 2 软提示</span>
+          </td>
+          <td>
+            <strong>3 小时前</strong><br>
+            <span class="note" style="font-style:normal;">partner_a 编辑了 D3</span>
+          </td>
+          <td>
+            作者
+            <span class="spec-tag">author_id</span>
+          </td>
+          <td><a href="#s-const">打开 →</a></td>
+        </tr>
+
+        <tr>
+          <td><strong>川西 8 日</strong></td>
+          <td>2025-09-01 ~ 09-08<br><span class="note" style="font-style:normal;">4 人</span></td>
+          <td>8 Day · 22 行</td>
+          <td><span style="color:var(--green);">● 全部符合 ✓</span></td>
+          <td>昨天<br><span class="note" style="font-style:normal;">我自己</span></td>
+          <td>editor <span class="spec-tag">role=editor</span></td>
+          <td><a href="#s-const">打开 →</a></td>
+        </tr>
+
+        <tr style="opacity: 0.55;">
+          <td>青海环湖 <span class="note" style="font-style:normal;">(已归档)</span></td>
+          <td>2024-07-01 ~ 07-06<br><span class="note" style="font-style:normal;">3 人</span></td>
+          <td>6 Day · 18 行</td>
+          <td><span style="color:var(--ink-soft);">—</span></td>
+          <td>2024-08</td>
+          <td>reader</td>
+          <td><a href="#s-const">打开 →</a></td>
+        </tr>
+      </tbody>
+    </table>
+    <span class="note">健康度一眼看本程有无需要关注的宪法违反；"最近活动" 对协作场景关键 — 看到同伴刚改什么。已归档行透明度降低（<code>tours.archived=true</code>），健康度列显示 "—"。</span>
+  </div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 2 · 确认宪法（新 Tour 必经的第一步）-->
+<!-- =============================================================== -->
+<section class="screen" id="s-const">
+  <h2>2 · 确认宪法（新 Tour 的第一步）</h2>
+  <div class="spec-ref">spec §宪法的机器表示；<code>tours.constitution</code> 建 Tour 时深拷贝 <code>Constitution::DEFAULTS</code>。此屏允许用户在开始规划前审阅并调整宪法。规划过程中也可随时从 Planner 顶部菜单 📜 再次进入修宪。<strong>自顶向下：先定规则 → 再列候选 → 再规划</strong></div>
+
+  <div class="box" style="max-width:820px;">
+    <div class="box-title">《本程宪法》 <span class="spec-tag">PATCH /tours/:id （constitution 字段）</span></div>
+
+    <div style="font-size:12px; padding: 8px 12px; background: #fef8e8; border-left: 3px solid var(--yellow); margin-bottom: 16px;">
+      💡 这份宪法是给你这次旅行的基础规则。<strong>大多数情况下默认值就够用</strong> —— 可以直接点 "使用默认 →" 开始。<br>
+      如果情况特殊（老人小孩、长距离赶路、特殊饮食），往下调整相应参数。
+    </div>
+
+    <!-- 关键约束（3 条自然语言） -->
+    <h3 style="margin: 0 0 6px; font-size: 13px;">关键约束 <span style="font-weight:normal; color:var(--ink-soft); font-size:11px;">（99% 的人只看这 3 条就够）</span></h3>
+
+    <div class="const-row">
+      <label>每天最多驾驶</label>
+      <select>
+        <option>4 小时</option>
+        <option>5 小时</option>
+        <option>6 小时</option>
+        <option selected>7 小时</option>
+        <option>8 小时</option>
+      </select>
+      <span class="const-hint">防止疲劳驾驶 · 含山路和通勤</span>
+      <code class="const-code">max_daily_driving_minutes</code>
+    </div>
+
+    <div class="const-row">
+      <label>每天最多"核心景点"</label>
+      <select>
+        <option>1 个</option>
+        <option>2 个</option>
+        <option selected>3 个</option>
+        <option>4 个</option>
+      </select>
+      <span class="const-hint">贪多嚼不烂 · 每个要 1.5-3h 体验</span>
+      <code class="const-code">max_tier_one_per_day</code>
+    </div>
+
+    <div class="const-row" style="border-bottom:none;">
+      <label>整程至少机动日</label>
+      <select>
+        <option>0 天</option>
+        <option selected>1 天</option>
+        <option>2 天</option>
+      </select>
+      <span class="const-hint">应对天气 / 疲劳 / 突发</span>
+      <code class="const-code">min_buffer_days</code>
+    </div>
+
+    <!-- 高级参数（默认折叠） -->
+    <details class="const-advanced">
+      <summary>▾ 高级参数（剩余 5 条，大多数情况不用改）</summary>
+
+      <h4>硬约束剩余 <span class="spec-tag">违反触发红色提示</span></h4>
+      <div class="const-row">
+        <label>单日山路驾驶上限</label>
+        <select>
+          <option>3 小时</option>
+          <option selected>4 小时</option>
+          <option>5 小时</option>
+        </select>
+        <span class="const-hint">独库 / 伊昭这类山路段</span>
+        <code class="const-code">max_mountain_road_minutes</code>
+      </div>
+      <div class="const-row" style="border-bottom:none;">
+        <label>每日机动时间下限</label>
+        <select>
+          <option>60 min</option>
+          <option selected>90 min</option>
+          <option>120 min</option>
+        </select>
+        <span class="const-hint">排队 / 拍照 / 临时停靠</span>
+        <code class="const-code">min_daily_buffer_minutes</code>
+      </div>
+
+      <h4 style="margin-top:14px;">弹性配额 <span class="spec-tag">违反触发黄色提示</span></h4>
+      <div class="const-row">
+        <label>整程特色餐厅总数</label>
+        <select>
+          <option>2 家</option>
+          <option selected>3 家</option>
+          <option>4 家</option>
+        </select>
+        <span class="const-hint">为吃饭绕路的上限</span>
+        <code class="const-code">max_tier_two_food_per_tour</code>
+      </div>
+      <div class="const-row">
+        <label>整程"找油紧急升级"</label>
+        <select>
+          <option>0 次</option>
+          <option selected>1 次</option>
+          <option>2 次</option>
+        </select>
+        <span class="const-hint">多于此说明油量规划不好</span>
+        <code class="const-code">max_fuel_emergency_per_tour</code>
+      </div>
+      <div class="const-row" style="border-bottom:none;">
+        <label>整程毡房 / 蒙古包夜晚</label>
+        <select>
+          <option>0 晚</option>
+          <option selected>1 晚</option>
+          <option>2 晚</option>
+        </select>
+        <span class="const-hint">需提前全员同意</span>
+        <code class="const-code">max_yurt_nights</code>
+      </div>
+    </details>
+
+    <!-- 下方旧的参数表格已被上面 "关键约束 + 高级参数" 取代，用 hidden 属性隐藏保持 HTML 合法 -->
+    <div hidden>
+      <div class="box soft" style="margin-bottom: 12px;">
+      <div class="box-title">一、硬约束 <span class="spec-tag">宪法 §10-12 · 违反触发红色 banner</span></div>
+      <table>
+        <tr><th style="width:260px;">参数</th><th style="width:110px;">值</th><th>说明</th></tr>
+        <tr>
+          <td><code>max_daily_driving_minutes</code></td>
+          <td><input type="number" value="420" style="width:70px;"> min</td>
+          <td>单日总驾驶时间上限（≈ 7h）</td>
+        </tr>
+        <tr>
+          <td><code>max_mountain_road_minutes</code></td>
+          <td><input type="number" value="240" style="width:70px;"> min</td>
+          <td>单日山路段驾驶时间上限（≈ 4h）</td>
+        </tr>
+        <tr>
+          <td><code>max_tier_one_per_day</code></td>
+          <td><input type="number" value="3" style="width:70px;"> 个</td>
+          <td>单日一等公民数量上限</td>
+        </tr>
+        <tr>
+          <td><code>min_buffer_days</code></td>
+          <td><input type="number" value="1" style="width:70px;"> 天</td>
+          <td>整程至少保留机动日</td>
+        </tr>
+        <tr>
+          <td><code>min_daily_buffer_minutes</code></td>
+          <td><input type="number" value="90" style="width:70px;"> min</td>
+          <td>每日未分配的机动时间下限</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 弹性配额 -->
+    <div class="box soft" style="margin-bottom: 12px;">
+      <div class="box-title">二、弹性配额 <span class="spec-tag">宪法 §14 · 违反触发黄色提示</span></div>
+      <table>
+        <tr><th style="width:260px;">参数</th><th style="width:110px;">值</th><th>说明</th></tr>
+        <tr>
+          <td><code>max_tier_two_food_per_tour</code></td>
+          <td><input type="number" value="3" style="width:70px;"> 家</td>
+          <td>整程二等公民餐厅总数上限</td>
+        </tr>
+        <tr>
+          <td><code>max_fuel_emergency_per_tour</code></td>
+          <td><input type="number" value="1" style="width:70px;"> 次</td>
+          <td>整程"油量紧急升级"次数上限</td>
+        </tr>
+        <tr>
+          <td><code>max_yurt_nights</code></td>
+          <td><input type="number" value="1" style="width:70px;"> 晚</td>
+          <td>整程毡房 / 蒙古包住宿上限</td>
+        </tr>
+      </table>
+    </div>
+    </div>
+    <!-- /老表格隐藏结束 -->
+
+    <!-- 只读：公民等级 -->
+    <div class="legend" style="margin-bottom: 12px;">
+      <h3>三、公民等级定义（只读；spec §2 citizen_level 枚举）</h3>
+      <dl>
+        <dt>一等</dt><dd>tier_one — 行程存在的理由，路线围绕它规划</dd>
+        <dt>二等</dt><dd>tier_two — 有独立吸引力，值得专程安排</dd>
+        <dt>三等</dt><dd>tier_three — 服务性，就近解决</dd>
+        <dt>基础</dt><dd>infrastructure — 不构成目的但必须（油、厕所、补给）</dd>
+      </dl>
+    </div>
+
+    <!-- 只读：违反处理策略 -->
+    <div class="legend" style="margin-bottom: 16px;">
+      <h3>四、违反处理（只读；详见 Screen 9）</h3>
+      <p style="font-size:12px; margin:0;">
+        · 硬约束违反 → 红色 banner，可 "承认" 写入 <code>constraint_overrides</code> 永久静音<br>
+        · 软违反 → 黄色提示，单次 dismiss<br>
+        · 宪法 <strong>不</strong> 阻止保存 —— 只提示，不拦截（soft-validation 策略）
+      </p>
+    </div>
+
+    <!-- 操作 -->
+    <div style="padding: 14px 0 4px; border-top: 1px solid var(--border-soft); display:flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+      <button class="btn" title="点击前需要 confirm">↺ 恢复默认</button>
+      <div>
+        <button class="btn">← 返回基本信息</button>
+        <button class="btn primary" title="跳过细节审阅，直接用默认宪法开始">使用默认宪法，直接开始 →</button>
+      </div>
+    </div>
+    <span class="note" style="display:block; text-align:right;">用户改动过任一参数后：主 CTA 的文案自动变成 "保存修改并开始 →"，默认按钮变成 "放弃修改用默认"。</span>
+    <span class="note" style="display:block; text-align:right;">触发 <code>PATCH /tours/:id/constitution</code> → 跳转到 Screen 3 空白起点</span>
+  </div>
+
+  <!-- 恢复默认二次确认示意 -->
+  <div class="box soft" style="max-width:820px; margin-top:16px;">
+    <div class="box-title">点击 "↺ 恢复默认" 后的二次确认（仅当用户改过参数）<span class="spec-tag">防止误点丢失修改</span></div>
+    <div class="modal-backdrop" style="padding: 20px;">
+      <div class="modal-dialog" style="max-width:440px;">
+        <h3>恢复宪法到默认值？</h3>
+        <p style="font-size:12px; margin: 6px 0 10px;">
+          你已修改了 <strong>3 个参数</strong>（每天最多驾驶：6 小时 → 7 小时；每天核心景点：2 → 3；特色餐厅：2 → 3 家）。<br>
+          恢复默认会 <strong>丢弃这些修改</strong>，无法撤回。
+        </p>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px; padding-top:10px; border-top: 1px solid var(--border-soft);">
+          <button class="btn">取消</button>
+          <button class="btn" style="color:var(--red); border-color:var(--red);">确认恢复默认</button>
+        </div>
+      </div>
+    </div>
+    <span class="note">用户未修改任何参数时，按钮禁用；点击直接无反应，不弹 confirm。</span>
+  </div>
+
+  <!-- 入口说明：规划中再次修宪 -->
+  <div class="box soft" style="max-width:820px; margin-top:16px;">
+    <div class="box-title">规划中再次进入修宪的入口 <span class="spec-tag">Planner 顶部菜单 📜</span></div>
+    <p style="font-size:12px; margin: 4px 0;">
+      规划中任何时候都可以点 Planner 顶部 📜 图标返回此屏修宪。修宪后：
+    </p>
+    <ul style="font-size:12px; margin: 4px 0; padding-left:20px;">
+      <li>所有现有 activity 立即重跑一轮 <code>Tour::ConstitutionCheck</code></li>
+      <li>新的违反显示为黄/红 banner；旧的 <code>constraint_overrides</code> 依然有效</li>
+      <li>修宪<strong>不回溯历史</strong> —— 只影响当前与后续校验</li>
+    </ul>
+  </div>
+
+  <div class="box soft" style="max-width:820px; margin-top:12px; background: #fcfcf7;">
+    <div class="box-title">AI 同样可以提议修宪 <span class="spec-tag">AITools::UpdateConstitution</span></div>
+    <p style="font-size:12px; margin:4px 0;">
+      例如用户说 "这次允许山路驾驶到 5 小时"，AI 调用 <code>update_constitution(tour_id, {max_mountain_road_minutes: 300})</code>，前端收到 <code>tool_call_result</code> 后刷新宪法展示并重跑 ConstitutionCheck。
+    </p>
+  </div>
+
+  <div class="caption">自顶向下的三步：① 定宪法（此屏） · ② 列候选行（Screen 3-4） · ③ 规划日程（Screen 5）</div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 3 · 新建 Tour 首次打开（空白起点）-->
+<!-- =============================================================== -->
+<section class="screen" id="s2a">
+  <h2>3 · 新建 Tour 首次打开 —— 空白起点</h2>
+  <div class="spec-ref">Controller：<code>ToursController#create</code> 后重定向至 <code>ToursController#show</code>。关键引导：如何把第一个 activity 塞进 Backlog（零→一的那一步）</div>
+
+  <div class="planner-grid" id="planner-2a">
+    <!-- Backlog 空态 + 两个入口 -->
+    <div class="box backlog">
+      <div class="box-title">Backlog — 还没有「行」<span class="spec-tag">activities.count = 0</span></div>
+      <div style="text-align: center; padding: 30px 8px; color: var(--ink-soft);">
+        <div style="border: 2px dashed var(--border-soft); padding: 20px 10px; border-radius: 3px; font-size:12px;">
+          <p style="margin: 0 0 14px;">先把想去的点塞进这里，<br>再拖到右侧 Day 排程。</p>
+          <button class="btn primary" style="display:block; width:100%; margin:6px 0;">+ 手动添加一个 activity</button>
+          <button class="btn" style="display:block; width:100%; margin:6px 0;">💬 让 AI 帮我列候选</button>
+        </div>
+        <span class="note" style="display:block; text-align:left; margin-top:14px;">
+          · 手动入口 → <code>POST /tours/:id/activities</code>，弹出 Screen 6 的编辑面板<br>
+          · AI 入口 → 把焦点打到右侧 Chat，用户描述需求，AI 连续调用 <code>search_poi + add_activity</code>（见 Screen 8），批量填 Backlog
+        </span>
+      </div>
+    </div>
+
+    <!-- Map 空态 -->
+    <div class="box map">
+      <div class="box-title">地图区 <span class="spec-tag">无 activity → 无 pin</span></div>
+      <div class="map-placeholder" style="height: 260px; display:flex; align-items:center; justify-content:center;">
+        <div style="text-align:center; color:var(--ink-soft); font-size:12px; font-style:italic; background: rgba(255,255,255,0.85); padding: 10px 16px; border: 1px dashed var(--border-soft);">
+          地图空<br><span style="font-size:11px;">加入 activity 后会在 lat/lng 位置自动出现 pin</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat 默认展开 + onboarding -->
+    <div class="box chat">
+      <div class="box-title">
+        AI 对话 <span class="spec-tag">首次进入默认焦点在输入框</span>
+        <span class="chat-toggle" data-target="#planner-2a">收起 ▸</span>
+      </div>
+      <div class="chat-body">
+        <div class="msg">
+          <div class="bubble">
+            欢迎 👋 我先问几个问题，搞清楚方向再开始。
+          </div>
+        </div>
+        <div class="msg">
+          <div class="bubble">
+            <strong>① 这次想去哪？</strong>
+            <span class="note" style="font-style:normal;">例如："伊犁环线"、"川西"、"河西走廊"</span>
+          </div>
+        </div>
+        <span class="note" style="display:block; margin: 2px 4px 6px;">一次只问一件事，用户回答后 AI 接着问 "玩几天？人数？主题？"，最后才一口气批量生成 Backlog。</span>
+      </div>
+      <div style="border-top:1px solid var(--border-soft); padding: 6px 4px;">
+        <textarea style="width:100%; height: 40px; font-size:12px;" placeholder="回答 ①">伊犁环线</textarea>
+        <button class="btn primary" style="margin-top:4px;">发送</button>
+      </div>
+    </div>
+
+    <!-- 追加：多轮对话示意 -->
+    <div class="box soft" style="margin: 12px 0 0 0; grid-column: 1 / -1; max-width: 820px;">
+      <div class="box-title">会话式 onboarding 的完整 4 轮示意 <span class="spec-tag">AI 不一次轰炸问题</span></div>
+      <div style="padding: 6px 4px; font-size: 12px;">
+        <div class="msg"><div class="bubble">① 这次想去哪？</div></div>
+        <div class="msg user"><div class="bubble">伊犁环线</div></div>
+
+        <div class="msg"><div class="bubble">② 几天？（我会据此建 Day 骨架）</div></div>
+        <div class="msg user"><div class="bubble">10 天，6/10 出发</div></div>
+
+        <div class="msg"><div class="bubble">③ 几个人、什么车？</div></div>
+        <div class="msg user"><div class="bubble">5 人，租辆越野</div></div>
+
+        <div class="msg"><div class="bubble">④ 主要想看什么？（景观 / 人文 / 带娃 / 徒步 …）</div></div>
+        <div class="msg user"><div class="bubble">自然景观为主，独库、草原、湖泊</div></div>
+
+        <div class="msg"><div class="bubble">
+          好，够了。我开始列 Backlog：
+          <div class="tool-call"><span class="fn">AITools::CreateDay</span> × 10（先搭骨架）</div>
+          <div class="tool-call"><span class="fn">AITools::SearchPoi</span>("赛里木湖", region_hint="伊犁") → 1 条</div>
+          <div class="tool-call"><span class="fn">AITools::AddActivity</span>(kind=scenic, 一等, backlog) ...</div>
+          <div style="color: var(--ink-soft); font-size:11px; margin-top:4px;">（持续流式添加 ~30 个 POI，用户可随时中断）</div>
+        </div></div>
+      </div>
+      <span class="note">相比原来一口气问 4 件事的"表单化"prompt，这种对话式节奏让新用户心理负担低，每一步有明确回答目标。每次 AI 只等一个回答，不等齐全。</span>
+    </div>
+
+    <!-- Days 骨架：只有 D1，或 0 天 -->
+    <div class="box days">
+      <div class="box-title">Days 时间线 — 骨架 <span class="spec-tag">新建时默认创建 1 个 Day</span>
+        <button class="btn" style="float:right;font-size:10px;">+ 加一天</button>
+      </div>
+      <div style="display:flex; gap:8px; overflow-x:auto;">
+        <div class="day-col">
+          <header>
+            <span class="intensity-dot int-green"></span> <strong>D1</strong> · （未定日期）
+            <div style="font-size:11px; color: var(--ink-soft);">（未命名）</div>
+          </header>
+          <div class="body" style="text-align:center; color:var(--ink-soft); font-size:11px; padding-top:40px;">
+            先去 Backlog 加几个 activity，<br>再拖进这里
+          </div>
+          <footer>驾驶 0 · 一等 0</footer>
+        </div>
+        <div class="day-col" style="min-width:100px;">
+          <header>+</header>
+          <div class="body" style="text-align:center; padding-top:40px; color:var(--ink-soft); font-size:11px;">加一天</div>
+        </div>
+      </div>
+      <span class="note">新建 Tour 时后端自动创建 1 个 Day（<code>day_index=1</code>）作为起点；用户可增/删天数</span>
+    </div>
+  </div>
+
+  <div class="caption">这屏解决 "Backlog 的 activity 是从哪来的"：两个入口 —— 手动单加、AI 批量。往后 Screen 4 是填充之后的状态。</div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 2b · Planner 填充后 -->
+<!-- =============================================================== -->
+<section class="screen" id="s2">
+  <h2>4 · Planner 主视图 — 填充后（backlog 已塞满 / days 开始分配）</h2>
+  <div class="spec-ref">对应产品目标里的用户流程步骤 1–2 完成之后的状态：用户或 AI 已往 Backlog 塞了候选 activity，地图开始以灰 pin 展示 lat/lng，Days 仍以骨架为主，等待拖拽。<strong>零态见上方 2a</strong></div>
+
+  <div class="planner-grid" id="planner-2">
+    <!-- Backlog -->
+    <div class="box backlog">
+      <div class="box-title">Backlog — 未分配的「行」 <span class="spec-tag">activities.day_id IS NULL</span>
+        <button class="btn" style="float:right;font-size:10px;" title="打开 Screen 6 的编辑面板">+ 加一个</button>
+      </div>
+      <div style="display:flex; gap:4px; margin-bottom:8px; font-size:11px;">
+        筛选：
+        <select><option>所有 kind</option><option>景</option><option>路</option><option>食</option></select>
+        <select><option>所有等级</option><option>一等</option><option>二等</option><option>三等</option><option>基础</option></select>
+      </div>
+      <div class="act" data-kind="scenic" data-level="tier_one">
+        <span class="citizen">一等 · 景</span> 赛里木湖<br>
+        <span class="meta">约 4h · 最佳光线 傍晚</span>
+      </div>
+      <div class="act" data-kind="scenic" data-level="tier_one">
+        <span class="citizen">一等 · 景</span> 那拉提草原<br>
+        <span class="meta">约 3h</span>
+      </div>
+      <div class="act" data-kind="road" data-level="tier_one">
+        <span class="citizen">一等 · 路</span> 独库公路 D2 段<br>
+        <span class="meta">120 km · 驾驶 4h · 仅白天通行</span>
+      </div>
+      <div class="act" data-kind="food" data-level="tier_two">
+        <span class="citizen">二等 · 食</span> 伊宁 海尔巴格<br>
+        <span class="meta">手抓肉必吃</span>
+      </div>
+      <div class="act" data-kind="scenic" data-level="tier_one">
+        <span class="citizen">一等 · 景</span> 夏塔古道<br>
+        <span class="meta">徒步约 3h</span>
+      </div>
+      <div class="act" data-kind="road" data-level="infrastructure">
+        <span class="citizen">基础 · 路</span> 伊宁→那拉提 通勤<br>
+        <span class="meta">190 km · 驾驶 2h30 · 通勤段</span>
+      </div>
+      <div class="act" data-kind="stay" data-level="tier_three">
+        <span class="citizen">三等 · 住</span> 那拉提镇 酒店
+      </div>
+      <span class="note">卡片可拖入右侧任一 Day（见 Screen 5）</span>
+    </div>
+
+    <!-- Map -->
+    <div class="box map">
+      <div class="box-title">地图区 <span class="spec-tag">lat/lng · AMAP render</span>
+        <span style="float:right; font-size:10px;">
+          视图：
+          <label><input type="radio" checked> 全部</label>
+          <label><input type="radio"> 按天着色</label>
+          <label><input type="radio"> 仅 backlog</label>
+        </span>
+      </div>
+      <div class="map-placeholder" style="height: 260px;">
+        <span class="pin backlog" style="top:20px;  left:60px;">赛里木湖</span>
+        <span class="pin backlog" style="top:120px; left:200px;">那拉提</span>
+        <span class="pin backlog" style="top:150px; left:320px;">夏塔</span>
+        <span class="pin backlog" style="top:40px;  left:260px;">伊宁</span>
+        <span class="pin backlog" style="top:90px;  left:120px;">独库</span>
+        <span class="note" style="position:absolute; bottom:4px; left:6px;">未分配的 activity 显示为灰色虚线 pin。无 Dn 标签、无连接线。</span>
+      </div>
+    </div>
+
+    <!-- Chat panel（最右侧，可收起）-->
+    <div class="box chat">
+      <div class="box-title">
+        AI 对话 <span class="spec-tag">Conversation 1:1 tour×user</span>
+        <span class="chat-toggle" data-target="#planner-2" title="收起 AI 对话，腾出画布">收起 ▸</span>
+      </div>
+      <div style="font-size:11px; color: var(--ink-soft); padding: 20px 8px; text-align: center;">
+        对话空
+      </div>
+      <div style="border-top:1px solid var(--border-soft); padding: 6px 4px;">
+        <textarea style="width:100%; height: 50px; font-size:12px;" placeholder="帮我把赛里木湖和那拉提排进头 3 天…"></textarea>
+        <button class="btn primary" style="margin-top:4px;">发送</button>
+        <span class="note">发送 → ChatStreamJob → RubyLLM tool-use 流式响应</span>
+      </div>
+    </div>
+
+    <!-- Days timeline -->
+    <div class="box days">
+      <div class="box-title">Days 时间线 <span class="spec-tag">days.day_index 1..N</span> <button class="btn" style="float:right;font-size:10px;">+ 加一天</button></div>
+      <div style="display:flex; gap:8px; overflow-x:auto;">
+        <div class="day-col">
+          <header>
+            <span class="intensity-dot int-green"></span> <strong>D1</strong> · 6/10 周三
+            <div style="font-size:11px; color: var(--ink-soft);">抵达伊宁（适应日）</div>
+          </header>
+          <div class="body">
+            <span class="note">尚无 activity。拖入 backlog 卡片 →</span>
+          </div>
+          <footer>
+            驾驶 <span style="font-family:ui-monospace,monospace;">░░░░░░░</span> 0/7h<br>
+            核心 <span style="font-family:ui-monospace,monospace;">░░░</span> 0/3 · buffer
+          </footer>
+        </div>
+        <div class="day-col">
+          <header>
+            <span class="intensity-dot int-yellow"></span> <strong>D2</strong> · 6/11
+            <div style="font-size:11px; color: var(--ink-soft);">伊宁 → 那拉提</div>
+          </header>
+          <div class="body"><span class="note">空</span></div>
+          <footer>
+            驾驶 <span style="font-family:ui-monospace,monospace;">░░░░░░░</span> 0/7h<br>
+            核心 <span style="font-family:ui-monospace,monospace;">░░░</span> 0/3
+          </footer>
+        </div>
+        <div class="day-col">
+          <header><strong>D3</strong> · 6/12 <div style="font-size:11px; color: var(--ink-soft);">（未命名）</div></header>
+          <div class="body"><span class="note">空</span></div>
+          <footer>
+            驾驶 <span style="font-family:ui-monospace,monospace;">░░░░░░░</span> 0/7h<br>
+            核心 <span style="font-family:ui-monospace,monospace;">░░░</span> 0/3
+          </footer>
+        </div>
+        <div class="day-col" style="min-width:90px;"><header>+</header><div class="body" style="text-align:center; padding-top:40px; color:var(--ink-soft); font-size:11px;">加一天</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 3 · 拖拽分配中 -->
+<!-- =============================================================== -->
+<section class="screen" id="s3">
+  <h2>5 · 拖拽中 — 从 Backlog 把赛里木湖分配到 D2</h2>
+  <div class="spec-ref">对应产品目标用户流程步骤 3–4：拖入日 → 地图实时连线 + Dn 标签。触发后端 <code>AITools::MoveActivity</code>（或者直接 PATCH <code>/activities/:id/position</code>）</div>
+
+  <div class="planner-grid" id="planner-3">
+    <div class="box backlog">
+      <div class="box-title">Backlog（剩余）</div>
+      <div class="act" style="opacity:0.3; border-style: dotted;">
+        <span class="citizen">一等 · 景</span> 赛里木湖
+        <span class="note">正在被拖走…</span>
+      </div>
+      <div class="act" data-kind="scenic" data-level="tier_one">
+        <span class="citizen">一等 · 景</span> 那拉提草原
+      </div>
+      <div class="act" data-kind="food" data-level="tier_two">
+        <span class="citizen">二等 · 食</span> 海尔巴格
+      </div>
+      <div class="act" data-kind="road" data-level="infrastructure">
+        <span class="citizen">基础 · 路</span> 伊宁→那拉提 通勤
+      </div>
+    </div>
+
+    <div class="box map">
+      <div class="box-title">地图区 — 拖拽中 <span class="spec-tag">drag feedback</span></div>
+      <div class="map-placeholder" style="height: 260px;">
+        <span class="pin dragging" style="top:20px; left:60px;">赛里木湖（拖拽中）</span>
+        <span class="pin assigned" style="top:40px; left:260px;">伊宁 D1</span>
+        <span class="pin backlog" style="top:120px; left:200px;">那拉提</span>
+        <span class="note" style="position:absolute; bottom:4px; left:6px;">松开瞬间：pin 变蓝实线 + 新增 "D2" 标签 + 自动画 D1→D2 连线</span>
+      </div>
+    </div>
+
+    <div class="box chat">
+      <div class="box-title">
+        AI 对话
+        <span class="chat-toggle" data-target="#planner-3" title="收起">收起 ▸</span>
+      </div>
+      <div class="chat-body">
+        <div class="msg user"><div class="bubble">帮我理一下头三天的节奏</div></div>
+        <div class="msg"><div class="bubble">
+          建议把赛里木湖放在 D2（上午光线好，紧接 D1 的市区适应）。你可以直接拖过去，我也可以帮你加。
+          <div class="tool-call"><span class="fn">suggest</span>(target_day=2, activity="赛里木湖")</div>
+        </div></div>
+        <span class="note">提示文字配合用户拖拽行为</span>
+      </div>
+    </div>
+
+    <div class="box days">
+      <div class="box-title">Days 时间线</div>
+      <div style="display:flex; gap:8px; overflow-x:auto;">
+        <div class="day-col">
+          <header><span class="intensity-dot int-green"></span> <strong>D1</strong> · 伊宁</header>
+          <div class="body">
+            <div class="act" data-kind="stay" data-level="tier_three"><span class="citizen">三等 · 住</span> 伊宁酒店</div>
+          </div>
+          <footer>
+            驾驶 <span style="font-family:ui-monospace,monospace;">░░░░░░░</span> 0/7h<br>
+            核心 <span style="font-family:ui-monospace,monospace;">░░░</span> 0/3
+          </footer>
+        </div>
+        <div class="day-col" style="border-color: var(--blue); border-width: 2px;">
+          <header style="background:#e8f0fb;"><span class="intensity-dot int-yellow"></span> <strong>D2</strong> · 伊宁→那拉提</header>
+          <div class="body">
+            <div class="act" data-kind="road" data-level="infrastructure"><span class="citizen">基础 · 路</span> 伊宁→那拉提（2h30）</div>
+            <div class="drop-target">⬇ 放在此处（position=2）</div>
+            <div class="act" data-kind="stay" data-level="tier_three"><span class="citizen">三等 · 住</span> 那拉提镇</div>
+          </div>
+          <footer>
+            驾驶 <span style="font-family:ui-monospace,monospace;">██░░░░░</span> 2.5/7h<br>
+            核心 <span style="font-family:ui-monospace,monospace;">░░░</span> 0/3
+          </footer>
+        </div>
+        <div class="day-col">
+          <header><strong>D3</strong></header>
+          <div class="body"><span class="note">空</span></div>
+          <footer>
+            驾驶 <span style="font-family:ui-monospace,monospace;">░░░░░░░</span> 0/7h<br>
+            核心 <span style="font-family:ui-monospace,monospace;">░░░</span> 0/3
+          </footer>
+        </div>
+      </div>
+      <span class="note">松开后触发 PATCH <code>/activities/:id/position</code>；前端乐观更新，失败回滚</span>
+    </div>
+  </div>
+
+  <!-- 拖拽的 4 种失败/警告态 -->
+  <div class="box soft" style="margin-top: 16px;">
+    <div class="box-title">拖拽的失败 / 警告态 <span class="spec-tag">drop validation</span></div>
+    <div class="three-col">
+
+      <div class="box" style="border-color: var(--yellow);">
+        <div class="box-title" style="background:#fef8e8;">A. 拖到已超时的 Day（实时警告）</div>
+        <p style="font-size:11px;">用户还在拖拽、悬停到 D3 上方时，<strong>不等落下</strong>，D3 列立即变红边框 + 显示浮动警告：</p>
+        <div class="const-banner soft" style="margin:4px 0; font-size:11px;">
+          ⚠ D3 已 6h30 驾驶，再加这条会到 8h（超过每天 7h 上限）
+        </div>
+        <p style="font-size:11px;">用户可以选择：松开 → banner 变红硬违反；或继续拖走到别处 → 警告消失</p>
+      </div>
+
+      <div class="box">
+        <div class="box-title">B. 拖到 buffer day（提示确认）</div>
+        <p style="font-size:11px;">buffer_day 是"预留空白"，拖进去会给一个<strong>确认弹层</strong>：</p>
+        <div style="border: 1px solid var(--border); padding: 6px; font-size: 11px; margin: 4px 0;">
+          把 <strong>夏塔古道</strong> 放到 D6（机动日）会让 D6 不再是 buffer。<br>
+          [取消] [继续放入]
+        </div>
+        <p style="font-size:11px;">按"继续放入" → D6 自动从 <code>buffer_day=true</code> 切回 <code>false</code>，顶部自动升起软提示"整程 0 机动日"</p>
+      </div>
+
+      <div class="box" style="border-color: var(--red);">
+        <div class="box-title" style="background:#fef0f0;">C. 后端落库失败（回滚）</div>
+        <p style="font-size:11px;">前端乐观更新：拖拽 → 立即落位 → 发 PATCH /activities/:id/position</p>
+        <p style="font-size:11px;">若请求失败（422 / 5xx / 网络）：</p>
+        <ul style="font-size:11px; padding-left:16px; margin:4px 0;">
+          <li>活动 <strong>自动回到原 Day / 原 position</strong></li>
+          <li>顶部 toast 标红："拖拽未保存 <span style="color:var(--blue);">重试</span>"</li>
+          <li>重试成功 → toast 变绿 "已保存"；再失败 → toast 保持红色不消失</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <div class="box" style="margin-top: 10px;">
+      <div class="box-title">D. 拖到一半按 Esc / 丢到画布空白处（取消）</div>
+      <p style="font-size:11px; margin: 4px 0;">
+        <strong>按 Esc</strong>：原卡片回到起始位置（含 Backlog 内的原位置），被拖动占位瞬间恢复，地图上拖拽中的蓝 pin 变回灰 backlog pin。<br>
+        <strong>丢到 Days 列之外的空白</strong>：同上。<br>
+        <span class="note">实现上靠 dragend event + drop-zone 校验。</span>
+      </p>
+    </div>
+
+    <span class="note">四种失败态共同原则：<strong>不静默失败</strong>。A/B 是预防式（落下前阻止），C/D 是恢复式（落下后回滚 or 取消）。</span>
+  </div>
+
+  <!-- 落位后的 Toast + Undo -->
+  <div class="box soft" style="margin-top: 16px;">
+    <div class="box-title">落位后的 Toast <span class="spec-tag">全局 undo 机制</span></div>
+    <div style="padding: 14px 12px; text-align: center; background: #fafafa; border: 1px dashed var(--border-soft);">
+      <div class="toast">
+        <span>已把 <strong>赛里木湖</strong> 加到 D2 第 2 位</span>
+        <span class="toast-undo">撤销</span>
+        <span class="toast-countdown">4 秒后消失</span>
+      </div>
+    </div>
+    <p style="font-size:12px; margin: 8px 0 0;">
+      <strong>每次用户 / AI 的变更都显示一个浮 toast</strong>（右下或底部居中），5 秒倒计时消失。期间点 "撤销" 可回滚上一步。覆盖：
+    </p>
+    <ul style="font-size:11px; color: var(--ink-soft); margin: 4px 0; padding-left: 20px;">
+      <li>拖拽 move_activity / 编辑 update_activity / 删除 delete_activity / 添加 add_activity</li>
+      <li>AI 一次 tool-call 序列视为一组（撤销会撤整组，如"AI 批量加了 20 个 POI" 一次撤销全部）</li>
+      <li>修宪 update_constitution / 承认违反 acknowledge_violation —— 也能撤销，但 toast 保留 10 秒</li>
+    </ul>
+    <span class="note">实现建议：前端维护一个 undo stack（最多 10 条，老的自动丢）；只做 "撤销上一步"，不做完整 redo。是 spec 边界里标 YAGNI 的 undo/redo 的 "80% 用例" 简化版。</span>
+  </div>
+
+  <div class="caption">落位后 D2 右下角会自动跳到：驾驶 150 min · 一等×1 · 二等×0</div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 4 · Activity 编辑 -->
+<!-- =============================================================== -->
+<section class="screen" id="s4">
+  <h2>6 · Activity 编辑面板（Drawer / Modal）</h2>
+  <div class="spec-ref">对应 spec §2.1 details 按 kind 的约定；字段动态切换</div>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div class="box">
+      <div class="box-title">编辑 — 赛里木湖（景） <span class="spec-tag">PATCH /activities/:id</span></div>
+
+      <table style="border:none;">
+        <tr><td style="border:none; width:100px;">名称</td><td style="border:none;"><input value="赛里木湖" style="width:100%;"> <span class="spec-tag">name</span></td></tr>
+        <tr><td style="border:none;">类型</td><td style="border:none;">
+          <select><option>景（自然/人文景观）</option><option>路（行驶段）</option><option>食（餐饮）</option><option>住（住宿）</option><option>油（加油站）</option><option>其他</option></select>
+          <span class="spec-tag">kind</span>
+        </td></tr>
+        <tr><td style="border:none;">公民等级</td><td style="border:none;">
+          <label><input type="radio" checked> 一等</label>
+          <label><input type="radio"> 二等</label>
+          <label><input type="radio"> 三等</label>
+          <label><input type="radio"> 基础</label>
+          <span class="spec-tag">citizen_level</span>
+        </td></tr>
+        <tr><td style="border:none;">坐标</td><td style="border:none;">
+          纬度 <input value="44.5500" style="width:70px;">
+          经度 <input value="81.2000" style="width:70px;">
+          <button class="btn">🔍 搜索地点</button>
+          <span class="note">点"搜索地点" 输入名称 → 从 AMAP 拉候选 → 选一条自动填入经纬度</span>
+        </td></tr>
+        <tr><td style="border:none;">开始时间</td><td style="border:none;">
+          <input value="10:00" style="width:70px;">
+          &nbsp;时长 <input value="240" style="width:50px;"> 分钟
+          <span class="spec-tag">planned_start_at · 旅游地 wall-clock</span>
+        </td></tr>
+        <tr><td style="border:none;">描述</td><td style="border:none;"><textarea style="width:100%; height:40px;">西天山脚下的高山湖泊…</textarea></td></tr>
+        <tr><td style="border:none;">贴士</td><td style="border:none;"><textarea style="width:100%; height:40px;">环湖 120km；避开雾天</textarea></td></tr>
+      </table>
+
+      <div class="box soft" style="margin-top:10px; background:#fafafa;">
+        <div class="box-title">景点细节（按"类型=景"显示） <span class="spec-tag">details jsonb</span></div>
+        <table style="border:none;">
+          <tr><td style="border:none;">最佳光线</td><td style="border:none;"><input value="傍晚" style="width:120px;"> <span class="spec-tag">best_light</span></td></tr>
+          <tr><td style="border:none;">海拔</td><td style="border:none;"><input value="2073" style="width:80px;"> 米 <span class="spec-tag">altitude</span></td></tr>
+          <tr><td style="border:none;">需要预约</td><td style="border:none;"><input type="checkbox"> <span class="spec-tag">need_reservation</span></td></tr>
+          <tr><td style="border:none;">门票</td><td style="border:none;"><input value="景区票 70 元" style="width:200px;"> <span class="spec-tag">ticket_info</span></td></tr>
+          <tr><td style="border:none;">建议停留</td><td style="border:none;"><input value="240" style="width:60px;"> 分钟 <span class="spec-tag">recommend_stay_min</span></td></tr>
+        </table>
+      </div>
+
+      <div style="margin-top:10px;">
+        <button class="btn primary">保存</button>
+        <button class="btn">取消</button>
+        <button class="btn" style="color:var(--red); float:right;">删除</button>
+      </div>
+    </div>
+
+    <div class="box">
+      <div class="box-title">切换"类型"时细节字段的对照 <span class="spec-tag">details 按 kind 分支</span></div>
+      <table>
+        <thead><tr><th style="width:80px;">类型</th><th>细节字段</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>景</td>
+            <td>最佳光线 · 海拔 · 需预约 · 门票 · 建议停留
+              <div class="note" style="font-style:normal; font-size:10px;">best_light · altitude · need_reservation · ticket_info · recommend_stay_min</div>
+            </td>
+          </tr>
+          <tr>
+            <td>路</td>
+            <td>起点 · 终点 · 里程 · 驾驶时长 · 路型 · 途经点 · 限速 · 仅白天
+              <div class="note" style="font-style:normal; font-size:10px;">from_name · to_name · km · drive_min · road_type · stop_points[] · limit_speed · day_only</div>
+            </td>
+          </tr>
+          <tr>
+            <td>食</td>
+            <td>菜系 · 必吃 · 营业时间 · 人均
+              <div class="note" style="font-style:normal; font-size:10px;">cuisine · must_eat · open_hours · price_pp</div>
+            </td>
+          </tr>
+          <tr>
+            <td>住</td>
+            <td>卫生等级（基础/标准/豪华）· 人均 · 设施 · 独立卫浴
+              <div class="note" style="font-style:normal; font-size:10px;">sanitation · price_pp · amenities[] · has_private_bath</div>
+            </td>
+          </tr>
+          <tr>
+            <td>油</td>
+            <td>品牌 · 24 小时 · 到下个加油站的距离
+              <div class="note" style="font-style:normal; font-size:10px;">brand · h24 · next_station_km</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <span class="note">用户看中文名，开发者看下方灰色英文名（即 details jsonb 的 key）。应用层校验，PG 不强制 JSON schema。</span>
+
+      <div class="box soft" style="margin-top:16px;">
+        <div class="box-title">移回"候选池"（Backlog）</div>
+        <p style="font-size:12px;">把当前行的"所属天"清空 → 回到候选池，可以重新拖到其他天。</p>
+        <button class="btn">移回候选池</button>
+        <span class="note">等价于将 <code>day_id</code> 置为 null，即 <code>MoveActivity(to_day_index = :backlog)</code></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 5 · road 双形态 -->
+<!-- =============================================================== -->
+<section class="screen" id="s5">
+  <h2>7 · road activity 的两种外观</h2>
+  <div class="spec-ref">对应 spec "road vs scenic 的关系"：所有驾驶段都建 road activity（否则 <code>Day#driving_minutes_total</code> 漏算），靠 <code>citizen_level</code> 区分渲染</div>
+
+  <div class="two-col">
+    <div class="box">
+      <div class="box-title">一等（路本身是目的）</div>
+      <div class="act" data-kind="road" data-level="tier_one" style="background:#fff;">
+        <span class="citizen" style="color:var(--yellow);">一等 · 路 · 独库公路 D2 段</span>
+        <div class="meta">
+          起点 巴音布鲁克 → 终点 大龙池<br>
+          里程 120 km · 驾驶 4h · 路型 山道 · 仅白天通行<br>
+          限速 40 · 途经 鹿角湾, 乔尔玛
+        </div>
+      </div>
+      <span class="note">作为当日核心，卡片饱满，图标强调；地图上画独立颜色的折线</span>
+    </div>
+
+    <div class="box">
+      <div class="box-title">基础（通勤驾驶）</div>
+      <div class="act" data-kind="road" data-level="infrastructure">
+        <span class="citizen">基础 · 路 · 伊宁 → 那拉提</span>
+        <div class="meta">里程 190 km · 驾驶 2h30 · G218</div>
+      </div>
+      <span class="note">卡片虚线 + 灰色 + 斜体；Day 列中通常默认折叠显示 "🚗 2h30"；地图上画细灰线</span>
+    </div>
+  </div>
+
+  <div class="box soft" style="margin-top:16px; background:#fcfcf7;">
+    <div class="box-title">为什么两种都要建？—— 宪法 §10 校验完整性</div>
+    <p style="font-size:12px; margin:4px 0;">
+      若通勤不建 road activity，<code>Day#driving_minutes_total = activities.where(kind: :road).sum(drive_min)</code> 会漏算通勤，
+      宪法 "单日驾驶 ≤ 7h" 校验失灵。
+    </p>
+    <table>
+      <tr><th>D2 的 activity</th><th>kind</th><th>level</th><th>drive_min</th></tr>
+      <tr><td>伊宁 → 那拉提</td><td>road</td><td>基础</td><td>150</td></tr>
+      <tr><td>独库公路 D2 段</td><td>road</td><td>一等</td><td>240</td></tr>
+      <tr><td>那拉提草原</td><td>scenic</td><td>一等</td><td>—</td></tr>
+      <tr><th colspan="3">Day#driving_minutes_total</th><th>390 min (6h30) ✅ 在 7h 内</th></tr>
+    </table>
+  </div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 6 · AI tool-call 流 -->
+<!-- =============================================================== -->
+<section class="screen" id="s6">
+  <h2>8 · AI 对话：工具调用流（tool-calling）</h2>
+  <div class="spec-ref">对应 spec §AI 集成；ActionCable 事件：<code>tool_call_start</code> / <code>tool_call_result</code> / <code>assistant_text</code> / <code>complete</code></div>
+
+  <div class="box" style="max-width:820px;">
+    <div class="box-title">对话示例 — "帮我在 D2 加个赛里木湖" </div>
+    <div class="chat-body" style="max-height:none;">
+
+      <div class="msg user"><div class="bubble">帮我在 D2 加个赛里木湖，上午去</div></div>
+
+      <div class="msg">
+        <div class="bubble">
+          <div style="margin-bottom:4px;">好的，我先找一下坐标。</div>
+          <div class="tool-call">
+            🔧 <span class="fn">AITools::SearchPoi</span>(query="赛里木湖", region_hint="新疆伊犁")
+            <div class="result">↳ [{"name":"赛里木湖","lat":44.55,"lng":81.20,"address":"博尔塔拉蒙古自治州"}]</div>
+          </div>
+          <div class="tool-call">
+            🔧 <span class="fn">AITools::AddActivity</span>(tour_id=42, day_index=2, kind=scenic, citizen_level=tier_one,
+                 name="赛里木湖", lat=44.55, lng=81.20, planned_start_at="10:00", planned_duration_min=240,
+                 details={best_light:"傍晚", altitude:2073})
+            <div class="result">↳ {activity_id: 117, position: 2}</div>
+          </div>
+          <div>
+            已加在 D2 第 2 位。提醒：D2 的核心景点数达到 <strong>3</strong>（每天上限 3 个），再加景点会触发违反。
+          </div>
+        </div>
+      </div>
+
+      <div class="msg user"><div class="bubble">那帮我整天看一下合不合宪</div></div>
+
+      <div class="msg">
+        <div class="bubble">
+          <div class="tool-call">
+            🔧 <span class="fn">AITools::RunConstitutionCheck</span>(tour_id=42)
+            <div class="result">↳ [
+              {level:"soft", rule:"max_tier_one_per_day", scope:{day_index:2}, message:"D2 tier_one=3 达上限"},
+              {level:"hard", rule:"max_daily_driving_minutes", scope:{day_index:3}, message:"D3 驾驶 480 > 420"}
+            ]</div>
+          </div>
+          <div>
+            1 条硬违反、1 条软提示。D3 驾驶 <strong>8h</strong> 超过每天 7h 上限，我建议把"夏塔古道"移到 D4。要我试着调吗？
+          </div>
+        </div>
+      </div>
+
+      <div class="msg user"><div class="bubble">先别动，我承认 D3 的超时（独库必走）</div></div>
+
+      <div class="msg">
+        <div class="bubble">
+          <div class="tool-call">
+            🔧 <span class="fn">AITools::AcknowledgeViolation</span>(tour_id=42, rule="max_daily_driving_minutes",
+                 scope={day_index:3}, reason="独库必走")
+            <div class="result">↳ {overrides_count: 1}</div>
+          </div>
+          <div>
+            已记录，D3 的红色 banner 会变灰静音。若以后改变主意，可在宪法 → 已承认列表 撤销。
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="border-top:1px solid var(--border-soft); padding: 6px 4px;">
+      <textarea style="width:100%; height: 40px; font-size:12px;"></textarea>
+    </div>
+  </div>
+
+  <div class="box soft" style="margin-top:16px; max-width:820px;">
+    <div class="box-title">事件时序 — 后端 → ActionCable → useChat reducer</div>
+    <pre style="font-size:11px; font-family:ui-monospace, Menlo, monospace; white-space:pre-wrap; margin:4px 0;">
+user.message.create → ChatStreamJob.perform_later
+  → RubyLLM::Chat.ask (with AITools::* registered)
+    ↳ tool_call_start { id:tc_1, name:"search_poi", arguments:{...} }  → broadcast
+    ↳ (AMAP HTTP)
+    ↳ tool_call_result { id:tc_1, result:[{...}] }                    → broadcast
+    ↳ tool_call_start { id:tc_2, name:"add_activity", arguments:{...} }
+    ↳ (Activity.create!)
+    ↳ tool_call_result { id:tc_2, result:{activity_id:117,...} }
+    ↳ assistant_text { delta:"已加在 D2..." }                          → broadcast
+  → conversation.messages.create(role:assistant, content:..., tool_calls:[...])
+  → broadcast { type:"complete" }
+    </pre>
+  </div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 7 · 宪法违反处理 -->
+<!-- =============================================================== -->
+<section class="screen" id="s7">
+  <h2>9 · 宪法违反的 UI 呈现与承认</h2>
+  <div class="spec-ref">对应 spec §宪法的机器表示；<code>Tour::ConstitutionCheck</code> + <code>constraint_overrides</code></div>
+
+  <div class="box">
+    <div class="box-title">Planner 顶部 banner 区 <span class="spec-tag">ConstitutionBanner</span></div>
+
+    <!-- Hard violation：主 CTA 是修正，承认是辅助 -->
+    <div class="const-banner hard">
+      <div><strong>⛔ 硬违反</strong>·每天驾驶不超过 7h · D3 实际 8h（独库 + 伊昭 + 通勤合计）</div>
+      <span>
+        <button class="btn primary" style="background:var(--red); border-color:var(--red);">帮我修正 →</button>
+        <button class="btn" style="background:transparent; border-style:dashed;" title="永久静音，需二次确认">承认此违反</button>
+      </span>
+    </div>
+    <span class="note" style="display:block; margin:2px 0 10px 0;">设计要点：主要 CTA 是"帮我修正"（鼓励解决问题），"承认此违反"是辅助按钮（样式更弱 + 二次确认），避免用户嫌烦随手承认后失去保护。</span>
+
+    <!-- Soft：单次提示 -->
+    <div class="const-banner soft">
+      <div><strong>⚠ 提示</strong>·每天最多 3 个核心景点 · D2 正好达 3（再加会违反）</div>
+      <span><button class="btn">知道了</button></span>
+    </div>
+
+    <div class="const-banner soft">
+      <div><strong>⚠ 提示</strong>·整程至少 1 个机动日 · 目前 0 个</div>
+      <span><button class="btn primary">+ 新增机动日</button></span>
+    </div>
+  </div>
+
+  <!-- 主路径：帮我修正 →（AI 候选方案） -->
+  <div class="box" style="margin-top:16px;">
+    <div class="box-title">点击 "帮我修正 →" 的子屏 <span class="spec-tag">AITools::RunConstitutionCheck + suggest_fixes</span></div>
+
+    <div style="font-size:12px; padding: 8px 12px; background: #fef0f0; border-left: 3px solid var(--red); margin-bottom: 12px;">
+      AI 分析 D3 超时原因，给出 3 个候选修正。**你挑一个**，点 "应用"。
+    </div>
+
+    <div class="fix-option">
+      <span class="fix-title">① 把 "九曲十八弯" 拆到 D4</span>
+      <span class="fix-detail">原因：九曲十八弯（60 min）是 D3 最末一项，与次日 D4 的草原行程地理相近，挪过去不绕路。</span>
+      <div class="fix-impact">
+        D3 驾驶从 8h → <strong style="color:var(--green);">7h ✓</strong> ・ D4 驾驶 3h → 3h15（不变）・ 总行程不变
+      </div>
+      <button class="btn primary" style="margin-top:6px;">应用此方案</button>
+      <button class="btn" style="margin-top:6px;">看地图预览</button>
+    </div>
+
+    <div class="fix-option">
+      <span class="fix-title">② 把独库公路分成上下半段（新增 D3.5）</span>
+      <span class="fix-detail">原因：独库路况多变、光线影响大，拆成两日能留夜景 / 日出选择。代价：整程多 1 天。</span>
+      <div class="fix-impact">
+        D3 驾驶从 8h → <strong style="color:var(--green);">4h ✓</strong> ・ 整程 10 天 → <strong style="color:var(--yellow);">11 天</strong> ・ 需调整返程日期
+      </div>
+      <button class="btn primary" style="margin-top:6px;">应用此方案</button>
+      <button class="btn" style="margin-top:6px;">看影响详情</button>
+    </div>
+
+    <div class="fix-option">
+      <span class="fix-title">③ 放弃 "巴音布鲁克" + 九曲十八弯</span>
+      <span class="fix-detail">原因：删最末两项一等公民，纯粹减负。代价：与草原主题关联度较高的两个点丢失。</span>
+      <div class="fix-impact">
+        D3 驾驶从 8h → <strong style="color:var(--green);">6h ✓</strong> ・ 一等公民 18 → 16 ・ <strong style="color:var(--yellow);">体验损失较大</strong>
+      </div>
+      <button class="btn primary" style="margin-top:6px;">应用此方案</button>
+      <button class="btn" style="margin-top:6px;">看影响详情</button>
+    </div>
+
+    <div style="margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border-soft);">
+      <button class="btn">都不合适，我自己改</button>
+      <button class="btn" style="margin-left: 8px;">让 AI 再想几个</button>
+    </div>
+    <span class="note">应用任一方案 → 触发一组 tool-call（<code>move_activity</code> / <code>create_day</code> / <code>delete_activity</code>）→ 自动重跑 ConstitutionCheck → 确认问题消除</span>
+  </div>
+
+  <!-- 承认违反的二次确认 Modal -->
+  <div class="box" style="margin-top:16px;">
+    <div class="box-title">点击 "承认此违反" 的二次确认 <span class="spec-tag">防止误点永久静音</span></div>
+
+    <div class="modal-backdrop">
+      <div class="modal-dialog">
+        <h3>承认此违反后：</h3>
+
+        <div class="impact">
+          <strong>这会永久静音 "D3 驾驶 > 7h" 的警告</strong>。以后只要这条违反的对象是 D3、规则是每日驾驶上限，<strong>不再提醒你</strong>。
+          <br><br>
+          若后续你把 D3 的 activity 改到别天（依然超时）or 改了宪法，<strong>需要手动撤销</strong>这条承认：规划中路径 <code>Planner → 📜 宪法 → 已承认列表 → 撤销</code>
+        </div>
+
+        <div style="margin: 10px 0 6px;">
+          <label style="font-size:12px;">承认原因 <span style="color:var(--red);">*</span> <span class="note" style="font-style:normal;">（至少 10 字，半年后 review 时你能看懂）</span></label>
+          <textarea style="width:100%; height:50px; font-size:12px; margin-top:4px;" placeholder="例如：独库公路是本程核心，无法压缩；同行人员已确认可接受 8h 长驾">独库公路必走段且无替代方案，全员已确认接受</textarea>
+          <span class="note" style="font-size:10px;">18 / 10 字 ✓</span>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border-soft);">
+          <button class="btn">取消</button>
+          <button class="btn" style="color:var(--red); border-color:var(--red);">我确认承认</button>
+        </div>
+      </div>
+    </div>
+    <span class="note">输入原因少于 10 字 → "我确认承认" 按钮 disabled。确认后写入 <code>tours.constraint_overrides</code></span>
+  </div>
+
+  <div class="box" style="margin-top:16px;">
+    <div class="box-title">constraint_overrides 管理面板 <span class="spec-tag">tours.constraint_overrides jsonb</span></div>
+    <table>
+      <thead><tr><th>规则</th><th>范围</th><th>理由</th><th>承认于</th><th></th></tr></thead>
+      <tbody>
+        <tr>
+          <td>max_daily_driving_minutes</td>
+          <td>{day_index:3}</td>
+          <td>独库必走 + 当日无其他替代安排</td>
+          <td>2026-04-14 15:32</td>
+          <td><button class="btn">撤销</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <span class="note">撤销后对应的 hard banner 会重新出现</span>
+  </div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 8 · Membership -->
+<!-- =============================================================== -->
+<section class="screen" id="s8">
+  <h2>10 · Tour 成员管理</h2>
+  <div class="spec-ref">对应 spec §<code>tour_memberships</code> 表；同构现有 guidebook_memberships（reader/editor）</div>
+
+  <div class="box" style="max-width:800px;">
+    <div class="box-title">伊犁环线自驾 — 成员</div>
+    <table>
+      <thead><tr><th>用户</th><th>角色</th><th>操作</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>drewlee@example.com</td>
+          <td><span class="spec-tag">author</span></td>
+          <td><span class="note">作者不可移除</span></td>
+        </tr>
+        <tr>
+          <td>partner_a@example.com</td>
+          <td>
+            <select><option selected>editor</option><option>reader</option></select>
+            <span class="spec-tag">role enum</span>
+          </td>
+          <td><button class="btn">移除</button></td>
+        </tr>
+        <tr>
+          <td>friend_b@example.com</td>
+          <td><select><option>editor</option><option selected>reader</option></select></td>
+          <td><button class="btn">移除</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:12px; padding-top:10px; border-top:1px dashed var(--border-soft);">
+      邀请新成员：
+      <input placeholder="email@example.com" style="width:260px;">
+      <select><option>editor</option><option>reader</option></select>
+      <button class="btn primary">邀请</button>
+      <span class="note">对应 <code>POST /tours/:id/members</code></span>
+    </div>
+  </div>
+
+  <div class="box soft" style="margin-top:12px; max-width:800px;">
+    <div class="box-title">权限矩阵</div>
+    <table>
+      <thead><tr><th>行为</th><th>reader</th><th>editor</th><th>author</th></tr></thead>
+      <tbody>
+        <tr><td>查看 Tour</td><td>✓</td><td>✓</td><td>✓</td></tr>
+        <tr><td>编辑 Activity / Day</td><td>×</td><td>✓</td><td>✓</td></tr>
+        <tr><td>AI 对话</td><td>×</td><td>✓</td><td>✓</td></tr>
+        <tr><td>修改成员</td><td>×</td><td>×</td><td>✓</td></tr>
+        <tr><td>归档 / 删除 Tour</td><td>×</td><td>×</td><td>✓</td></tr>
+      </tbody>
+    </table>
+    <span class="note">由 <code>Tour#editable_by?</code> / <code>visible_to?</code> / <code>owned_by?</code> 判定（同构现有 Guidebook）</span>
+  </div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 9 · Day 年表化 -->
+<!-- =============================================================== -->
+<section class="screen" id="s9">
+  <h2>11 · Tour 全程年表视图（富 UI 展示）</h2>
+  <div class="spec-ref">对应产品目标点 2 "年表化显示每日行程详细"；覆盖整个「程」而不是单一「日」。横向滚动展示 D1…Dn，时间按旅游地 wall-clock，不做时区转换</div>
+
+  <!-- 全程汇总条 -->
+  <div class="tour-summary">
+    <div><strong>10</strong> 天 <span class="note" style="font-style:normal;">Day</span></div>
+    <div><strong>34</strong> 个 <span class="note" style="font-style:normal;">Activity</span></div>
+    <div><strong>18</strong> 个一等 <span class="note" style="font-style:normal;">≤ 3/日</span></div>
+    <div><strong>1</strong> 个 buffer day <span class="note" style="font-style:normal;">≥ 1/程 ✅</span></div>
+    <div style="color:var(--red);"><strong>1 hard</strong> · <strong>2 soft</strong> <span class="note" style="font-style:normal;">宪法违反</span></div>
+  </div>
+
+  <!-- 节奏条：宪法 §17 松→紧→松 -->
+  <div class="box soft" style="margin-bottom:10px;">
+    <div class="box-title">节奏条 <span class="spec-tag">宪法 §17 松→紧→松</span> — 一眼看全程强度曲线</div>
+    <div class="tour-timeline-wrap">
+      <div class="rhythm-bar">
+        <div class="rhythm-slot green buffer"><span class="slot-label">D1</span><span class="slot-meta">适应日</span></div>
+        <div class="rhythm-slot yellow"><span class="slot-label">D2</span><span class="slot-meta">6h30</span></div>
+        <div class="rhythm-slot red violation"><span class="slot-label">D3</span><span class="slot-meta">8h ⛔</span></div>
+        <div class="rhythm-slot yellow"><span class="slot-label">D4</span><span class="slot-meta">3h</span></div>
+        <div class="rhythm-slot yellow"><span class="slot-label">D5</span><span class="slot-meta">2h</span></div>
+        <div class="rhythm-slot green buffer"><span class="slot-label">D6</span><span class="slot-meta">机动</span></div>
+        <div class="rhythm-slot yellow"><span class="slot-label">D7</span><span class="slot-meta">4h</span></div>
+        <div class="rhythm-slot red"><span class="slot-label">D8</span><span class="slot-meta">5h</span></div>
+        <div class="rhythm-slot yellow"><span class="slot-label">D9</span><span class="slot-meta">3h</span></div>
+        <div class="rhythm-slot green"><span class="slot-label">D10</span><span class="slot-meta">收尾</span></div>
+      </div>
+    </div>
+    <span class="note">色块颜色对应 <code>days.intensity</code> 枚举（green/yellow/red）。虚线边框=buffer_day；红色 outline=含硬违反</span>
+  </div>
+
+  <!-- 主体：10 列年表 -->
+  <div class="box">
+    <div class="box-title">全程年表（横向滚动） <span class="spec-tag">ORDER BY day_index, activities.position</span></div>
+    <div class="tour-timeline-wrap">
+      <div class="days-timeline">
+
+        <div class="tour-day-col buffer">
+          <header><strong>D1</strong> · 6/10 周三<span class="sub">抵达伊宁（适应日）</span></header>
+          <div class="body">
+            <div class="t-act"><span class="time">20:00 · 60 min</span><span class="name">三等·食 市区晚餐</span></div>
+            <div class="t-act"><span class="time">22:00</span><span class="name">三等·住 伊宁酒店</span></div>
+          </div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">░░░░░</span> 0/7h · buffer<br>
+            <span style="font-family:ui-monospace,monospace;">░░░</span> 核心 0
+          </footer>
+        </div>
+
+        <div class="tour-day-col selected">
+          <header><strong>D2</strong> · 6/11 周四<span class="sub">伊宁 → 那拉提</span></header>
+          <div class="body">
+            <div class="t-act"><span class="time">10:00 · 60 min</span><span class="name">三等·食 早餐</span></div>
+            <div class="t-act infra"><span class="time">11:00 · 150 min</span><span class="name">基础·路 伊宁→赛里木湖</span></div>
+            <div class="t-act tier-one"><span class="time">14:00 · 240 min</span><span class="name">一等·景 赛里木湖</span></div>
+            <div class="t-act tier-one"><span class="time">18:00 · 90 min</span><span class="name">一等·路 果子沟</span></div>
+            <div class="t-act"><span class="time">20:00 · 90 min</span><span class="name">二等·食 海尔巴格</span></div>
+            <div class="t-act"><span class="time">22:30</span><span class="name">三等·住 那拉提镇</span></div>
+          </div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">████░</span> 6.5/7h ✓<br>
+            <span style="font-family:ui-monospace,monospace;">██░</span> 核心 2
+          </footer>
+        </div>
+
+        <div class="tour-day-col violation">
+          <header><strong>D3</strong> · 6/12 周五<span class="sub">独库公路（南向北）</span></header>
+          <div class="body">
+            <div class="t-act"><span class="time">09:30 · 30 min</span><span class="name">三等·食 早餐</span></div>
+            <div class="t-act tier-one"><span class="time">10:00 · 360 min</span><span class="name">一等·路 独库公路 D2 段</span></div>
+            <div class="t-act tier-one"><span class="time">16:00 · 150 min</span><span class="name">一等·景 巴音布鲁克</span></div>
+            <div class="t-act tier-one"><span class="time">18:30 · 60 min</span><span class="name">一等·景 九曲十八弯</span></div>
+            <div class="t-act"><span class="time">21:00</span><span class="name">三等·住 巴音布鲁克</span></div>
+          </div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">█████</span> 8/7h ⛔<br>
+            <span style="font-family:ui-monospace,monospace;">███</span> 核心 3
+          </footer>
+        </div>
+
+        <div class="tour-day-col">
+          <header><strong>D4</strong> · 6/13 周六<span class="sub">草原 & 牧场</span></header>
+          <div class="body">
+            <div class="t-act infra"><span class="time">10:30 · 120 min</span><span class="name">基础·路 巴→那拉提</span></div>
+            <div class="t-act tier-one"><span class="time">13:00 · 240 min</span><span class="name">一等·景 那拉提草原</span></div>
+            <div class="t-act"><span class="time">18:00 · 90 min</span><span class="name">二等·食 牧家乐</span></div>
+            <div class="t-act"><span class="time">21:00</span><span class="name">三等·住 那拉提</span></div>
+          </div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">██░░░</span> 3/7h<br>
+            <span style="font-family:ui-monospace,monospace;">█░░</span> 核心 1
+          </footer>
+        </div>
+
+        <div class="tour-day-col">
+          <header><strong>D5</strong> · 6/14 周日<span class="sub">空中草原</span></header>
+          <div class="body">
+            <div class="t-act infra"><span class="time">10:00 · 60 min</span><span class="name">基础·路 短途</span></div>
+            <div class="t-act tier-one"><span class="time">11:00 · 300 min</span><span class="name">一等·景 空中草原</span></div>
+            <div class="t-act"><span class="time">19:00 · 60 min</span><span class="name">三等·食 晚餐</span></div>
+            <div class="t-act"><span class="time">21:00</span><span class="name">三等·住 那拉提</span></div>
+          </div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">█░░░░</span> 2/7h<br>
+            <span style="font-family:ui-monospace,monospace;">█░░</span> 核心 1
+          </footer>
+        </div>
+
+        <div class="tour-day-col buffer">
+          <header><strong>D6</strong> · 6/15 周一<span class="sub">机动日</span></header>
+          <div class="body"><em>未排入 activity，<br>作为天气/疲劳缓冲</em></div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">░░░░░</span> 0/7h · buffer
+          </footer>
+        </div>
+
+        <div class="tour-day-col">
+          <header><strong>D7</strong> · 6/16 周二<span class="sub">昭苏方向</span></header>
+          <div class="body">
+            <div class="t-act infra"><span class="time">10:00 · 180 min</span><span class="name">基础·路 → 昭苏</span></div>
+            <div class="t-act tier-one"><span class="time">14:00 · 180 min</span><span class="name">一等·景 夏特古道</span></div>
+            <div class="t-act"><span class="time">20:00</span><span class="name">三等·住 昭苏</span></div>
+          </div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">██░░░</span> 4/7h<br>
+            <span style="font-family:ui-monospace,monospace;">█░░</span> 核心 1
+          </footer>
+        </div>
+
+        <div class="tour-day-col">
+          <header><strong>D8</strong> · 6/17 周三<span class="sub">伊昭公路</span></header>
+          <div class="body">
+            <div class="t-act tier-one"><span class="time">10:00 · 300 min</span><span class="name">一等·路 伊昭公路</span></div>
+            <div class="t-act tier-one"><span class="time">16:00 · 120 min</span><span class="name">一等·景 察布查尔</span></div>
+            <div class="t-act"><span class="time">20:00 · 60 min</span><span class="name">二等·食 特色餐</span></div>
+            <div class="t-act"><span class="time">22:00</span><span class="name">三等·住 伊宁</span></div>
+          </div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">███░░</span> 5/7h<br>
+            <span style="font-family:ui-monospace,monospace;">██░</span> 核心 2
+          </footer>
+        </div>
+
+        <div class="tour-day-col">
+          <header><strong>D9</strong> · 6/18 周四<span class="sub">六星街 & 购物</span></header>
+          <div class="body">
+            <div class="t-act tier-one"><span class="time">11:00 · 180 min</span><span class="name">一等·景 六星街</span></div>
+            <div class="t-act"><span class="time">15:00 · 120 min</span><span class="name">三等·食 午后甜点</span></div>
+            <div class="t-act"><span class="time">18:00 · 120 min</span><span class="name">采买特产</span></div>
+            <div class="t-act"><span class="time">21:00</span><span class="name">三等·住 伊宁</span></div>
+          </div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">██░░░</span> 3/7h<br>
+            <span style="font-family:ui-monospace,monospace;">█░░</span> 核心 1
+          </footer>
+        </div>
+
+        <div class="tour-day-col">
+          <header><strong>D10</strong> · 6/19 周五<span class="sub">离开（半缓冲）</span></header>
+          <div class="body">
+            <div class="t-act"><span class="time">11:00 · 90 min</span><span class="name">三等·食 早午餐</span></div>
+            <div class="t-act infra"><span class="time">14:00 · 60 min</span><span class="name">基础·路 → 机场</span></div>
+            <div class="t-act"><span class="time">16:30</span><span class="name">返程航班</span></div>
+          </div>
+          <footer>
+            <span style="font-family:ui-monospace,monospace;">░░░░░</span> 1/7h<br>
+            <span style="font-family:ui-monospace,monospace;">░░░</span> 核心 0
+          </footer>
+        </div>
+
+      </div>
+    </div>
+    <span class="note" style="margin-top:8px;">蓝色 outline=当前选中；黄色边框卡片=一等；虚线斜体卡片=基础（通勤）；红框列=含硬违反。横向滚动查看全部 10 天。</span>
+  </div>
+
+  <!-- 下方：点击某列展开详情 -->
+  <div class="box" style="max-width:900px; margin-top:20px;">
+    <div class="box-title">D2 展开详情（点击上方列头显示） <span class="spec-tag">Day#activities 时间刻度</span> <span style="float:right;">
+      <span class="intensity-dot int-yellow"></span> yellow · 驾驶 6h30 · 一等×2
+    </span></div>
+
+    <div style="display:grid; grid-template-columns: 60px 1fr; gap:0; font-size:12px;">
+      <!-- 08:00 -->
+      <div style="color:var(--ink-soft); border-top:1px dashed var(--border-soft); padding:6px 4px;">08:00</div>
+      <div style="border-top:1px dashed var(--border-soft); padding:6px 4px; color: var(--ink-note); font-style:italic;">（体感才早上 6 点，太阳还没升；伊犁比北京晚约 2h）</div>
+
+      <div style="color:var(--ink-soft); border-top:1px dashed var(--border-soft); padding:6px 4px;">10:00</div>
+      <div style="border-top:1px dashed var(--border-soft); padding:6px 4px;">
+        <div class="act" data-kind="food" data-level="tier_three" style="margin:0;">
+          <span class="citizen">三等 · 食</span> 酒店早餐 <span class="meta">10:00 · 60 min</span>
+        </div>
+      </div>
+
+      <div style="color:var(--ink-soft); border-top:1px dashed var(--border-soft); padding:6px 4px;">11:00</div>
+      <div style="border-top:1px dashed var(--border-soft); padding:6px 4px;">
+        <div class="act" data-kind="road" data-level="infrastructure" style="margin:0;">
+          <span class="citizen">基础 · 路</span> 伊宁 → 赛里木湖 <span class="meta">11:00 · 150 min · km 150</span>
+        </div>
+      </div>
+
+      <div style="color:var(--ink-soft); border-top:1px dashed var(--border-soft); padding:6px 4px;">14:00</div>
+      <div style="border-top:1px dashed var(--border-soft); padding:6px 4px;">
+        <div class="act" data-kind="scenic" data-level="tier_one" style="margin:0;">
+          <span class="citizen">一等 · 景</span> 赛里木湖 <span class="meta">14:00 · 240 min · 最佳光线 傍晚 · 海拔 2073</span>
+        </div>
+      </div>
+
+      <div style="color:var(--ink-soft); border-top:1px dashed var(--border-soft); padding:6px 4px;">18:00</div>
+      <div style="border-top:1px dashed var(--border-soft); padding:6px 4px;">
+        <div class="act" data-kind="road" data-level="tier_one" style="margin:0; background:#fffaf0;">
+          <span class="citizen">一等 · 路</span> 果子沟大桥段 <span class="meta">18:00 · 90 min · km 40</span>
+        </div>
+      </div>
+
+      <div style="color:var(--ink-soft); border-top:1px dashed var(--border-soft); padding:6px 4px;">20:00</div>
+      <div style="border-top:1px dashed var(--border-soft); padding:6px 4px;">
+        <div class="act" data-kind="food" data-level="tier_two" style="margin:0;">
+          <span class="citizen">二等 · 食</span> 海尔巴格（晚餐） <span class="meta">20:00 · 90 min</span>
+        </div>
+      </div>
+
+      <div style="color:var(--ink-soft); border-top:1px dashed var(--border-soft); padding:6px 4px;">22:30</div>
+      <div style="border-top:1px dashed var(--border-soft); padding:6px 4px;">
+        <div class="act" data-kind="stay" data-level="tier_three" style="margin:0;">
+          <span class="citizen">三等 · 住</span> 那拉提镇酒店 <span class="meta">22:30 · 独立卫浴</span>
+        </div>
+      </div>
+
+      <div style="color:var(--ink-soft); border-top:1px dashed var(--border-soft); padding:6px 4px;">24:00</div>
+      <div style="border-top:1px dashed var(--border-soft); padding:6px 4px;"></div>
+    </div>
+
+    <div style="margin-top:10px; border-top:1px solid var(--border-soft); padding-top:8px; font-size:12px;">
+      <strong>当日汇总</strong>：<br>
+      <span class="note">由 <code>Day#driving_minutes_total / #tier_one_count</code> 等方法派生</span><br>
+      • 驾驶：240 min(tier_one) + 150 min(infra) = <strong>390 min (6h30) ✅ < 420</strong><br>
+      • 一等公民：2（赛里木湖 + 果子沟）· <strong>≤ 3 ✅</strong><br>
+      • 是否 buffer_day：否<br>
+      • 机动时间：18:00-18:00 段以及未分配小段共 120 min ✅ ≥ 90
+    </div>
+  </div>
+
+  <div class="caption">时间刻度显示 <strong>10:00 / 14:00 / 20:00</strong> 等，无 AM/PM、无 UTC 偏移 —— 这就是旅游地 wall-clock</div>
+</section>
+
+<!-- =============================================================== -->
+<!-- 10 · 端到端 -->
+<!-- =============================================================== -->
+<section class="screen" id="s10">
+  <h2>12 · 端到端用户流程（把 spec 的产品目标串起来）</h2>
+  <div class="spec-ref">对应 spec "产品目标" 章节。自顶向下：宪法 → 列候选 → 规划。Step 0 是宪法确认，不可跳过</div>
+
+  <div class="three-col">
+    <div class="box" style="border-color: var(--yellow);">
+      <div class="box-title" style="background:#fef8e8;">Step 0 · 定宪法（见 <a href="#s-const">Screen 2</a>）</div>
+      <p style="font-size:12px;">新建 Tour 后<strong>先确认宪法</strong>，再进入规划。宪法是本程的硬/弹性规则来源。</p>
+      <ul style="font-size:11px; color: var(--ink-soft);">
+        <li>深拷贝 <code>Constitution::DEFAULTS</code></li>
+        <li>用户可调任一参数（max_daily_driving_minutes 等）</li>
+        <li>规划中随时 📜 图标再修订</li>
+      </ul>
+    </div>
+    <div class="box">
+      <div class="box-title">Step 1 · 罗列（见 <a href="#s2a">Screen 3</a>）</div>
+      <p style="font-size:12px;">确认宪法后（Screen 2），新建 Tour 的 Backlog 是空的。两个入口把想去的点塞进来：</p>
+      <ul style="font-size:11px; color: var(--ink-soft);">
+        <li>手动 "+ 加一个" → 打开 Screen 6 的编辑面板</li>
+        <li>自然语言对 AI 说 "把伊犁必去的 10 个景点加进来"</li>
+        <li>AI 批量调用 <code>search_poi + add_activity</code>（见 <a href="#s6">Screen 8</a> 的 tool-call 流）</li>
+      </ul>
+    </div>
+    <div class="box">
+      <div class="box-title">Step 2 · 地图自动展示</div>
+      <p style="font-size:12px;">每个 activity 的 <code>(lat, lng)</code> 自动在地图上呈现灰 pin（未分配）。</p>
+      <ul style="font-size:11px; color: var(--ink-soft);">
+        <li>无手动操作</li>
+        <li>视图切换：按天着色 / 全部 / 仅 backlog</li>
+      </ul>
+    </div>
+    <div class="box">
+      <div class="box-title">Step 3 · 拖入 Day</div>
+      <p style="font-size:12px;">用户把 backlog 卡片拖到 D1 / D2 / D3… 或 AI 帮做。</p>
+      <ul style="font-size:11px; color: var(--ink-soft);">
+        <li>前端乐观更新 position</li>
+        <li>后端 <code>PATCH /activities/:id/position</code></li>
+      </ul>
+    </div>
+    <div class="box">
+      <div class="box-title">Step 4 · 连线 + Dn 标签</div>
+      <p style="font-size:12px;">地图上实时画 D1→D2→D3… 的路径折线，pin 标 "D2"。</p>
+      <ul style="font-size:11px; color: var(--ink-soft);">
+        <li>折线几何来自 AMAP（前端懒请求）</li>
+        <li>不缓存于 DB</li>
+      </ul>
+    </div>
+    <div class="box">
+      <div class="box-title">Step 5 · 年表化详情</div>
+      <p style="font-size:12px;">点某一 Day 进入 Screen 11 的时间轴视图。富 UI 展示。</p>
+    </div>
+    <div class="box">
+      <div class="box-title">贯穿 · 宪法校验</div>
+      <p style="font-size:12px;">任意变更后自动跑 <code>Tour::ConstitutionCheck</code>，顶部 banner 实时更新。</p>
+      <ul style="font-size:11px; color: var(--ink-soft);">
+        <li>hard / soft 违反分色</li>
+        <li>承认后静音（需二次确认，见 Screen 9）</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <div class="box-title">贯穿 · Undo toast</div>
+      <p style="font-size:12px;">每次变更（用户 / AI）显示 5 秒 toast，可撤销。见 Screen 5 末尾。</p>
+      <ul style="font-size:11px; color: var(--ink-soft);">
+        <li>AI 批量操作视为一组撤销</li>
+        <li>前端 undo stack 上限 10，老的丢弃</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 新增：失败态 / 出口 / 分享 -->
+  <h3 style="margin: 24px 0 8px; font-size: 14px;">边缘场景（原型没画独立屏，这里明示行为）</h3>
+  <div class="three-col">
+
+    <div class="box" style="border-color: var(--red);">
+      <div class="box-title" style="background:#fef0f0; color:var(--red);">失败态</div>
+      <ul style="font-size:12px; color:var(--ink-soft); margin: 4px 0; padding-left: 18px;">
+        <li><strong>AI tool-call 异常</strong>：Chat 气泡显红，给"重试"按钮；活动未落库</li>
+        <li><strong>AMAP 拉坐标失败</strong>：search_poi 返回"暂无匹配"，引导手工输入 lat/lng</li>
+        <li><strong>拖拽失败（后端 422）</strong>：活动自动回到原位，顶部 toast 标红 "拖拽未保存，请重试"</li>
+        <li><strong>地图加载失败</strong>：占位图 + "重新加载" 按钮；不阻塞 Backlog / Days 编辑</li>
+        <li><strong>实时连线渲染失败</strong>：静默降级为直线，不报错</li>
+      </ul>
+    </div>
+
+    <div class="box">
+      <div class="box-title">离开 Planner 的出口</div>
+      <ul style="font-size:12px; color:var(--ink-soft); margin: 4px 0; padding-left: 18px;">
+        <li><strong>← 返回 Tour 列表</strong>：顶部面包屑，自动保存草稿</li>
+        <li><strong>归档</strong>：<code>tours.archived = true</code>，仍可查看但不参与推荐</li>
+        <li><strong>删除</strong>：需打入 "DELETE" 二次确认，联级删除 days / activities / conversation</li>
+        <li><strong>成员退出</strong>：非 author 的 editor / reader 可点"离开本程"，自毁 <code>tour_memberships</code></li>
+      </ul>
+    </div>
+
+    <div class="box" style="opacity: 0.7;">
+      <div class="box-title">分享（<span class="spec-tag">YAGNI · 本 spec 不做</span>）</div>
+      <ul style="font-size:12px; color:var(--ink-soft); margin: 4px 0; padding-left: 18px;">
+        <li><strong>导出 markdown</strong>：从 Tour/Day/Activity 渲染出类似老 Guidebook 的可打印路书</li>
+        <li><strong>只读分享链接</strong>：非成员 token-based 只读访问</li>
+        <li><strong>打印友好视图</strong>：整程单页打印，手机离线可查</li>
+        <li><strong>导出 GPX</strong>：给车载导航</li>
+      </ul>
+      <span class="note">产品上下阶段考虑；本 spec 仅显性标记</span>
+    </div>
+
+  </div>
+
+  <div class="box soft" style="margin-top:20px;">
+    <div class="box-title">其他明确不做的（见 spec "范围边界"）</div>
+    <ul style="font-size:12px;">
+      <li>POI 收藏夹 / 跨 tour 复用（<code>Location</code> 表）</li>
+      <li>Tour 模板（宪法模板留了字段但只有 default 一个）</li>
+      <li>宪法硬阻止保存 —— 只做 soft-validation</li>
+      <li>完整 undo/redo stack —— 只做 5 秒 toast 撤销上一步</li>
+      <li>老 guidebook 数据迁移</li>
+      <li>移动端 / 响应式 —— 桌面 ≥ 1280px 首要</li>
+    </ul>
+  </div>
+</section>
+
+<footer style="padding: 30px 20px; border-top: 1px solid var(--border); font-size:11px; color:var(--ink-note); text-align:center;">
+  原型源路径：<code>docs/superpowers/specs/2026-04-15-tour-day-activity-remodel-wireframes.html</code><br>
+  对应设计 spec：<code>docs/superpowers/specs/2026-04-15-tour-day-activity-remodel-design.md</code>
+</footer>
+
+<script>
+  // 极简锚点平滑滚动
+  document.querySelectorAll('nav.toc a').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      document.querySelector(a.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  // Chat 收起 / 展开
+  function toggleChat(grid) {
+    grid.classList.toggle('chat-collapsed');
+    const btn = grid.querySelector('.chat-toggle');
+    if (btn) {
+      btn.textContent = grid.classList.contains('chat-collapsed') ? '◂ 展开' : '收起 ▸';
+    }
+  }
+  document.querySelectorAll('.chat-toggle').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const grid = document.querySelector(btn.dataset.target);
+      if (grid) toggleChat(grid);
+    });
+  });
+  // 折叠态下整条 chat 可点击展开
+  document.querySelectorAll('.planner-grid .chat').forEach(chat => {
+    chat.addEventListener('click', e => {
+      const grid = chat.closest('.planner-grid');
+      if (grid && grid.classList.contains('chat-collapsed')) {
+        toggleChat(grid);
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
