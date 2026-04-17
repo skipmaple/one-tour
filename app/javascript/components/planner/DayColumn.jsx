@@ -96,11 +96,11 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
         ))}
         {activities.length === 0 && <Text size="xs" c="dimmed" ta="center" mt="md">空</Text>}
       </Stack>
-      <div style={{ borderTop: '1px dashed #ccc', padding: '4px 8px' }}>
+      <Stack gap={2} style={{ borderTop: '1px dashed #ccc', padding: '4px 8px' }}>
         <DayMetricBar label="驾驶" value={driveH} max={maxH} unit="h" />
         <DayMetricBar label="核心" value={tierOneCount} max={maxTier1} />
-        {day.buffer_day && <Text size="xs" c="dimmed" mt={2}>机动</Text>}
-      </div>
+        {day.buffer_day && <Text size="xs" c="dimmed">机动</Text>}
+      </Stack>
     </Paper>
   )
 }
