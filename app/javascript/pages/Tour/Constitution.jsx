@@ -382,6 +382,22 @@ export function todayLocal() {
   return `${y}-${m}-${day}`
 }
 
+// Returns null when the date range and days count are consistent or when
+// either side is not fully specified. Returns { implied, current } when
+// both are set and disagree.
+export function detectDateDaysConflict(range, days) {
+  if (!range) return null
+  const [start, end] = range
+  if (!start || !end) return null
+  if (!days || days <= 0) return null
+  const s = new Date(start).getTime()
+  const e = new Date(end).getTime()
+  if (isNaN(s) || isNaN(e)) return null
+  const implied = Math.round((e - s) / 86400000) + 1
+  if (implied === days) return null
+  return { implied, current: days }
+}
+
 function ConstRow({ label, field, scale = 1, options, unit, hint, c, setC }) {
   const current = c[field]
   const displayValue = String(current)
