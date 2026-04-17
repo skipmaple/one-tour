@@ -185,8 +185,8 @@ export default function PlannerMap({ activities, days = [] }) {
     }
 
     mapRef.current = new window.AMap.Map(containerRef.current, {
-      zoom: 5,
-      center: [ 87.5, 43.5 ], // 新疆大致中心 — 默认视图
+      zoom: 4,
+      center: [ 104, 35 ], // 中国大致中心 — 空态默认视图
       viewMode: '2D',
       resizeEnable: true
     })
