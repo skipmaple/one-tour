@@ -79,13 +79,6 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
           ⚠ 加入后驾驶 {Math.round(dragWarning.total)}/{dragWarning.limit} min
         </div>
       )}
-      {!readOnly && onAddActivity && (
-        <div style={{ padding: '4px 8px' }}>
-          <Button size="compact-xs" variant="light" fullWidth onClick={() => onAddActivity(day.id)}>
-            + 加一个
-          </Button>
-        </div>
-      )}
       <Stack gap={4} p="xs" ref={setNodeRef} style={{
         flex: 1, minHeight: 140,
         background: isOver ? '#f0f7ff' : undefined,
@@ -96,6 +89,13 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
         ))}
         {activities.length === 0 && <Text size="xs" c="dimmed" ta="center" mt="md">空</Text>}
       </Stack>
+      {!readOnly && onAddActivity && (
+        <div style={{ padding: '4px 8px' }}>
+          <Button size="compact-xs" variant="light" fullWidth onClick={() => onAddActivity(day.id)}>
+            + 加一个
+          </Button>
+        </div>
+      )}
       <Stack gap={2} style={{ borderTop: '1px dashed #ccc', padding: '4px 8px' }}>
         <DayMetricBar label="驾驶" value={driveH} max={maxH} unit="h" />
         <DayMetricBar label="核心" value={tierOneCount} max={maxTier1} />
