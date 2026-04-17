@@ -371,6 +371,17 @@ export function formatDateISO(d) {
   return `${y}-${m}-${day}`
 }
 
+// Returns today's LOCAL calendar date as "YYYY-MM-DD".
+// Do not use `new Date().toISOString().slice(0,10)` — in Asia/Shanghai (UTC+8)
+// that returns the previous calendar date for the first 8 hours of each day.
+export function todayLocal() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function ConstRow({ label, field, scale = 1, options, unit, hint, c, setC }) {
   const current = c[field]
   const displayValue = String(current)
