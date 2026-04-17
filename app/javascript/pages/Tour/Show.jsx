@@ -3,6 +3,7 @@ import { Head, router, usePage } from '@inertiajs/react'
 import { Button, Group, Paper, Text, Stack } from '@mantine/core'
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
+import { modals } from '@mantine/modals'
 import { ActivityCardOverlay } from '../../components/planner/ActivityCard'
 import BacklogList from '../../components/planner/BacklogList'
 import DayColumn from '../../components/planner/DayColumn'
@@ -225,6 +226,33 @@ export default function Show({ tour, days, activities, violations, members, auth
     const toDayId = data.dayId ?? null
     const toPosition = data.position ?? 1
 
+    const targetDay = toDayId ? days.find(d => d.id === toDayId) : null
+    if (targetDay?.buffer_day) {
+      modals.openConfirmModal({
+        title: '把 activity 放进机动日？',
+        children: (
+          <Text size="sm">
+            D{targetDay.day_index} 是机动日（缓冲）。继续放入会让 D{targetDay.day_index} 不再是机动日，确认吗？
+          </Text>
+        ),
+        labels: { confirm: '继续放入', cancel: '取消' },
+        confirmProps: { color: 'orange' },
+        onConfirm: () => {
+          router.patch(`/tours/${tour.id}/days/${toDayId}`, { day: { buffer_day: false } }, {
+            preserveScroll: true,
+            only: ['days', 'violations'],
+            onSuccess: () => performMove(activityId, toDayId, toPosition),
+            onError: () => notifications.show({ message: '修改 buffer 失败，未拖动', color: 'red' })
+          })
+        }
+      })
+      return
+    }
+
+    performMove(activityId, toDayId, toPosition)
+  }
+
+  function performMove(activityId, toDayId, toPosition) {
     // Optimistic: apply locally
     setLocalOverrides(prev => ({
       ...prev,
