@@ -21,7 +21,18 @@ const LEVEL_FILTER_OPTIONS = [
   { value: 'infrastructure', label: '基础' },
 ]
 
-export default function BacklogList({ activities, onAddActivity, onEditActivity, onAskAI, onFocusChat, readOnly }) {
+export default function BacklogList({
+  activities,
+  onAddActivity,
+  onEditActivity,
+  onAskAI,
+  onFocusChat,
+  readOnly,
+  open = true,
+  onToggle,
+}) {
+  // Hooks must run unconditionally every render (Rules of Hooks). The folded
+  // branch below is an early return AFTER all hooks have been called.
   const [kindFilter, setKindFilter] = useState('')
   const [levelFilter, setLevelFilter] = useState('')
 
@@ -40,6 +51,27 @@ export default function BacklogList({ activities, onAddActivity, onEditActivity,
     data: { dayId: null, position: activities.length + 1 }
   })
 
+  // Folded rendering: mirror ChatPanel's collapsed vertical strip.
+  if (!open) {
+    return (
+      <Paper
+        withBorder
+        onClick={onToggle}
+        style={{
+          cursor: 'pointer',
+          background: '#f3f3f3',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text size="xs" c="dimmed" style={{ writingMode: 'vertical-rl' }}>
+          展开候选池 ▸
+        </Text>
+      </Paper>
+    )
+  }
+
   const isEmpty = activities.length === 0
   const hasFilter = kindFilter || levelFilter
 
@@ -49,87 +81,94 @@ export default function BacklogList({ activities, onAddActivity, onEditActivity,
   //  - !isEmpty → normal behavior (filters + top "+ 加一个" + cards)
 
   return (
-    <Paper withBorder p="sm" ref={setNodeRef} style={{ background: isOver ? '#f0f7ff' : undefined }}>
-      <Title order={5} mb="xs">
-        候选池
-        {hasFilter && !isEmpty && (
-          <Text component="span" size="xs" c="dimmed" ml={6}>
-            {filtered.length}/{activities.length}
-          </Text>
+    <Paper withBorder ref={setNodeRef} style={{ background: isOver ? '#f0f7ff' : undefined }}>
+      <Group justify="space-between" p="xs" bg="gray.1">
+        <Title order={5} m={0}>
+          候选池
+          {hasFilter && !isEmpty && (
+            <Text component="span" size="xs" c="dimmed" ml={6}>
+              {filtered.length}/{activities.length}
+            </Text>
+          )}
+        </Title>
+        {onToggle && (
+          <Button size="compact-xs" variant="subtle" onClick={onToggle}>收起 ◂</Button>
         )}
-      </Title>
+      </Group>
 
-      {isEmpty && readOnly && (
-        <Text size="xs" c="dimmed">尚无候选</Text>
-      )}
+      <div style={{ padding: 12 }}>
+        {isEmpty && readOnly && (
+          <Text size="xs" c="dimmed">尚无候选</Text>
+        )}
 
-      {isEmpty && !readOnly && (
-        <Stack
-          gap="xs"
-          p="md"
-          align="stretch"
-          style={{ border: '2px dashed #ccc', borderRadius: 4, background: '#fafafa' }}
-        >
-          <Text size="xs" c="dimmed" ta="center">
-            先把想去的点塞进这里，再拖到右侧日。
-          </Text>
-          {onAddActivity && (
-            <Button size="sm" fullWidth onClick={() => onAddActivity(null)}>
-              + 手动添加行
-            </Button>
-          )}
-          {onAskAI && (
-            <Button size="sm" variant="default" fullWidth onClick={onAskAI}>
-              💬 让 AI 帮列候选
-            </Button>
-          )}
-          {onFocusChat && (
-            <Button size="xs" variant="subtle" onClick={onFocusChat}>
-              ▸ 跳到对话输入框
-            </Button>
-          )}
-        </Stack>
-      )}
-
-      {!isEmpty && (
-        <>
-          <Group gap={4} mb="xs">
-            <Select
-              data={KIND_FILTER_OPTIONS}
-              value={kindFilter}
-              onChange={v => setKindFilter(v || '')}
-              size="xs"
-              w={100}
-              allowDeselect={false}
-              aria-label="按类型筛选"
-            />
-            <Select
-              data={LEVEL_FILTER_OPTIONS}
-              value={levelFilter}
-              onChange={v => setLevelFilter(v || '')}
-              size="xs"
-              w={100}
-              allowDeselect={false}
-              aria-label="按等级筛选"
-            />
-          </Group>
-
-          {!readOnly && onAddActivity && (
-            <Button size="compact-xs" variant="light" fullWidth mb="xs" onClick={() => onAddActivity(null)}>
-              + 加一个
-            </Button>
-          )}
-
-          <Stack gap={4}>
-            {filtered.map(a => (
-              <ActivityCard key={a.id} activity={a} onClick={onEditActivity} readOnly={readOnly} />
-            ))}
-            {filtered.length === 0 && (
-              <Text size="xs" c="dimmed">无匹配的候选。调整筛选或清空条件。</Text>
+        {isEmpty && !readOnly && (
+          <Stack
+            gap="xs"
+            p="md"
+            align="stretch"
+            style={{ border: '2px dashed #ccc', borderRadius: 4, background: '#fafafa' }}
+          >
+            <Text size="xs" c="dimmed" ta="center">
+              先把想去的点塞进这里，再拖到右侧日。
+            </Text>
+            {onAddActivity && (
+              <Button size="sm" fullWidth onClick={() => onAddActivity(null)}>
+                + 手动添加行
+              </Button>
+            )}
+            {onAskAI && (
+              <Button size="sm" variant="default" fullWidth onClick={onAskAI}>
+                💬 让 AI 帮列候选
+              </Button>
+            )}
+            {onFocusChat && (
+              <Button size="xs" variant="subtle" onClick={onFocusChat}>
+                ▸ 跳到对话输入框
+              </Button>
             )}
           </Stack>
-        </>
-      )}
+        )}
+
+        {!isEmpty && (
+          <>
+            <Group gap={4} mb="xs">
+              <Select
+                data={KIND_FILTER_OPTIONS}
+                value={kindFilter}
+                onChange={v => setKindFilter(v || '')}
+                size="xs"
+                w={100}
+                allowDeselect={false}
+                aria-label="按类型筛选"
+              />
+              <Select
+                data={LEVEL_FILTER_OPTIONS}
+                value={levelFilter}
+                onChange={v => setLevelFilter(v || '')}
+                size="xs"
+                w={100}
+                allowDeselect={false}
+                aria-label="按等级筛选"
+              />
+            </Group>
+
+            {!readOnly && onAddActivity && (
+              <Button size="compact-xs" variant="light" fullWidth mb="xs" onClick={() => onAddActivity(null)}>
+                + 加一个
+              </Button>
+            )}
+
+            <Stack gap={4}>
+              {filtered.map(a => (
+                <ActivityCard key={a.id} activity={a} onClick={onEditActivity} readOnly={readOnly} />
+              ))}
+              {filtered.length === 0 && (
+                <Text size="xs" c="dimmed">无匹配的候选。调整筛选或清空条件。</Text>
+              )}
+            </Stack>
+          </>
+        )}
+      </div>
     </Paper>
   )
 }

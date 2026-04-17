@@ -177,3 +177,57 @@ test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
   // Do NOT show empty-state three-button frame
   expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
 })
+
+test('when open=false, renders a collapsed trigger instead of filters/list', () => {
+  const onToggle = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          open={false}
+          onToggle={onToggle}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  // Folded label is present
+  expect(screen.getByText(/展开候选池/)).toBeInTheDocument()
+  // Fixtures are NOT rendered
+  expect(screen.queryByText('赛里木湖')).not.toBeInTheDocument()
+  expect(screen.queryByText('独库公路')).not.toBeInTheDocument()
+})
+
+test('clicking the collapsed trigger calls onToggle', () => {
+  const onToggle = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          open={false}
+          onToggle={onToggle}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  fireEvent.click(screen.getByText(/展开候选池/))
+  expect(onToggle).toHaveBeenCalledTimes(1)
+})
+
+test('when open=true (default), renders a 收起 button that calls onToggle', () => {
+  const onToggle = vi.fn()
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          open={true}
+          onToggle={onToggle}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  fireEvent.click(screen.getByRole('button', { name: /收起/ }))
+  expect(onToggle).toHaveBeenCalledTimes(1)
+})
