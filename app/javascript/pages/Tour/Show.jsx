@@ -112,9 +112,19 @@ export default function Show({ tour, days, activities, violations, members, auth
         <div style={{ padding: 10 }}>
           <TourTabs tour={tour} active="planner" />
           <Group justify="space-between" mb="xs" mt="sm">
-            <Group gap={6} onClick={() => canEdit && setSettingsOpen(true)} style={{ cursor: canEdit ? 'pointer' : 'default' }} className={canEdit ? 'tour-title-editable' : undefined}>
+            <Group
+              gap={6}
+              onClick={() => canEdit && setSettingsOpen(true)}
+              style={{ cursor: canEdit ? 'pointer' : 'default' }}
+              className={canEdit ? 'tour-title-editable' : undefined}
+            >
               <Text fw={700} size="lg">{tour.title}</Text>
-              {canEdit && <Text size="lg" c="gray.5">✎</Text>}
+              {canEdit && <Text size="sm" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none' }}>✎ 编辑</Text>}
+              {canEdit && (
+                <style>{`
+                  .tour-title-editable:hover .tour-title-edit-hint { display: inline !important; }
+                `}</style>
+              )}
             </Group>
             <Button
               size="compact-xs"
