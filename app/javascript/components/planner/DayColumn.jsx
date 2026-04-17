@@ -98,7 +98,7 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
       <div style={{ borderTop: '1px dashed #ccc', padding: '4px 8px', fontSize: 10, color: '#666' }}>
         驾驶 {progressBar(driveH, maxH)} {driveH}/{maxH}h<br />
         核心 {progressBar(tierOneCount, maxTier1, 3)} {tierOneCount}/{maxTier1}
-        {day.buffer_day && <> · buffer</>}
+        {day.buffer_day && <> · 机动</>}
       </div>
     </Paper>
   )

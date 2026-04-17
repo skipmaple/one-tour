@@ -8,20 +8,20 @@ export default function TourSummaryBar({ summary }) {
     <Paper withBorder p="sm">
       <Group gap="xl">
         <SummaryCell value={summary.day_count} label="天" />
-        <SummaryCell value={summary.activity_count} label="个 Activity" />
+        <SummaryCell value={summary.activity_count} label="个行" />
         <SummaryCell
           value={summary.tier_one_total}
           label={`个一等 · ≤ ${summary.tier_one_limit}/日`}
         />
         <SummaryCell
           value={summary.buffer_count}
-          label={`个 buffer day · ≥ ${summary.buffer_min}/程`}
+          label={`个机动日 · ≥ ${summary.buffer_min}/程`}
           suffix={bufferOk ? '✅' : ''}
         />
         <SummaryCell
           value={
             hasViolations
-              ? `${summary.hard_count} hard · ${summary.soft_count} soft`
+              ? `${summary.hard_count} 重 · ${summary.soft_count} 轻`
               : '0'
           }
           label="宪法违反"

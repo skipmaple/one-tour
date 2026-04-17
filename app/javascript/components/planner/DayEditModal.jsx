@@ -62,7 +62,7 @@ export default function DayEditModal({ day, tourId, onClose }) {
   const handleDelete = () => {
     modals.openConfirmModal({
       title: `确认删除 D${day.day_index}？`,
-      children: '删除后该日下的 activity 会自动回到 Backlog。',
+      children: '删除后该日下的行会自动回到候选池。',
       labels: { confirm: '删除', cancel: '取消' },
       confirmProps: { color: 'red' },
       onConfirm: () => {
@@ -100,7 +100,7 @@ export default function DayEditModal({ day, tourId, onClose }) {
           valueFormat="YYYY-MM-DD"
         />
         <Checkbox
-          label="机动日（缓冲，不排入核心 activity）"
+          label="机动日（缓冲，不排入核心行）"
           checked={bufferDay}
           onChange={e => setBufferDay(e.currentTarget.checked)}
         />

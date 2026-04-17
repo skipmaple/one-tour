@@ -20,7 +20,7 @@ test('renders all 5 summary cells', () => {
   expect(screen.getByText('18')).toBeInTheDocument()
   expect(screen.getByText(/≤ 3\/日/)).toBeInTheDocument()
   expect(screen.getByText(/≥ 1\/程/)).toBeInTheDocument()
-  expect(screen.getByText('1 hard · 2 soft')).toBeInTheDocument()
+  expect(screen.getByText('1 重 · 2 轻')).toBeInTheDocument()
 })
 
 test('shows ✅ when buffer count meets minimum', () => {

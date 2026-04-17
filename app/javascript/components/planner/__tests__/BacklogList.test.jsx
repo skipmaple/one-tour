@@ -83,7 +83,7 @@ test('empty + editable: shows three CTA buttons and no top "+ 加一个" button'
     </MantineProvider>
   )
   expect(screen.getByText(/先把想去的点塞进这里/)).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: /\+ 手动添加 activity/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /\+ 手动添加行/ })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /💬 让 AI 帮列候选/ })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /跳到 Chat/ })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /^\+ 加一个$/ })).not.toBeInTheDocument()

@@ -51,7 +51,7 @@ export default function BacklogList({ activities, onAddActivity, onEditActivity,
   return (
     <Paper withBorder p="sm" ref={setNodeRef} style={{ background: isOver ? '#f0f7ff' : undefined }}>
       <Title order={5} mb="xs">
-        Backlog（候选池）
+        候选池
         {hasFilter && !isEmpty && (
           <Text component="span" size="xs" c="dimmed" ml={6}>
             {filtered.length}/{activities.length}
@@ -75,7 +75,7 @@ export default function BacklogList({ activities, onAddActivity, onEditActivity,
           </Text>
           {onAddActivity && (
             <Button size="sm" fullWidth onClick={() => onAddActivity(null)}>
-              + 手动添加 activity
+              + 手动添加行
             </Button>
           )}
           {onAskAI && (

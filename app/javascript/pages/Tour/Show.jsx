@@ -232,10 +232,10 @@ export default function Show({ tour, days, activities, violations, members, auth
     const targetDay = toDayId ? days.find(d => d.id === toDayId) : null
     if (targetDay?.buffer_day) {
       modals.openConfirmModal({
-        title: '把 activity 放进机动日？',
+        title: '把行放进机动日？',
         children: (
           <Text size="sm">
-            D{targetDay.day_index} 是机动日（缓冲）。继续放入会让 D{targetDay.day_index} 不再是机动日，确认吗？
+            D{targetDay.day_index} 是机动日（缓冲）。继续放入行会让 D{targetDay.day_index} 不再是机动日，确认吗？
           </Text>
         ),
         labels: { confirm: '继续放入', cancel: '取消' },

@@ -338,7 +338,7 @@ function ViewModeRadio({ value, onChange }) {
         data={[
           { value: 'all',     label: '全部' },
           { value: 'colored', label: '按天着色' },
-          { value: 'backlog', label: '仅 backlog' },
+          { value: 'backlog', label: '仅候选' },
         ]}
         size="xs"
       />

@@ -49,7 +49,7 @@ export default function TimelineDayColumn({ day, activities, constitution, tourI
           <span style={{ width: 10, height: 10, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
           <Text fw={600} size="sm">D{day.day_index}</Text>
           <Text size="xs" c="dimmed">{shortDate}{weekday && ` ${weekday}`}</Text>
-          {day.buffer_day && <Badge size="xs" color="gray" variant="light">buffer</Badge>}
+          {day.buffer_day && <Badge size="xs" color="gray" variant="light">机动</Badge>}
         </Group>
         {day.theme && (
           <Text size="xs" c="dimmed" mt={2} lineClamp={2}>{day.theme}</Text>
@@ -59,7 +59,7 @@ export default function TimelineDayColumn({ day, activities, constitution, tourI
       <Stack gap={4} p="xs" style={{ flex: 1, minHeight: 120 }}>
         {activities.length === 0 && (
           <Text size="xs" c="dimmed" ta="center" mt="md">
-            {day.buffer_day ? '未排入 activity，作为天气/疲劳缓冲' : '空'}
+            {day.buffer_day ? '未排入行，作为天气/疲劳缓冲' : '空'}
           </Text>
         )}
         {activities.map(a => (

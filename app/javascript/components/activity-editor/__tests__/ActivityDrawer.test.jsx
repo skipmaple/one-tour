@@ -54,7 +54,7 @@ function renderDrawer(props = {}) {
 
 test('renders create mode with empty form', () => {
   renderDrawer()
-  expect(screen.getByText('新建 Activity')).toBeInTheDocument()
+  expect(screen.getByText('新建行')).toBeInTheDocument()
   expect(screen.getByLabelText('名称', { exact: false })).toHaveValue('')
   expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '删除' })).not.toBeInTheDocument()
@@ -72,10 +72,10 @@ test('renders edit mode with populated form', () => {
       details: { altitude: 2073 },
     },
   })
-  expect(screen.getByText('编辑 Activity')).toBeInTheDocument()
+  expect(screen.getByText('编辑行')).toBeInTheDocument()
   expect(screen.getByLabelText('名称', { exact: false })).toHaveValue('赛里木湖')
   expect(screen.getByRole('button', { name: '删除' })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '移回 Backlog' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '移回候选池' })).toBeInTheDocument()
 })
 
 test('validates name is required on save', async () => {

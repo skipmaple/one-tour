@@ -17,7 +17,7 @@ function renderTabs(active = 'planner') {
 
 test('renders three tabs', () => {
   renderTabs()
-  expect(screen.getByRole('tab', { name: 'Planner' })).toBeInTheDocument()
+  expect(screen.getByRole('tab', { name: '规划' })).toBeInTheDocument()
   expect(screen.getByRole('tab', { name: '年表' })).toBeInTheDocument()
   expect(screen.getByRole('tab', { name: '宪法' })).toBeInTheDocument()
 })
@@ -38,6 +38,6 @@ test('does not navigate when clicking the active tab', async () => {
   const { router } = await import('@inertiajs/react')
   router.visit.mockClear()
   renderTabs('planner')
-  fireEvent.click(screen.getByRole('tab', { name: 'Planner' }))
+  fireEvent.click(screen.getByRole('tab', { name: '规划' }))
   expect(router.visit).not.toHaveBeenCalled()
 })

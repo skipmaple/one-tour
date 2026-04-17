@@ -169,7 +169,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
 
   const handleDelete = () => {
     modals.openConfirmModal({
-      title: '确认删除此 activity？',
+      title: '确认删除此行？',
       labels: { confirm: '删除', cancel: '取消' },
       confirmProps: { color: 'red' },
       onConfirm: () => {
@@ -237,7 +237,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     <Drawer
       opened={opened}
       onClose={handleClose}
-      title={isEdit ? '编辑 Activity' : '新建 Activity'}
+      title={isEdit ? '编辑行' : '新建行'}
       position="right"
       size={420}
       overlayProps={{ opacity: 0.4 }}
@@ -256,7 +256,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
           {isEdit && (
             <Group>
               {activity?.day_id && (
-                <Button variant="subtle" size="xs" onClick={handleMoveToBacklog}>移回 Backlog</Button>
+                <Button variant="subtle" size="xs" onClick={handleMoveToBacklog}>移回候选池</Button>
               )}
               <Button variant="subtle" color="red" size="xs" onClick={handleDelete}>删除</Button>
             </Group>

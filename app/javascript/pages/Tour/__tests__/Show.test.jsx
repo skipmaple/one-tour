@@ -67,7 +67,7 @@ const props = {
 
 test('renders planner three-pane layout', () => {
   render(<MantineProvider><Show {...props} /></MantineProvider>)
-  expect(screen.getByText('Backlog（候选池）')).toBeInTheDocument()
+  expect(screen.getByText('候选池')).toBeInTheDocument()
   expect(screen.getByText('D1')).toBeInTheDocument()
   expect(screen.getByText('D2')).toBeInTheDocument()
   expect(screen.getByText('AI 对话')).toBeInTheDocument()

@@ -61,5 +61,5 @@ test('shows buffer badge when buffer_day=true', () => {
       />
     </MantineProvider>
   )
-  expect(screen.getByText('buffer')).toBeInTheDocument()
+  expect(screen.getByText('机动')).toBeInTheDocument()
 })
