@@ -317,7 +317,12 @@ function formatDate(iso) {
   return `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-function formatDateISO(d) {
+export function formatDateISO(d) {
+  if (!d) return null
+  if (typeof d === 'string') {
+    return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : formatDateISO(new Date(d))
+  }
+  if (!(d instanceof Date) || isNaN(d)) return null
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
