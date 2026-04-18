@@ -13,6 +13,14 @@ class Activity < ApplicationRecord
 
   belongs_to :tour
   belongs_to :day, optional: true
+  has_many :activity_images, -> { order(:position) }, dependent: :destroy
+  has_many :expenses, dependent: :destroy
+  has_many :tour_budgets, dependent: :destroy
+
+  # When an activity moves to a different day (or goes to backlog), propagate the
+  # new day_id to all its activity-scope expenses so the daily aggregation stays
+  # consistent without joining activities in every query.
+  after_update :sync_expense_days, if: :saved_change_to_day_id?
 
   enum :kind, scenic: 0, road: 1, food: 2, stay: 3, fuel: 4, other: 5
   enum :citizen_level, tier_one: 0, tier_two: 1, tier_three: 2, infrastructure: 3
@@ -36,6 +44,10 @@ class Activity < ApplicationRecord
   end
 
   private
+    def sync_expense_days
+      expenses.activity.update_all(day_id: day_id)
+    end
+
     def details_is_hash
       return if details.nil? || details.is_a?(Hash)
       errors.add(:details, "must be a JSON object")

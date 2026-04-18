@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_18_113705) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_18_120007) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -64,6 +64,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_113705) do
     t.index ["tour_id"], name: "index_activities_on_tour_id"
   end
 
+  create_table "activity_images", force: :cascade do |t|
+    t.bigint "activity_id", null: false
+    t.bigint "uploaded_by_id", null: false
+    t.string "caption", limit: 280
+    t.integer "position", default: 0, null: false
+    t.boolean "is_cover", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["activity_id", "position"], name: "index_activity_images_on_activity_id_and_position"
+    t.index ["activity_id"], name: "idx_activity_images_single_cover", unique: true, where: "(is_cover = true)"
+    t.index ["activity_id"], name: "index_activity_images_on_activity_id"
+    t.index ["uploaded_by_id"], name: "index_activity_images_on_uploaded_by_id"
+  end
+
   create_table "conversations", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.datetime "created_at", null: false
@@ -102,6 +116,56 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_113705) do
     t.index ["requested_ip"], name: "index_email_verifications_on_requested_ip"
   end
 
+  create_table "expense_receipts", force: :cascade do |t|
+    t.bigint "expense_id", null: false
+    t.bigint "uploaded_by_id", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expense_id", "position"], name: "index_expense_receipts_on_expense_id_and_position"
+    t.index ["expense_id"], name: "index_expense_receipts_on_expense_id"
+    t.index ["uploaded_by_id"], name: "index_expense_receipts_on_uploaded_by_id"
+  end
+
+  create_table "expense_splits", force: :cascade do |t|
+    t.bigint "expense_id", null: false
+    t.bigint "user_id", null: false
+    t.integer "shares", default: 1, null: false
+    t.integer "amount_cents", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expense_id", "user_id"], name: "index_expense_splits_on_expense_id_and_user_id", unique: true
+    t.index ["expense_id"], name: "index_expense_splits_on_expense_id"
+    t.index ["user_id"], name: "index_expense_splits_on_user_id"
+  end
+
+  create_table "expenses", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.integer "scope", default: 0, null: false
+    t.bigint "activity_id"
+    t.bigint "day_id"
+    t.bigint "paid_by_id", null: false
+    t.bigint "created_by_id", null: false
+    t.integer "amount_cents", null: false
+    t.integer "category", default: 0, null: false
+    t.integer "split_strategy", default: 0, null: false
+    t.integer "external_count", default: 0, null: false
+    t.bigint "external_attributed_to_id"
+    t.string "note", limit: 280
+    t.date "occurred_on"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["activity_id"], name: "index_expenses_on_activity_id"
+    t.index ["created_by_id"], name: "index_expenses_on_created_by_id"
+    t.index ["day_id"], name: "index_expenses_on_day_id"
+    t.index ["external_attributed_to_id"], name: "index_expenses_on_external_attributed_to_id"
+    t.index ["paid_by_id"], name: "index_expenses_on_paid_by_id"
+    t.index ["tour_id", "activity_id"], name: "index_expenses_on_tour_id_and_activity_id"
+    t.index ["tour_id", "day_id"], name: "index_expenses_on_tour_id_and_day_id"
+    t.index ["tour_id", "paid_by_id"], name: "index_expenses_on_tour_id_and_paid_by_id"
+    t.index ["tour_id"], name: "index_expenses_on_tour_id"
+  end
+
   create_table "messages", force: :cascade do |t|
     t.bigint "conversation_id", null: false
     t.integer "role", null: false
@@ -124,12 +188,49 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_113705) do
     t.index ["user_id"], name: "index_oauth_identities_on_user_id"
   end
 
+  create_table "route_legs", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.bigint "from_activity_id", null: false
+    t.bigint "to_activity_id", null: false
+    t.integer "mode", default: 0, null: false
+    t.integer "distance_m"
+    t.integer "duration_s"
+    t.jsonb "polyline", default: {}, null: false
+    t.string "endpoint_digest"
+    t.datetime "fetched_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["endpoint_digest"], name: "index_route_legs_on_endpoint_digest"
+    t.index ["from_activity_id"], name: "index_route_legs_on_from_activity_id"
+    t.index ["to_activity_id"], name: "index_route_legs_on_to_activity_id"
+    t.index ["tour_id", "from_activity_id", "to_activity_id", "mode"], name: "idx_route_legs_unique_pair", unique: true
+    t.index ["tour_id"], name: "index_route_legs_on_tour_id"
+  end
+
+  create_table "tour_budgets", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.bigint "day_id"
+    t.bigint "activity_id"
+    t.bigint "user_id", null: false
+    t.integer "amount_cents", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["activity_id"], name: "index_tour_budgets_on_activity_id"
+    t.index ["day_id"], name: "index_tour_budgets_on_day_id"
+    t.index ["tour_id", "activity_id", "user_id"], name: "idx_tour_budgets_activity_scope", unique: true, where: "(activity_id IS NOT NULL)"
+    t.index ["tour_id", "day_id", "user_id"], name: "idx_tour_budgets_day_scope", unique: true, where: "((day_id IS NOT NULL) AND (activity_id IS NULL))"
+    t.index ["tour_id", "user_id"], name: "idx_tour_budgets_tour_scope", unique: true, where: "((day_id IS NULL) AND (activity_id IS NULL))"
+    t.index ["tour_id"], name: "index_tour_budgets_on_tour_id"
+    t.index ["user_id"], name: "index_tour_budgets_on_user_id"
+  end
+
   create_table "tour_memberships", force: :cascade do |t|
     t.bigint "tour_id", null: false
     t.bigint "user_id", null: false
     t.integer "role", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.jsonb "participating_day_ids", default: [], null: false
     t.index ["tour_id", "user_id"], name: "index_tour_memberships_on_tour_id_and_user_id", unique: true
     t.index ["tour_id"], name: "index_tour_memberships_on_tour_id"
     t.index ["user_id"], name: "index_tour_memberships_on_user_id"
@@ -149,6 +250,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_113705) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.boolean "constitution_accepted", default: false, null: false
+    t.string "currency", limit: 3, default: "CNY", null: false
+    t.string "timezone", default: "Asia/Shanghai", null: false
     t.index ["author_id"], name: "index_tours_on_author_id"
   end
 
@@ -165,11 +268,30 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_113705) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "activities", "days"
   add_foreign_key "activities", "tours"
+  add_foreign_key "activity_images", "activities", on_delete: :cascade
+  add_foreign_key "activity_images", "users", column: "uploaded_by_id"
   add_foreign_key "conversations", "tours"
   add_foreign_key "conversations", "users"
   add_foreign_key "days", "tours"
+  add_foreign_key "expense_receipts", "expenses", on_delete: :cascade
+  add_foreign_key "expense_receipts", "users", column: "uploaded_by_id"
+  add_foreign_key "expense_splits", "expenses", on_delete: :cascade
+  add_foreign_key "expense_splits", "users"
+  add_foreign_key "expenses", "activities", on_delete: :cascade
+  add_foreign_key "expenses", "days", on_delete: :cascade
+  add_foreign_key "expenses", "tours", on_delete: :cascade
+  add_foreign_key "expenses", "users", column: "created_by_id"
+  add_foreign_key "expenses", "users", column: "external_attributed_to_id"
+  add_foreign_key "expenses", "users", column: "paid_by_id"
   add_foreign_key "messages", "conversations"
   add_foreign_key "oauth_identities", "users"
+  add_foreign_key "route_legs", "activities", column: "from_activity_id", on_delete: :cascade
+  add_foreign_key "route_legs", "activities", column: "to_activity_id", on_delete: :cascade
+  add_foreign_key "route_legs", "tours", on_delete: :cascade
+  add_foreign_key "tour_budgets", "activities", on_delete: :cascade
+  add_foreign_key "tour_budgets", "days", on_delete: :cascade
+  add_foreign_key "tour_budgets", "tours", on_delete: :cascade
+  add_foreign_key "tour_budgets", "users"
   add_foreign_key "tour_memberships", "tours"
   add_foreign_key "tour_memberships", "users"
   add_foreign_key "tours", "users", column: "author_id"

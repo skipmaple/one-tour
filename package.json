@@ -35,6 +35,7 @@
     "@mantine/notifications": "^9.0.2",
     "@rails/actioncable": "^8.1.300",
     "@sentry/react": "^10.49.0",
+    "@tabler/icons-react": "^3.41.1",
     "@vitejs/plugin-react": "^6.0.1",
     "codemirror": "^6.0.2",
     "dayjs": "^1.11.20",

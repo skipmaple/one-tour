@@ -17,11 +17,12 @@ import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 import MembershipDrawer from '../../components/planner/MembershipDrawer'
 import DayEditModal from '../../components/planner/DayEditModal'
 import TourSettingsModal from '../../components/planner/TourSettingsModal'
+import ExpenseDrawer from '../../components/planner/ExpenseDrawer'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
 
-export default function Show({ tour, days, activities, violations, members, author, conversation_empty }) {
+export default function Show({ tour, days, activities, activity_images, expenses, expenses_summary, tour_budgets, route_legs, violations, members, author, conversation_empty }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const layout = usePlannerLayout(tour.id)
@@ -42,12 +43,24 @@ export default function Show({ tour, days, activities, violations, members, auth
   // Shape: { [activityId]: { day_id, position } }
   const [localOverrides, setLocalOverrides] = useState({})
 
-  // Merge server activities with local overrides
-  const displayActivities = activities.map(a =>
-    localOverrides[a.id]
-      ? { ...a, ...localOverrides[a.id] }
-      : a
-  )
+  // Group images by activity for O(1) lookup when enriching activities.
+  const imagesByActivityId = (activity_images || []).reduce((acc, img) => {
+    (acc[img.activity_id] ??= []).push(img)
+    return acc
+  }, {})
+
+  // Merge server activities with local overrides and cover-thumb metadata.
+  // ActivityCard reads `_coverUrl` + `_imageCount` to render the cover thumbnail.
+  const displayActivities = activities.map(a => {
+    const imgs = imagesByActivityId[a.id] || []
+    const cover = imgs.find(i => i.is_cover) || imgs[0]
+    const base = {
+      ...a,
+      _coverUrl: cover?.url,
+      _imageCount: imgs.length,
+    }
+    return localOverrides[a.id] ? { ...base, ...localOverrides[a.id] } : base
+  })
 
   const activeActivity = activeId
     ? displayActivities.find(a => `activity-${a.id}` === activeId)
@@ -68,6 +81,9 @@ export default function Show({ tour, days, activities, violations, members, auth
   // Membership drawer state
   const [membersDrawerOpen, setMembersDrawerOpen] = useState(false)
 
+  // Expense drawer state
+  const [expenseDrawerOpen, setExpenseDrawerOpen] = useState(false)
+
   // Activity editor state
   const [editor, setEditor] = useState({ open: false, mode: 'create', activityId: null, targetDayId: null })
 
@@ -83,6 +99,12 @@ export default function Show({ tour, days, activities, violations, members, auth
   const closeEditor = () => setEditor({ open: false, mode: 'create', activityId: null, targetDayId: null })
 
   const editingActivity = editor.activityId ? activities.find(a => a.id === editor.activityId) : null
+
+  // Filter images for the currently-open activity drawer. Updates automatically
+  // when router.reload({only: ['activity_images']}) refreshes the prop.
+  const editingImages = editor.activityId
+    ? (activity_images || []).filter(img => img.activity_id === editor.activityId)
+    : []
 
   // On mount, check URL hash for activity anchor (#activity-{id})
   // This supports deep links from the Timeline page.
@@ -147,13 +169,22 @@ export default function Show({ tour, days, activities, violations, members, auth
                 readOnly={!canEdit}
               />
             </Group>
-            <Button
-              size="compact-xs"
-              variant="default"
-              onClick={() => setMembersDrawerOpen(true)}
-            >
-              成员
-            </Button>
+            <Group gap="xs">
+              <Button
+                size="compact-xs"
+                variant="default"
+                onClick={() => setExpenseDrawerOpen(true)}
+              >
+                账单
+              </Button>
+              <Button
+                size="compact-xs"
+                variant="default"
+                onClick={() => setMembersDrawerOpen(true)}
+              >
+                成员
+              </Button>
+            </Group>
           </Group>
         </div>
         <div ref={containerRef} style={{
@@ -204,6 +235,7 @@ export default function Show({ tour, days, activities, violations, members, auth
           <PlannerMap
             activities={activities}
             days={days}
+            routeLegs={route_legs || []}
             open={layout.panels.map.open}
             onToggle={() => layout.togglePanel('map')}
             canToggle={layout.openCount > 1 || !layout.panels.map.open}
@@ -236,6 +268,11 @@ export default function Show({ tour, days, activities, violations, members, auth
         mode={editor.mode}
         activity={editingActivity}
         targetDayId={editor.targetDayId}
+        images={editingImages}
+        allActivities={activities}
+        days={days}
+        routeLegs={route_legs || []}
+        canEdit={canEdit}
       />
 
       <AcknowledgeModal
@@ -250,6 +287,21 @@ export default function Show({ tour, days, activities, violations, members, auth
         tour={tour}
         members={members || []}
         author={author || { user_id: tour.author_id, email: '' }}
+        days={days}
+      />
+
+      <ExpenseDrawer
+        opened={expenseDrawerOpen}
+        onClose={() => setExpenseDrawerOpen(false)}
+        tour={tour}
+        days={days}
+        activities={activities}
+        members={members || []}
+        author={author || { user_id: tour.author_id, email: '' }}
+        expenses={expenses || []}
+        summary={expenses_summary}
+        budgets={tour_budgets || []}
+        canEdit={canEdit}
       />
 
       <DayEditModal

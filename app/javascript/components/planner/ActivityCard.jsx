@@ -1,4 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { IconPhoto } from '@tabler/icons-react'
 
 export default function ActivityCard({ activity, onClick, readOnly }) {
   const isRoadInfra = activity.kind === 'road' && activity.citizen_level === 'infrastructure'
@@ -76,15 +77,46 @@ export default function ActivityCard({ activity, onClick, readOnly }) {
       )}
       <div
         onClick={handleClick}
-        style={{ flex: 1, padding: '4px 6px', cursor: readOnly ? 'default' : 'pointer' }}
+        style={{
+          flex: 1, padding: '4px 6px', cursor: readOnly ? 'default' : 'pointer',
+          display: 'flex', gap: 6, alignItems: 'flex-start', minWidth: 0
+        }}
       >
-        <strong>{levelLabel(activity.citizen_level)} · {kindLabel(activity.kind)}</strong> {activity.name}
-        {activity.planned_start_at && (
-          <div style={{ fontSize: 10, color: '#888' }}>
-            {activity.planned_start_at}
-            {activity.planned_duration_min ? ` · ${activity.planned_duration_min} 分` : ''}
-          </div>
-        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <strong>{levelLabel(activity.citizen_level)} · {kindLabel(activity.kind)}</strong> {activity.name}
+          {activity.planned_start_at && (
+            <div style={{ fontSize: 10, color: '#888' }}>
+              {activity.planned_start_at}
+              {activity.planned_duration_min ? ` · ${activity.planned_duration_min} 分` : ''}
+            </div>
+          )}
+        </div>
+        {activity._imageCount > 0 && <CoverThumb url={activity._coverUrl} count={activity._imageCount} />}
+      </div>
+    </div>
+  )
+}
+
+function CoverThumb({ url, count }) {
+  return (
+    <div style={{ flexShrink: 0, position: 'relative', marginTop: 1 }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 4,
+        backgroundImage: url ? `url(${url})` : 'none',
+        backgroundColor: '#e9ecef',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: '#adb5bd',
+      }}>
+        {!url && <IconPhoto size={18} stroke={1.5} />}
+      </div>
+      <div style={{
+        position: 'absolute', bottom: -3, right: -3,
+        background: '#1677ff', color: '#fff', fontSize: 9, fontWeight: 600,
+        padding: '0 4px', borderRadius: 7, lineHeight: '14px', minWidth: 14, textAlign: 'center',
+      }}>
+        {count}
       </div>
     </div>
   )

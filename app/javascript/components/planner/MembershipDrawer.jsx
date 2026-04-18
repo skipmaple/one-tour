@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Drawer, Stack, Text, Group, TextInput, Select, Button, Badge, Accordion, Table } from '@mantine/core'
+import { Drawer, Stack, Text, Group, TextInput, Select, Button, Badge, Accordion, Table, Checkbox } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { router, usePage } from '@inertiajs/react'
@@ -9,7 +9,7 @@ const ROLE_OPTIONS = [
   { value: 'reader', label: '只读' },
 ]
 
-export default function MembershipDrawer({ opened, onClose, tour, members, author }) {
+export default function MembershipDrawer({ opened, onClose, tour, members, author, days }) {
   const { current_user } = usePage().props
   const isAuthor = current_user?.id === author.user_id
 
@@ -19,7 +19,7 @@ export default function MembershipDrawer({ opened, onClose, tour, members, autho
       onClose={onClose}
       title="本程成员"
       position="right"
-      size={420}
+      size={460}
       padding="md"
     >
       <Stack gap="md">
@@ -28,6 +28,7 @@ export default function MembershipDrawer({ opened, onClose, tour, members, autho
           members={members}
           author={author}
           isAuthor={isAuthor}
+          days={days || []}
         />
         <InviteSection tour={tour} isAuthor={isAuthor} />
         <PermissionMatrix />
@@ -36,7 +37,7 @@ export default function MembershipDrawer({ opened, onClose, tour, members, autho
   )
 }
 
-function CurrentMembers({ tour, members, author, isAuthor }) {
+function CurrentMembers({ tour, members, author, isAuthor, days }) {
   return (
     <Stack gap="xs">
       <Text fw={600} size="sm">当前成员</Text>
@@ -50,50 +51,101 @@ function CurrentMembers({ tour, members, author, isAuthor }) {
       </Group>
 
       {members.map(m => (
-        <Group key={m.id} justify="space-between" p="xs" wrap="nowrap" style={{ borderBottom: '1px solid #eee' }}>
-          <Text size="sm" title={m.email} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {m.email}
-          </Text>
-          <Group gap="xs">
-            <Select
-              data={ROLE_OPTIONS}
-              value={m.role}
-              onChange={newRole => {
-                router.patch(`/tours/${tour.id}/members/${m.id}`, { role: newRole }, {
-                  preserveScroll: true,
-                  only: ['members'],
-                })
-              }}
-              w={100}
-              size="xs"
-              allowDeselect={false}
-              disabled={!isAuthor}
-            />
-            {isAuthor && (
-              <Button
-                size="compact-xs"
-                variant="subtle"
-                color="red"
-                onClick={() => {
-                  modals.openConfirmModal({
-                    title: `将 ${m.email} 移出本程？`,
-                    labels: { confirm: '移除', cancel: '取消' },
-                    confirmProps: { color: 'red' },
-                    onConfirm: () => {
-                      router.delete(`/tours/${tour.id}/members/${m.id}`, {
-                        preserveScroll: true,
-                        only: ['members'],
-                      })
-                    },
+        <Stack key={m.id} gap={6} p="xs" style={{ borderBottom: '1px solid #eee' }}>
+          <Group justify="space-between" wrap="nowrap">
+            <Text size="sm" title={m.email} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {m.email}
+            </Text>
+            <Group gap="xs">
+              <Select
+                data={ROLE_OPTIONS}
+                value={m.role}
+                onChange={newRole => {
+                  router.patch(`/tours/${tour.id}/members/${m.id}`, { role: newRole }, {
+                    preserveScroll: true,
+                    only: ['members'],
                   })
                 }}
-              >
-                移除
-              </Button>
-            )}
+                w={100}
+                size="xs"
+                allowDeselect={false}
+                disabled={!isAuthor}
+              />
+              {isAuthor && (
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="red"
+                  onClick={() => {
+                    modals.openConfirmModal({
+                      title: `将 ${m.email} 移出本程？`,
+                      labels: { confirm: '移除', cancel: '取消' },
+                      confirmProps: { color: 'red' },
+                      onConfirm: () => {
+                        router.delete(`/tours/${tour.id}/members/${m.id}`, {
+                          preserveScroll: true,
+                          only: ['members'],
+                        })
+                      },
+                    })
+                  }}
+                >
+                  移除
+                </Button>
+              )}
+            </Group>
           </Group>
-        </Group>
+
+          {days.length > 0 && isAuthor && (
+            <ParticipatingDays tour={tour} membership={m} days={days} />
+          )}
+        </Stack>
       ))}
+    </Stack>
+  )
+}
+
+function ParticipatingDays({ tour, membership, days }) {
+  const selected = new Set(membership.participating_day_ids || [])
+  const isFullTrip = selected.size === 0
+
+  const toggleDay = (dayId) => {
+    let next
+    if (isFullTrip) {
+      // First toggle switches from "all" to explicit-list mode containing everything minus the toggled day.
+      next = days.map((d) => d.id).filter((id) => id !== dayId)
+    } else if (selected.has(dayId)) {
+      next = [ ...selected ].filter((id) => id !== dayId)
+    } else {
+      next = [ ...selected, dayId ]
+    }
+    // If user re-selects all days, persist as [] (== 全程参与).
+    if (next.length === days.length) next = []
+    router.patch(`/tours/${tour.id}/members/${membership.id}`, { participating_day_ids: next }, {
+      preserveScroll: true, only: ['members'],
+    })
+  }
+
+  return (
+    <Stack gap={4} pl="md">
+      <Text size="xs" c="dimmed">参与的日期（"按参与天数"分账时生效）</Text>
+      <Group gap={6} wrap="wrap">
+        {days.map((d) => {
+          const checked = isFullTrip || selected.has(d.id)
+          return (
+            <Checkbox
+              key={d.id}
+              size="xs"
+              label={`D${d.day_index}`}
+              checked={checked}
+              onChange={() => toggleDay(d.id)}
+            />
+          )
+        })}
+      </Group>
+      {!isFullTrip && selected.size < days.length && (
+        <Text size="xs" c="orange">仅 {selected.size} / {days.length} 天</Text>
+      )}
     </Stack>
   )
 }

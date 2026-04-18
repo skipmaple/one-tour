@@ -4,6 +4,9 @@ class Tour < ApplicationRecord
   has_many :members, through: :tour_memberships, source: :user
   has_many :days, -> { order(:day_index) }, dependent: :destroy
   has_many :activities, dependent: :destroy
+  has_many :tour_budgets, dependent: :destroy
+  has_many :expenses, dependent: :destroy
+  has_many :route_legs, dependent: :destroy
   has_many :conversations, dependent: :destroy
 
   validates :title, presence: true
