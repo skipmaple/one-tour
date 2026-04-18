@@ -39,6 +39,15 @@ describe('usePlannerLayout · defaults & persistence', () => {
     expect(result.current.panels).toEqual(DEFAULT_LAYOUT)
   })
 
+  test('falls back to default when stored panels are missing fields', () => {
+    // Partial objects shouldn't pass validation (would produce NaN grow downstream)
+    window.localStorage.setItem('planner-layout-v1-42', JSON.stringify({
+      candidates: {}, days: {}, map: {}, ai: {}
+    }))
+    const { result } = renderHook(() => usePlannerLayout(42))
+    expect(result.current.panels).toEqual(DEFAULT_LAYOUT)
+  })
+
   test('uses tourId in localStorage key (per-tour isolation)', () => {
     const { result: r42 } = renderHook(() => usePlannerLayout(42))
     act(() => r42.current.togglePanel('candidates'))

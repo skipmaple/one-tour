@@ -28,9 +28,10 @@ function loadFromStorage(tourId) {
     const raw = window.localStorage.getItem(`${STORAGE_PREFIX}${tourId}`)
     if (!raw) return DEFAULT_LAYOUT
     const parsed = JSON.parse(raw)
-    // Shallow validation — must have all 4 panel keys
     const expected = ['candidates', 'days', 'map', 'ai']
-    if (!expected.every(k => parsed[k])) return DEFAULT_LAYOUT
+    const isValidPanel = (p) =>
+      p && typeof p.open === 'boolean' && Number.isFinite(p.grow)
+    if (!expected.every(k => isValidPanel(parsed[k]))) return DEFAULT_LAYOUT
     return parsed
   } catch {
     return DEFAULT_LAYOUT
