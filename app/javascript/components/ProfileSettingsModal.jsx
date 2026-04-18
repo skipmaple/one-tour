@@ -1,4 +1,4 @@
-import { Modal, Stack, TextInput, FileInput, Button, Group, Avatar, Anchor } from '@mantine/core'
+import { Modal, Stack, TextInput, FileButton, Button, Group, Avatar, Anchor, Text } from '@mantine/core'
 import { useForm, usePage, router } from '@inertiajs/react'
 import { useEffect, useState } from 'react'
 
@@ -48,32 +48,40 @@ export default function ProfileSettingsModal({ opened, onClose }) {
     <Modal opened={opened} onClose={onClose} title="个人设置" centered>
       <form onSubmit={submit}>
         <Stack>
-          <Group>
-            <Avatar src={previewUrl} size={72} radius="xl">
-              {current_user.name?.[0]?.toUpperCase()}
-            </Avatar>
-            <Stack gap={4} style={{ flex: 1 }}>
-              <FileInput
-                placeholder="选择图片 (JPG/PNG/WebP, ≤5MB)"
-                accept="image/jpeg,image/png,image/webp"
-                value={form.data.avatar}
-                onChange={(f) => form.setData('avatar', f)}
-                error={form.errors.avatar}
-                size="xs"
-              />
-              {showRemoveAvatar && (
-                <Anchor
-                  component="button"
-                  type="button"
-                  size="xs"
-                  c="dimmed"
-                  onClick={removeAvatar}
+          <Stack align="center" gap={6}>
+            <FileButton
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(f) => form.setData('avatar', f)}
+            >
+              {(props) => (
+                <Avatar
+                  {...props}
+                  src={previewUrl}
+                  size={96}
+                  radius="xl"
+                  style={{ cursor: 'pointer' }}
+                  aria-label="点击更换头像"
                 >
-                  使用默认头像
-                </Anchor>
+                  {current_user.name?.[0]?.toUpperCase()}
+                </Avatar>
               )}
-            </Stack>
-          </Group>
+            </FileButton>
+            <Text size="xs" c="dimmed">点击头像更换 (JPG/PNG/WebP, ≤5MB)</Text>
+            {showRemoveAvatar && (
+              <Anchor
+                component="button"
+                type="button"
+                size="xs"
+                c="dimmed"
+                onClick={removeAvatar}
+              >
+                使用默认头像
+              </Anchor>
+            )}
+            {form.errors.avatar && (
+              <Text size="xs" c="red">{form.errors.avatar}</Text>
+            )}
+          </Stack>
 
           <TextInput
             label="昵称"
