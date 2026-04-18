@@ -3,9 +3,12 @@ import { useEffect, useRef, useState } from 'react'
 /**
  * Draggable vertical divider between two flex panels.
  *
- * onResize(deltaPx) fires on every mousemove during a drag, with the cumulative
- * delta from the mousedown point (not the per-frame delta). The parent decides
- * how to translate that into grow-ratio changes.
+ * onResize(deltaPx) fires on every mousemove with the **incremental** delta
+ * since the previous frame (NOT cumulative from mousedown). This avoids the
+ * quadratic-drift bug where parent applies cumulative delta to already-
+ * updated state each frame, so linear mouse motion produces accelerating
+ * panel growth. The cumulative delta from mousedown is shown in the tooltip
+ * for the user's benefit.
  *
  * During a drag, a transparent fullscreen overlay captures mousemove/mouseup so
  * AMAP / iframes / canvases can't steal the events.
@@ -13,21 +16,23 @@ import { useEffect, useRef, useState } from 'react'
  * Visual states:
  *   idle:    6px grey (#cfcfd3)
  *   hover:   10px blue (#0071e3)
- *   drag:    10px blue + tooltip showing "↔ ${currentDeltaPx}px"
+ *   drag:    10px blue + tooltip showing "↔ ${cumulativeDeltaPx}px"
  */
 export default function ResizeHandle({ onResize, disabled = false }) {
   const [dragging, setDragging] = useState(false)
   const [hovering, setHovering] = useState(false)
   const [currentDelta, setCurrentDelta] = useState(0)
   const startXRef = useRef(0)
+  const prevXRef = useRef(0)
 
   useEffect(() => {
     if (!dragging) return
 
     function onMove(e) {
-      const delta = e.clientX - startXRef.current
-      setCurrentDelta(delta)
-      onResize(delta)
+      const incremental = e.clientX - prevXRef.current
+      prevXRef.current = e.clientX
+      setCurrentDelta(e.clientX - startXRef.current)  // cumulative for tooltip display
+      if (incremental !== 0) onResize(incremental)
     }
     function onUp() {
       setDragging(false)
@@ -46,6 +51,7 @@ export default function ResizeHandle({ onResize, disabled = false }) {
 
   function onMouseDown(e) {
     startXRef.current = e.clientX
+    prevXRef.current = e.clientX
     setDragging(true)
   }
 

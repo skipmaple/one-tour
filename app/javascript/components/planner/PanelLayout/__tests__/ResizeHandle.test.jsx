@@ -15,20 +15,22 @@ describe('ResizeHandle', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  test('mousedown → mousemove → mouseup fires onResize with cumulative deltaPx', () => {
+  test('mousedown → mousemove → mouseup fires onResize with INCREMENTAL deltaPx per frame', () => {
     const onResize = vi.fn()
     render(<ResizeHandle onResize={onResize} />)
     const handle = screen.getByRole('separator')
 
     fireEvent.mouseDown(handle, { clientX: 500 })
-    fireEvent.mouseMove(window, { clientX: 530 })
-    fireEvent.mouseMove(window, { clientX: 550 })
+    fireEvent.mouseMove(window, { clientX: 530 })  // incremental: +30
+    fireEvent.mouseMove(window, { clientX: 550 })  // incremental: +20
     fireEvent.mouseUp(window, { clientX: 550 })
 
-    // Should be called for each mousemove with cumulative delta from start
-    expect(onResize).toHaveBeenCalled()
-    const lastCall = onResize.mock.calls[onResize.mock.calls.length - 1]
-    expect(lastCall[0]).toBe(50)  // 550 - 500
+    // Each mousemove should fire onResize with the per-frame increment, not the
+    // cumulative delta from mousedown. Cumulative was a quadratic-drift bug:
+    // applying cumulative delta to already-updated state each frame compounds.
+    expect(onResize).toHaveBeenCalledTimes(2)
+    expect(onResize.mock.calls[0][0]).toBe(30)  // 530 - 500
+    expect(onResize.mock.calls[1][0]).toBe(20)  // 550 - 530
   })
 
   test('mouseup outside the component still ends the drag', () => {
