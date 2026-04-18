@@ -44,6 +44,11 @@ RSpec.describe User, type: :model do
       expect(user.errors[:name]).to include(a_string_matching(/30/))
     end
 
+    it "accepts exactly 30 characters" do
+      user = User.new(name: "a" * 30, email: "a@example.com")
+      expect(user).to be_valid
+    end
+
     it "accepts ASCII alphanumeric names" do
       user = User.new(name: "skipmaple42", email: "a@example.com")
       expect(user).to be_valid
