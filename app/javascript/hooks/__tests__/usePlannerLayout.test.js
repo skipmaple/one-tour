@@ -154,14 +154,14 @@ describe('usePlannerLayout · flexStyle + handleVisible', () => {
     const { result } = renderHook(() => usePlannerLayout(42))
     expect(result.current.flexStyle('candidates')).toEqual({
       flex: '2 1 0',
-      minWidth: 64,
+      minWidth: 120,
     })
   })
 
   test('flexStyle for days with autoFit on uses fixed basis', () => {
     const { result } = renderHook(() => usePlannerLayout(42))
     const style = result.current.flexStyle('days', { autoFitWidth: 832 })
-    expect(style).toEqual({ flex: '0 0 832px', minWidth: 200 })
+    expect(style).toEqual({ flex: '0 1 832px', minWidth: 200 })
   })
 
   test('flexStyle for days with autoFit off uses grow', () => {

@@ -15,7 +15,7 @@ function clamp(v, lo, hi) {
 }
 
 const MIN_WIDTH = {
-  candidates: 64,
+  candidates: 120,  // was 64 — 64 collapsed empty-state text to 38px-wide vertical strip
   days: 200,
   map: 240,
   ai: 220,
@@ -113,7 +113,9 @@ export default function usePlannerLayout(tourId) {
       return { flex: `0 0 ${COLLAPSED_WIDTH}px`, minWidth: COLLAPSED_WIDTH }
     }
     if (id === 'days' && p.autoFit && opts.autoFitWidth != null) {
-      return { flex: `0 0 ${opts.autoFitWidth}px`, minWidth: MIN_WIDTH.days }
+      // flex: 0 1 — allow shrink when viewport can't fit autoFitWidth.
+      // DayPanel body has overflowX: auto so DayColumns scroll internally when shrunk.
+      return { flex: `0 1 ${opts.autoFitWidth}px`, minWidth: MIN_WIDTH.days }
     }
     return { flex: `${p.grow} 1 0`, minWidth: MIN_WIDTH[id] }
   }, [panels])
