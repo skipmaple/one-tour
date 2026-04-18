@@ -53,8 +53,12 @@ export default function Show({ tour, days, activities, violations, members, auth
     ? displayActivities.find(a => `activity-${a.id}` === activeId)
     : null
 
-  const backlog = displayActivities.filter(a => !a.day_id)
-  const byDay = Object.fromEntries(days.map(d => [ d.id, displayActivities.filter(a => a.day_id === d.id) ]))
+  // Server returns activities in DB insertion order, not position order. After
+  // any reorder, UPDATE pushes rows around the heap, so insertion order drifts
+  // from position order — client must sort explicitly.
+  const byPosition = (a, b) => a.position - b.position
+  const backlog = displayActivities.filter(a => !a.day_id).sort(byPosition)
+  const byDay = Object.fromEntries(days.map(d => [ d.id, displayActivities.filter(a => a.day_id === d.id).sort(byPosition) ]))
   const nextDayIndex = days.length === 0 ? 1 : Math.max(...days.map(d => d.day_index)) + 1
 
   // Violation acknowledge state

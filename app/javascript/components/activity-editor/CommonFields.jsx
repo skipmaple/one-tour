@@ -1,16 +1,15 @@
-import { useState } from 'react'
-import { TextInput, Textarea, Select, Radio, Group, Stack, Text, Button, Collapse } from '@mantine/core'
-import { KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS } from './detailsSchema'
+import { TextInput, Textarea, Select, Radio, Group, SimpleGrid, Stack, Text, NumberInput, Divider } from '@mantine/core'
+import { TimeInput } from '@mantine/dates'
+import { KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS } from './detailsSchema'
 import PoiSearchCombobox from './PoiSearchCombobox'
+import PresetChips from './PresetChips'
 import DetailsFields from './DetailsFields'
 
 export default function CommonFields({ form, onPoiPick, kind, details, onDetailsChange }) {
-  const [moreOpen, setMoreOpen] = useState(false)
-  const lat = form.values.lat
-  const lng = form.values.lng
-
   return (
-    <Stack gap="sm">
+    <Stack gap="md">
+      {/* 段 1：位置 */}
+      <Divider label="位置" labelPosition="left" />
       <PoiSearchCombobox onPick={onPoiPick} />
       <TextInput
         label="名称"
@@ -18,62 +17,57 @@ export default function CommonFields({ form, onPoiPick, kind, details, onDetails
         maxLength={80}
         {...form.getInputProps('name')}
       />
-      {(lat && lng) && (
-        <Text size="xs" c="dimmed">📍 {Number(lat).toFixed(2)}, {Number(lng).toFixed(2)}</Text>
+      {form.values.address && (
+        <Text size="xs" c="dimmed">地址：{form.values.address}</Text>
       )}
-      <Group grow>
-        <Select
-          label="类型"
-          data={KIND_OPTIONS}
-          allowDeselect={false}
-          {...form.getInputProps('kind')}
-        />
-      </Group>
-      <Radio.Group
-        label="公民等级"
-        {...form.getInputProps('citizen_level')}
-      >
-        <Group mt={4}>
+
+      {/* 段 2：分类与时间 */}
+      <Divider label="分类与时间" labelPosition="left" />
+      <Select
+        label="类型"
+        data={KIND_OPTIONS}
+        allowDeselect={false}
+        {...form.getInputProps('kind')}
+      />
+      <Radio.Group label="公民等级" {...form.getInputProps('citizen_level')}>
+        <SimpleGrid cols={2} spacing="xs" mt={4}>
           {CITIZEN_LEVEL_OPTIONS.map(o => (
             <Radio key={o.value} value={o.value} label={o.label} />
           ))}
-        </Group>
+        </SimpleGrid>
       </Radio.Group>
-      <Group grow>
-        <TextInput
+      <Group grow align="flex-end">
+        <TimeInput
           label="开始时间"
-          placeholder="HH:MM"
           {...form.getInputProps('planned_start_at')}
         />
-        <TextInput
-          label="时长 (分钟)"
-          type="number"
-          {...form.getInputProps('planned_duration_min')}
-        />
+        <Stack gap={0} data-testid="duration-field">
+          <NumberInput
+            label="时长"
+            min={0}
+            value={form.values.planned_duration_min === '' ? '' : Number(form.values.planned_duration_min)}
+            onChange={v => form.setFieldValue('planned_duration_min', v === '' ? '' : v)}
+            rightSection={<span style={{ fontSize: 12, color: 'var(--mantine-color-gray-6)', paddingRight: 8 }}>分钟</span>}
+            rightSectionWidth={46}
+          />
+          <PresetChips
+            values={DURATION_PRESET_CHIPS}
+            onPick={v => form.setFieldValue('planned_duration_min', v)}
+            ariaLabelPrefix="时长"
+          />
+        </Stack>
       </Group>
 
-      <Button variant="subtle" size="sm" onClick={() => setMoreOpen(o => !o)}>
-        {moreOpen ? '▴ 收起' : '▾ 更多设置'}
-      </Button>
-      <Collapse expanded={moreOpen}>
-        <Stack gap="sm">
-          <Textarea
-            label="描述"
-            minRows={2}
-            maxRows={4}
-            autosize
-            {...form.getInputProps('description')}
-          />
-          <Textarea
-            label="贴士"
-            minRows={1}
-            maxRows={3}
-            autosize
-            {...form.getInputProps('tips')}
-          />
-          <DetailsFields kind={kind} details={details} onChange={onDetailsChange} />
-        </Stack>
-      </Collapse>
+      {/* 段 3：详情 */}
+      <Divider label="详情" labelPosition="left" />
+      <Textarea
+        label="备注"
+        minRows={2}
+        maxRows={5}
+        autosize
+        {...form.getInputProps('desc')}
+      />
+      <DetailsFields kind={kind} details={details} onChange={onDetailsChange} />
     </Stack>
   )
 }

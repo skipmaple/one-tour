@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Drawer, Button, Group, Stack } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { modals } from '@mantine/modals'
@@ -8,23 +8,25 @@ import { useUndoStack } from '../../hooks/useUndoStack'
 import { KIND_SCHEMA } from './detailsSchema'
 import CommonFields from './CommonFields'
 
+const EMPTY_FORM_VALUES = {
+  name: '',
+  kind: 'scenic',
+  citizen_level: 'tier_three',
+  lat: '',
+  lng: '',
+  address: '',
+  planned_start_at: '',
+  planned_duration_min: '',
+  desc: '',
+}
+
 export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId }) {
   const isEdit = mode === 'edit'
   const [saving, setSaving] = useState(false)
   const undoStack = useUndoStack()
 
   const form = useForm({
-    initialValues: {
-      name: '',
-      kind: 'scenic',
-      citizen_level: 'tier_three',
-      lat: '',
-      lng: '',
-      planned_start_at: '',
-      planned_duration_min: '',
-      description: '',
-      tips: '',
-    },
+    initialValues: EMPTY_FORM_VALUES,
     validate: {
       name: (v) => (v.trim().length === 0 ? '名称不能为空' : null),
     },
@@ -32,7 +34,17 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
 
   const [details, setDetails] = useState({})
 
-  // Populate form when editing an existing activity
+  // Tracks the name last auto-filled by a POI pick. If the user picks another
+  // POI while `form.values.name` still matches this, we treat the name as
+  // "not user-edited" and overwrite it with the new POI's name. Any manual
+  // edit makes the value diverge, so we preserve what the user typed.
+  const poiFilledName = useRef('')
+
+  // Populate form when editing an existing activity. Note: `form.resetDirty()`
+  // in Mantine overwrites the form's "initial snapshot" with current values —
+  // so after we load edit data and call resetDirty, a later `form.reset()`
+  // would restore THOSE edit values, not EMPTY_FORM_VALUES. When switching to
+  // create mode we therefore reset the snapshot explicitly.
   useEffect(() => {
     if (opened && isEdit && activity) {
       form.setValues({
@@ -41,17 +53,20 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
         citizen_level: activity.citizen_level || 'tier_three',
         lat: activity.lat ?? '',
         lng: activity.lng ?? '',
+        address: activity.address || '',
         planned_start_at: activity.planned_start_at || '',
         planned_duration_min: activity.planned_duration_min ?? '',
-        description: activity.description || '',
-        tips: activity.tips || '',
+        desc: activity.desc || '',
       })
       setDetails(activity.details || {})
       form.resetDirty()
+      poiFilledName.current = ''
     }
     if (opened && !isEdit) {
-      form.reset()
+      form.setValues(EMPTY_FORM_VALUES)
+      form.resetDirty()
       setDetails({})
+      poiFilledName.current = ''
     }
   }, [opened, isEdit, activity?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -66,10 +81,15 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     setDetails(cleaned)
   }
 
-  const handlePoiPick = ({ name, lat, lng }) => {
-    if (!form.values.name) form.setFieldValue('name', name)
+  const handlePoiPick = ({ name, lat, lng, address }) => {
+    const current = form.values.name
+    if (!current || current === poiFilledName.current) {
+      form.setFieldValue('name', name)
+      poiFilledName.current = name
+    }
     form.setFieldValue('lat', lat)
     form.setFieldValue('lng', lng)
+    form.setFieldValue('address', address || '')
   }
 
   const handleClose = () => {
@@ -191,8 +211,10 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
                     citizen_level: savedAttrs.citizen_level,
                     lat: savedAttrs.lat,
                     lng: savedAttrs.lng,
+                    address: savedAttrs.address,
                     planned_start_at: savedAttrs.planned_start_at,
                     planned_duration_min: savedAttrs.planned_duration_min,
+                    desc: savedAttrs.desc,
                     details: savedAttrs.details || {}
                   }
                 }

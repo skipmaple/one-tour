@@ -80,7 +80,7 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
         </div>
       )}
       <Stack gap={4} p="xs" ref={setNodeRef} style={{
-        flex: 1, minHeight: 140,
+        flex: 1, minHeight: 0, overflowY: 'auto',
         background: isOver ? '#f0f7ff' : undefined,
         border: dragWarning ? '1px solid var(--mantine-color-red-6)' : undefined
       }}>

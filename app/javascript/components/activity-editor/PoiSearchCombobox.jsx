@@ -44,7 +44,7 @@ export default function PoiSearchCombobox({ onPick }) {
   const handleSelect = (idx) => {
     const c = candidates[Number(idx)]
     if (c && onPick) {
-      onPick({ name: c.name, lat: c.lat, lng: c.lng })
+      onPick({ name: c.name, lat: c.lat, lng: c.lng, address: c.address })
     }
     combobox.closeDropdown()
   }

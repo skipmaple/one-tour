@@ -2,9 +2,9 @@ module AITools
   class UpdateActivity < AITools::Base
     description "更新某条 activity 的字段（部分更新）"
     param :activity_id, type: :integer
-    param :patch,       type: :object, desc: "要更新的字段 hash（name/desc/tips/lat/lng/planned_start_at/planned_duration_min/details…）"
+    param :patch,       type: :object, desc: "要更新的字段 hash（name/desc/lat/lng/planned_start_at/planned_duration_min/details…）"
 
-    UPDATABLE = %w[name desc tips lat lng address planned_start_at planned_duration_min kind citizen_level details].freeze
+    UPDATABLE = %w[name desc lat lng address planned_start_at planned_duration_min kind citizen_level details].freeze
 
     def execute(activity_id:, patch:)
       with_rescues do

@@ -72,5 +72,50 @@ RSpec.describe Activity do
       expect(activity).not_to be_valid
       expect(activity.errors[:details].first).to match(/too large/)
     end
+
+    describe "details numeric bounds (defense-in-depth vs. UI)" do
+      it "accepts altitude within 0..9000" do
+        expect(build(:activity, details: { "altitude" => 0 })).to be_valid
+        expect(build(:activity, details: { "altitude" => 5000 })).to be_valid
+        expect(build(:activity, details: { "altitude" => 9000 })).to be_valid
+      end
+
+      it "rejects altitude > 9000" do
+        activity = build(:activity, details: { "altitude" => 10000 })
+        expect(activity).not_to be_valid
+        expect(activity.errors[:details]).to include(match(/altitude/)).and include(match(/9000/))
+      end
+
+      it "rejects negative numeric detail fields" do
+        %w[altitude recommend_stay_min ticket_info price_pp km drive_min next_station_km].each do |key|
+          activity = build(:activity, details: { key => -1 })
+          expect(activity).not_to be_valid, "expected #{key}=-1 to be invalid"
+          expect(activity.errors[:details]).to include(match(/#{key}.*负数/))
+        end
+      end
+
+      it "rejects non-numeric values for numeric fields" do
+        activity = build(:activity, details: { "altitude" => "高" })
+        expect(activity).not_to be_valid
+        expect(activity.errors[:details]).to include(match(/altitude.*必须为数字/))
+      end
+
+      it "allows nil and missing numeric keys" do
+        expect(build(:activity, details: {})).to be_valid
+        expect(build(:activity, details: { "altitude" => nil })).to be_valid
+        expect(build(:activity, details: { "notes" => "自由文本" })).to be_valid
+      end
+
+      it "accepts valid combinations across multiple numeric fields" do
+        activity = build(:activity, details: {
+          "altitude" => 3000,
+          "price_pp" => 120,
+          "km" => 350,
+          "drive_min" => 240,
+          "recommend_stay_min" => 60
+        })
+        expect(activity).to be_valid
+      end
+    end
   end
 end
