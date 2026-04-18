@@ -121,3 +121,42 @@ describe('usePlannerLayout · resizeBetween + autoFit', () => {
     expect(total).toBeCloseTo(10, 5)
   })
 })
+
+describe('usePlannerLayout · flexStyle + handleVisible', () => {
+  test('flexStyle for collapsed panel returns 40px rail', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    act(() => result.current.togglePanel('candidates'))
+    expect(result.current.flexStyle('candidates')).toEqual({
+      flex: '0 0 40px',
+      minWidth: 40,
+    })
+  })
+
+  test('flexStyle for open candidates returns grow with min-width', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    expect(result.current.flexStyle('candidates')).toEqual({
+      flex: '2 1 0',
+      minWidth: 64,
+    })
+  })
+
+  test('flexStyle for days with autoFit on uses fixed basis', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    const style = result.current.flexStyle('days', { autoFitWidth: 832 })
+    expect(style).toEqual({ flex: '0 0 832px', minWidth: 200 })
+  })
+
+  test('flexStyle for days with autoFit off uses grow', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    act(() => result.current.toggleAutoFit())
+    const style = result.current.flexStyle('days', { autoFitWidth: 832 })
+    expect(style).toEqual({ flex: '5 1 0', minWidth: 200 })
+  })
+
+  test('handleVisible true only when both adjacent panels open', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    expect(result.current.handleVisible('candidates', 'days')).toBe(true)
+    act(() => result.current.togglePanel('candidates'))
+    expect(result.current.handleVisible('candidates', 'days')).toBe(false)
+  })
+})

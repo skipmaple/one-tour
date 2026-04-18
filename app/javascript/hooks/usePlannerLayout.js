@@ -14,6 +14,15 @@ function clamp(v, lo, hi) {
   return Math.max(lo, Math.min(hi, v))
 }
 
+const MIN_WIDTH = {
+  candidates: 64,
+  days: 200,
+  map: 240,
+  ai: 220,
+}
+
+const COLLAPSED_WIDTH = 40
+
 function loadFromStorage(tourId) {
   try {
     const raw = window.localStorage.getItem(`${STORAGE_PREFIX}${tourId}`)
@@ -95,5 +104,20 @@ export default function usePlannerLayout(tourId) {
     }))
   }, [setPanels])
 
-  return { panels, openCount, togglePanel, resizeBetween, toggleAutoFit }
+  const flexStyle = useCallback((id, opts = {}) => {
+    const p = panels[id]
+    if (!p.open) {
+      return { flex: `0 0 ${COLLAPSED_WIDTH}px`, minWidth: COLLAPSED_WIDTH }
+    }
+    if (id === 'days' && p.autoFit && opts.autoFitWidth != null) {
+      return { flex: `0 0 ${opts.autoFitWidth}px`, minWidth: MIN_WIDTH.days }
+    }
+    return { flex: `${p.grow} 1 0`, minWidth: MIN_WIDTH[id] }
+  }, [panels])
+
+  const handleVisible = useCallback((leftId, rightId) => {
+    return panels[leftId].open && panels[rightId].open
+  }, [panels])
+
+  return { panels, openCount, togglePanel, resizeBetween, toggleAutoFit, flexStyle, handleVisible }
 }
