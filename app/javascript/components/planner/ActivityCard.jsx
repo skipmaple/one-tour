@@ -1,4 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { IconPhoto } from '@tabler/icons-react'
 
 export default function ActivityCard({ activity, onClick, readOnly }) {
   const isRoadInfra = activity.kind === 'road' && activity.citizen_level === 'infrastructure'
@@ -106,9 +107,9 @@ function CoverThumb({ url, count }) {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14, color: '#adb5bd',
+        color: '#adb5bd',
       }}>
-        {!url && '📷'}
+        {!url && <IconPhoto size={18} stroke={1.5} />}
       </div>
       <div style={{
         position: 'absolute', bottom: -3, right: -3,

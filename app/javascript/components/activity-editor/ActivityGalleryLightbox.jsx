@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Modal, ActionIcon, Text } from '@mantine/core'
+import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react'
 
 // Simple lightbox: fullscreen image with left/right nav + ESC to close.
 // Uses Mantine Modal with a custom black background. Not using Carousel to
@@ -45,24 +46,22 @@ export default function ActivityGalleryLightbox({ images, initialIndex, onClose 
           <ActionIcon
             size="xl"
             variant="transparent"
-            color="gray"
             style={{ position: 'absolute', top: 16, right: 16, color: '#fff', zIndex: 2 }}
             onClick={onClose}
             aria-label="关闭"
           >
-            ✕
+            <IconX size={28} stroke={1.8} />
           </ActionIcon>
 
           {index > 0 && (
             <ActionIcon
               size="xl"
               variant="transparent"
-              color="gray"
-              style={{ position: 'absolute', left: 16, top: '50%', color: '#fff', zIndex: 2, fontSize: 24 }}
+              style={{ position: 'absolute', left: 16, top: '50%', color: '#fff', zIndex: 2 }}
               onClick={() => setIndex(index - 1)}
               aria-label="上一张"
             >
-              ‹
+              <IconChevronLeft size={32} stroke={1.8} />
             </ActionIcon>
           )}
 
@@ -76,12 +75,11 @@ export default function ActivityGalleryLightbox({ images, initialIndex, onClose 
             <ActionIcon
               size="xl"
               variant="transparent"
-              color="gray"
-              style={{ position: 'absolute', right: 16, top: '50%', color: '#fff', zIndex: 2, fontSize: 24 }}
+              style={{ position: 'absolute', right: 16, top: '50%', color: '#fff', zIndex: 2 }}
               onClick={() => setIndex(index + 1)}
               aria-label="下一张"
             >
-              ›
+              <IconChevronRight size={32} stroke={1.8} />
             </ActionIcon>
           )}
 

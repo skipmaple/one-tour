@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Button, Group, Stack, Text, TextInput, ActionIcon } from '@mantine/core'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
+import { IconPhoto, IconStar, IconStarFilled, IconPencil, IconX, IconUpload } from '@tabler/icons-react'
 import ActivityGalleryLightbox from './ActivityGalleryLightbox'
 
 // Accepted MIME types match ActivityImage::ALLOWED_CONTENT_TYPES on the server.
@@ -121,11 +122,11 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
   if (ordered.length === 0) {
     return (
       <Stack gap="xs" align="center" style={{ padding: '32px 16px', textAlign: 'center' }}>
-        <div style={{ fontSize: 40, opacity: 0.5 }}>📷</div>
+        <IconPhoto size={48} stroke={1.2} color="#adb5bd" />
         <Text fw={600}>还没有景色照片</Text>
         <Text size="xs" c="dimmed">最多 20 张，每张 ≤ 10 MB</Text>
-        <Button onClick={openFilePicker} loading={uploading} mt="sm">
-          + 上传第一张
+        <Button onClick={openFilePicker} loading={uploading} leftSection={<IconUpload size={14} />} mt="sm">
+          上传第一张
         </Button>
         <input
           ref={fileInputRef}
@@ -151,8 +152,9 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
           onClick={openFilePicker}
           loading={uploading}
           disabled={atLimit}
+          leftSection={<IconUpload size={14} />}
         >
-          + 上传
+          上传
         </Button>
       </Group>
 
@@ -181,15 +183,17 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
               <div style={{
                 position: 'absolute', top: 4, left: 4,
                 background: '#fab005', color: '#fff',
-                padding: '1px 6px', borderRadius: 8,
+                padding: '2px 8px 2px 6px', borderRadius: 10,
                 fontSize: 10, fontWeight: 600,
+                display: 'inline-flex', alignItems: 'center', gap: 3,
               }}>
-                ★ 封面
+                <IconStarFilled size={10} />
+                封面
               </div>
             )}
             <div
               style={{
-                position: 'absolute', top: 4, right: 4, display: 'flex', gap: 2,
+                position: 'absolute', top: 4, right: 4, display: 'flex', gap: 4,
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -199,9 +203,9 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
                   variant="filled"
                   color="dark"
                   onClick={() => handleSetCover(image)}
-                  title="设为封面"
+                  aria-label="设为封面"
                 >
-                  ⭐
+                  <IconStar size={14} stroke={1.8} />
                 </ActionIcon>
               )}
               <ActionIcon
@@ -209,18 +213,18 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
                 variant="filled"
                 color="dark"
                 onClick={() => startCaptionEdit(image)}
-                title="编辑说明"
+                aria-label="编辑说明"
               >
-                ✎
+                <IconPencil size={14} stroke={1.8} />
               </ActionIcon>
               <ActionIcon
                 size="sm"
                 variant="filled"
                 color="red"
                 onClick={() => handleDelete(image)}
-                title="删除"
+                aria-label="删除"
               >
-                ✕
+                <IconX size={14} stroke={1.8} />
               </ActionIcon>
             </div>
 
