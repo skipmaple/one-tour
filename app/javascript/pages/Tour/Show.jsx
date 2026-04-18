@@ -10,7 +10,7 @@ import PlannerMap from '../../components/planner/PlannerMap'
 import ChatPanel from '../../components/planner/ChatPanel'
 import DayPanel from '../../components/planner/DayPanel'
 import ResizeHandle from '../../components/planner/PanelLayout/ResizeHandle'
-import ConstitutionBanner from '../../components/planner/ConstitutionBanner'
+import ConstitutionChip from '../../components/planner/ConstitutionChip'
 import TourTabs from '../../components/tour/TourTabs'
 import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
@@ -120,20 +120,29 @@ export default function Show({ tour, days, activities, violations, members, auth
         <div style={{ padding: 10 }}>
           <TourTabs tour={tour} active="planner" />
           <Group justify="space-between" mb="xs" mt="sm">
-            <div
-              onClick={() => canEdit && setSettingsOpen(true)}
-              style={{ cursor: canEdit ? 'pointer' : 'default' }}
-              className={canEdit ? 'tour-title-editable' : undefined}
-            >
-              <Text fw={700} size="lg" className="tour-title-text">{tour.title}</Text>
-              {canEdit && <Text fw={700} size="lg" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none' }}>✎ 编辑</Text>}
-              {canEdit && (
-                <style>{`
-                  .tour-title-editable:hover .tour-title-text { display: none; }
-                  .tour-title-editable:hover .tour-title-edit-hint { display: inline !important; }
-                `}</style>
-              )}
-            </div>
+            <Group gap="xs" wrap="nowrap">
+              <div
+                onClick={() => canEdit && setSettingsOpen(true)}
+                style={{ cursor: canEdit ? 'pointer' : 'default' }}
+                className={canEdit ? 'tour-title-editable' : undefined}
+              >
+                <Text fw={700} size="lg" className="tour-title-text">{tour.title}</Text>
+                {canEdit && <Text fw={700} size="lg" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none' }}>✎ 编辑</Text>}
+                {canEdit && (
+                  <style>{`
+                    .tour-title-editable:hover .tour-title-text { display: none; }
+                    .tour-title-editable:hover .tour-title-edit-hint { display: inline !important; }
+                  `}</style>
+                )}
+              </div>
+              <ConstitutionChip
+                violations={violations}
+                onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
+                onAcknowledge={(v) => setAcknowledgingViolation(v)}
+                onDismiss={() => {}}
+                readOnly={!canEdit}
+              />
+            </Group>
             <Button
               size="compact-xs"
               variant="default"
@@ -142,13 +151,6 @@ export default function Show({ tour, days, activities, violations, members, auth
               成员
             </Button>
           </Group>
-          <ConstitutionBanner
-            violations={violations}
-            onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
-            onAcknowledge={(v) => setAcknowledgingViolation(v)}
-            onDismiss={() => {}}
-            readOnly={!canEdit}
-          />
         </div>
         <div ref={containerRef} style={{
           display: 'flex',
