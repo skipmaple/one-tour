@@ -1,6 +1,6 @@
 import { Modal, Stack, TextInput, FileInput, Button, Group, Avatar, Anchor } from '@mantine/core'
 import { useForm, usePage, router } from '@inertiajs/react'
-import { useMemo } from 'react'
+import { useEffect, useState } from 'react'
 
 const NAME_RE = /^[A-Za-z0-9\u4e00-\u9fff]+$/
 
@@ -8,9 +8,16 @@ export default function ProfileSettingsModal({ opened, onClose }) {
   const { current_user } = usePage().props
   const form = useForm({ name: current_user.name, avatar: null })
 
-  const previewUrl = useMemo(() => {
-    if (form.data.avatar) return URL.createObjectURL(form.data.avatar)
-    return current_user.avatar_url || null
+  const [previewUrl, setPreviewUrl] = useState(current_user.avatar_url || null)
+
+  useEffect(() => {
+    if (!form.data.avatar) {
+      setPreviewUrl(current_user.avatar_url || null)
+      return
+    }
+    const url = URL.createObjectURL(form.data.avatar)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
   }, [form.data.avatar, current_user.avatar_url])
 
   const clientNameError = (() => {
