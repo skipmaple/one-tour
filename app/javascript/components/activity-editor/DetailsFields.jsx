@@ -59,6 +59,7 @@ function renderField(field, value, set) {
           label={field.label}
           min={0}
           max={field.max}
+          clampBehavior="strict"
           value={value ?? ''}
           onChange={v => set(field.key, v === '' ? null : v)}
           rightSection={field.suffix ? <span style={{ fontSize: 12, color: 'var(--mantine-color-gray-6)', paddingRight: 8 }}>{field.suffix}</span> : null}
