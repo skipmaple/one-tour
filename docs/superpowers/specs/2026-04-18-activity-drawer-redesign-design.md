@@ -25,7 +25,7 @@
 
 ## 设计约束
 
-- **纯中文 UI**：label、placeholder、helper text、错误文案全中文。不用 emoji/icon 作装饰前缀（不再用 `📍`、`⚠`、`💡` 等开头）。引用：[memory/feedback_chinese_ui_no_mixing.md](https://)
+- **纯中文 UI**：label、placeholder、helper text、错误文案全中文。不用 emoji/icon 作装饰前缀（不再用 `📍`、`⚠`、`💡` 等开头）。
 - **抽屉宽度**：保持现在的 420px
 - **样式基座**：Mantine v9，原生组件优先，避免自造 primitive
 

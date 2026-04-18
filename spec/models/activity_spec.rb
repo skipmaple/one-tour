@@ -112,7 +112,7 @@ RSpec.describe Activity do
           "price_pp" => 120,
           "km" => 350,
           "drive_min" => 240,
-          "recommend_stay_min" => 60,
+          "recommend_stay_min" => 60
         })
         expect(activity).to be_valid
       end
