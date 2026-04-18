@@ -1,13 +1,12 @@
-import { TextInput, Checkbox, Select, Stack, Title } from '@mantine/core'
+import { TextInput, NumberInput, Checkbox, Select, Autocomplete, Stack, Title } from '@mantine/core'
 import { KIND_SCHEMA } from './detailsSchema'
+import PresetChips from './PresetChips'
 
 export default function DetailsFields({ kind, details, onChange }) {
   const schema = KIND_SCHEMA[kind] || []
   if (schema.length === 0) return null
 
-  const handleChange = (key, value) => {
-    onChange({ ...details, [key]: value })
-  }
+  const set = (key, value) => onChange({ ...details, [key]: value })
 
   return (
     <Stack gap="sm">
@@ -20,7 +19,7 @@ export default function DetailsFields({ kind, details, onChange }) {
               key={field.key}
               label={field.label}
               checked={!!value}
-              onChange={e => handleChange(field.key, e.currentTarget.checked)}
+              onChange={e => set(field.key, e.currentTarget.checked)}
             />
           )
         }
@@ -31,9 +30,37 @@ export default function DetailsFields({ kind, details, onChange }) {
               label={field.label}
               data={field.options}
               value={value || null}
-              onChange={v => handleChange(field.key, v)}
+              onChange={v => set(field.key, v)}
               clearable
             />
+          )
+        }
+        if (field.type === 'autocomplete') {
+          return (
+            <Autocomplete
+              key={field.key}
+              label={field.label}
+              data={field.suggestions || []}
+              value={value || ''}
+              onChange={v => set(field.key, v)}
+            />
+          )
+        }
+        if (field.type === 'number_with_suffix') {
+          return (
+            <div key={field.key}>
+              <NumberInput
+                label={field.label}
+                min={0}
+                value={value ?? ''}
+                onChange={v => set(field.key, v === '' ? null : v)}
+                rightSection={field.suffix ? <span style={{ fontSize: 12, color: 'var(--mantine-color-gray-6)', paddingRight: 8 }}>{field.suffix}</span> : null}
+                rightSectionWidth={field.suffix ? 46 : undefined}
+              />
+              {Array.isArray(field.presets) && field.presets.length > 0 && (
+                <PresetChips values={field.presets} onPick={v => set(field.key, v)} />
+              )}
+            </div>
           )
         }
         if (field.type === 'number') {
@@ -43,7 +70,7 @@ export default function DetailsFields({ kind, details, onChange }) {
               label={field.label}
               type="number"
               value={value ?? ''}
-              onChange={e => handleChange(field.key, e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}
+              onChange={e => set(field.key, e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}
             />
           )
         }
@@ -52,7 +79,7 @@ export default function DetailsFields({ kind, details, onChange }) {
             key={field.key}
             label={field.label}
             value={value || ''}
-            onChange={e => handleChange(field.key, e.currentTarget.value)}
+            onChange={e => set(field.key, e.currentTarget.value)}
           />
         )
       })}
