@@ -65,7 +65,7 @@ class SessionsController < ApplicationController
       email = EmailVerification.normalize_email(raw_email)
       User.find_by(email: email) || User.create!(
         email: email,
-        name:  email.split("@").first.presence || "User"
+        name:  sanitize_name(email.split("@").first, fallback: "user")
       )
     end
 
@@ -91,12 +91,18 @@ class SessionsController < ApplicationController
       if user = User.find_by(email: email)
         user
       else
+        raw_name = auth.info.name.presence || auth.info.nickname
         User.create!(
           email: email,
-          name: auth.info.name.presence || auth.info.nickname || "User",
+          name: sanitize_name(raw_name, fallback: "user"),
           avatar_url: auth.info.image
         )
       end
+    end
+
+    def sanitize_name(raw, fallback:)
+      cleaned = raw.to_s.gsub(/[^A-Za-z0-9\u4e00-\u9fff]/, "")[0, 30]
+      cleaned.presence || fallback
     end
 
     def fallback_email(auth)

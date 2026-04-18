@@ -29,7 +29,7 @@ RSpec.describe "Sessions", type: :request do
 
       user = User.last
       expect(user.email).to eq "user@example.com"
-      expect(user.name).to eq "GitHub User"
+      expect(user.name).to eq "GitHubUser"
       expect(response).to redirect_to(root_path)
     end
 
