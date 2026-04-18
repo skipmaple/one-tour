@@ -262,6 +262,21 @@ function PlannerMapInner({ activities, days = [] }) {
     })
   }, [ activitiesByDay, days, viewMode, theme, sdkState ])
 
+  // Defensive: AMAP claims resizeEnable: true auto-detects container size changes,
+  // but in flex layouts this is unreliable. Explicitly call map.resize() via
+  // ResizeObserver so drag-resize of parent flex panels redraws the map correctly.
+  useEffect(() => {
+    const map = mapRef.current
+    const container = containerRef.current
+    if (!map || !container || typeof window.ResizeObserver === 'undefined') return
+
+    const observer = new window.ResizeObserver(() => {
+      map.resize?.()
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [sdkState])
+
   return (
     <Paper
       withBorder
