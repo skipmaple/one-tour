@@ -102,5 +102,32 @@ RSpec.describe User, type: :model do
         expect(user.display_avatar_url).to be_nil
       end
     end
+
+    describe "format and size validation" do
+      it "rejects non-image content types" do
+        user.avatar.attach(
+          io: StringIO.new("not an image"),
+          filename: "bad.txt",
+          content_type: "text/plain"
+        )
+        expect(user).not_to be_valid
+        expect(user.errors[:avatar]).to include("格式不支持")
+      end
+
+      it "rejects files over 5MB" do
+        user.avatar.attach(
+          io: StringIO.new("x" * (5.megabytes + 1)),
+          filename: "big.png",
+          content_type: "image/png"
+        )
+        expect(user).not_to be_valid
+        expect(user.errors[:avatar]).to include("不能超过 5MB")
+      end
+
+      it "accepts a valid PNG under 5MB" do
+        attach_fixture
+        expect(user).to be_valid
+      end
+    end
   end
 end

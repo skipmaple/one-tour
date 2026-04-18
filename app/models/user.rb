@@ -13,6 +13,7 @@ class User < ApplicationRecord
                      message: "只能包含字母、数字或中文"
                    }
   validates :email, presence: true, uniqueness: true
+  validate :avatar_format_and_size, if: -> { avatar.attached? }
 
   def display_avatar_url
     if avatar.attached?
@@ -28,4 +29,14 @@ class User < ApplicationRecord
   def has_custom_avatar?
     avatar.attached?
   end
+
+  private
+    def avatar_format_and_size
+      unless %w[image/jpeg image/png image/webp].include?(avatar.content_type)
+        errors.add(:avatar, "格式不支持")
+      end
+      if avatar.byte_size > 5.megabytes
+        errors.add(:avatar, "不能超过 5MB")
+      end
+    end
 end
