@@ -22,7 +22,7 @@ import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
 
-export default function Show({ tour, days, activities, activity_images, expenses, expenses_summary, tour_budgets, violations, members, author, conversation_empty }) {
+export default function Show({ tour, days, activities, activity_images, expenses, expenses_summary, tour_budgets, route_legs, violations, members, author, conversation_empty }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const layout = usePlannerLayout(tour.id)
@@ -235,6 +235,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
           <PlannerMap
             activities={activities}
             days={days}
+            routeLegs={route_legs || []}
             open={layout.panels.map.open}
             onToggle={() => layout.togglePanel('map')}
             canToggle={layout.openCount > 1 || !layout.panels.map.open}
@@ -268,6 +269,10 @@ export default function Show({ tour, days, activities, activity_images, expenses
         activity={editingActivity}
         targetDayId={editor.targetDayId}
         images={editingImages}
+        allActivities={activities}
+        days={days}
+        routeLegs={route_legs || []}
+        canEdit={canEdit}
       />
 
       <AcknowledgeModal

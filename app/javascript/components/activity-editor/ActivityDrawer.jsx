@@ -8,6 +8,7 @@ import { useUndoStack } from '../../hooks/useUndoStack'
 import { KIND_SCHEMA } from './detailsSchema'
 import CommonFields from './CommonFields'
 import ActivityGalleryTab from './ActivityGalleryTab'
+import ActivityRouteTab from './ActivityRouteTab'
 
 const EMPTY_FORM_VALUES = {
   name: '',
@@ -21,7 +22,7 @@ const EMPTY_FORM_VALUES = {
   desc: '',
 }
 
-export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId, images }) {
+export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId, images, allActivities, days, routeLegs, canEdit }) {
   const isEdit = mode === 'edit'
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('basic')
@@ -271,6 +272,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
           <Tabs.List>
             <Tabs.Tab value="basic">基础</Tabs.Tab>
             {isEdit && <Tabs.Tab value="images">图片{images?.length > 0 && ` (${images.length})`}</Tabs.Tab>}
+            {isEdit && <Tabs.Tab value="route">路线</Tabs.Tab>}
           </Tabs.List>
 
           <Tabs.Panel value="basic" pt="md">
@@ -289,6 +291,19 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
                 activityId={activity?.id}
                 images={images || []}
                 hasCoordinates={Boolean(activity?.lat) && Boolean(activity?.lng)}
+              />
+            </Tabs.Panel>
+          )}
+
+          {isEdit && (
+            <Tabs.Panel value="route" pt="md">
+              <ActivityRouteTab
+                tourId={tourId}
+                activity={activity}
+                allActivities={allActivities || []}
+                days={days || []}
+                routeLegs={routeLegs || []}
+                canEdit={canEdit}
               />
             </Tabs.Panel>
           )}

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_18_120006) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_18_120007) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -188,6 +188,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_120006) do
     t.index ["user_id"], name: "index_oauth_identities_on_user_id"
   end
 
+  create_table "route_legs", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.bigint "from_activity_id", null: false
+    t.bigint "to_activity_id", null: false
+    t.integer "mode", default: 0, null: false
+    t.integer "distance_m"
+    t.integer "duration_s"
+    t.jsonb "polyline", default: {}, null: false
+    t.string "endpoint_digest"
+    t.datetime "fetched_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["endpoint_digest"], name: "index_route_legs_on_endpoint_digest"
+    t.index ["from_activity_id"], name: "index_route_legs_on_from_activity_id"
+    t.index ["to_activity_id"], name: "index_route_legs_on_to_activity_id"
+    t.index ["tour_id", "from_activity_id", "to_activity_id", "mode"], name: "idx_route_legs_unique_pair", unique: true
+    t.index ["tour_id"], name: "index_route_legs_on_tour_id"
+  end
+
   create_table "tour_budgets", force: :cascade do |t|
     t.bigint "tour_id", null: false
     t.bigint "day_id"
@@ -266,6 +285,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_120006) do
   add_foreign_key "expenses", "users", column: "paid_by_id"
   add_foreign_key "messages", "conversations"
   add_foreign_key "oauth_identities", "users"
+  add_foreign_key "route_legs", "activities", column: "from_activity_id", on_delete: :cascade
+  add_foreign_key "route_legs", "activities", column: "to_activity_id", on_delete: :cascade
+  add_foreign_key "route_legs", "tours", on_delete: :cascade
   add_foreign_key "tour_budgets", "activities", on_delete: :cascade
   add_foreign_key "tour_budgets", "days", on_delete: :cascade
   add_foreign_key "tour_budgets", "tours", on_delete: :cascade

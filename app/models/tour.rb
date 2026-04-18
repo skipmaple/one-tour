@@ -6,6 +6,7 @@ class Tour < ApplicationRecord
   has_many :activities, dependent: :destroy
   has_many :tour_budgets, dependent: :destroy
   has_many :expenses, dependent: :destroy
+  has_many :route_legs, dependent: :destroy
   has_many :conversations, dependent: :destroy
 
   validates :title, presence: true

@@ -107,7 +107,7 @@ describe('buildPolylineConfigs', () => {
     expect(configs).toEqual([])
   })
 
-  test('single day with multiple activities — one solid same-day polyline', () => {
+  test('single day with multiple activities — one solid segment per adjacent pair', () => {
     const days = [{ id: 10, day_index: 1, buffer_day: false }]
     const grouped = {
       10: [
@@ -117,10 +117,12 @@ describe('buildPolylineConfigs', () => {
       ]
     }
     const configs = buildPolylineConfigs(grouped, days, theme)
-    expect(configs).toHaveLength(1)
-    expect(configs[0].strokeStyle).toBe('solid')
-    expect(configs[0].strokeColor).toBe('#fa5252') // D1 = red
-    expect(configs[0].path).toEqual([[81.3, 44.6], [81.4, 44.7], [81.5, 44.8]])
+    // 2 adjacent pairs → 2 polylines (enables per-pair real-road routing in Phase C).
+    expect(configs).toHaveLength(2)
+    expect(configs.every(c => c.strokeStyle === 'solid')).toBe(true)
+    expect(configs.every(c => c.strokeColor === '#fa5252')).toBe(true)
+    expect(configs[0].path).toEqual([[81.3, 44.6], [81.4, 44.7]])
+    expect(configs[1].path).toEqual([[81.4, 44.7], [81.5, 44.8]])
   })
 
   test('two consecutive days — solid same-day + dashed cross-day', () => {
@@ -186,5 +188,57 @@ describe('buildPolylineConfigs', () => {
     }
     const configs = buildPolylineConfigs(grouped, days, theme)
     expect(configs[0].path).toEqual([[81.3, 44.6], [81.4, 44.7]])
+  })
+
+  test('uses cached RouteLeg polyline when available (Phase C)', () => {
+    const days = [{ id: 10, day_index: 1, buffer_day: false }]
+    const grouped = {
+      10: [
+        { id: 1, lat: 44.6, lng: 81.3, position: 1 },
+        { id: 2, lat: 43.3, lng: 82.1, position: 2 },
+      ]
+    }
+    const routeLegsByPair = {
+      1: { 2: { driving: { polyline: { coords: [[81.3, 44.6], [81.7, 44.0], [82.0, 43.5], [82.1, 43.3]] } } } }
+    }
+    const configs = buildPolylineConfigs(grouped, days, theme, routeLegsByPair)
+    expect(configs).toHaveLength(1)
+    // Uses the cached real-road coords (4 points), not the straight-line 2 points.
+    expect(configs[0].path).toHaveLength(4)
+    expect(configs[0].strokeStyle).toBe('solid')
+    expect(configs[0].strokeOpacity).toBe(0.85)  // bumped slightly when real route present
+  })
+
+  test('falls back to straight line when no matching RouteLeg', () => {
+    const days = [{ id: 10, day_index: 1, buffer_day: false }]
+    const grouped = {
+      10: [
+        { id: 1, lat: 44.6, lng: 81.3, position: 1 },
+        { id: 2, lat: 43.3, lng: 82.1, position: 2 },
+      ]
+    }
+    const routeLegsByPair = { 99: { 2: { driving: { polyline: { coords: [[1, 1]] } } } } }
+    const configs = buildPolylineConfigs(grouped, days, theme, routeLegsByPair)
+    expect(configs[0].path).toEqual([[81.3, 44.6], [82.1, 43.3]])
+    expect(configs[0].strokeOpacity).toBe(0.7)
+  })
+
+  test('cross-day uses RouteLeg when cached, dashed fallback otherwise', () => {
+    const days = [
+      { id: 10, day_index: 1, buffer_day: false },
+      { id: 20, day_index: 2, buffer_day: false },
+    ]
+    const grouped = {
+      10: [{ id: 1, lat: 44.6, lng: 81.3, position: 1 }],
+      20: [{ id: 2, lat: 43.3, lng: 82.1, position: 1 }],
+    }
+    const routeLegsByPair = {
+      1: { 2: { driving: { polyline: { coords: [[81.3, 44.6], [82, 44], [82.1, 43.3]] } } } }
+    }
+    const configs = buildPolylineConfigs(grouped, days, theme, routeLegsByPair)
+    expect(configs).toHaveLength(1)
+    // Cross-day cached route renders as solid (same as same-day real routes).
+    expect(configs[0].strokeStyle).toBe('solid')
+    expect(configs[0].path).toHaveLength(3)
   })
 })

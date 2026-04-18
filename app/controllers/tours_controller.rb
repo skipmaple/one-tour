@@ -26,6 +26,7 @@ class ToursController < ApplicationController
       expenses: expenses_for(@tour),
       expenses_summary: Expense::Summarize.new(@tour, current_user).call,
       tour_budgets: @tour.tour_budgets.as_json,
+      route_legs: route_legs_for(@tour),
       violations: tour_violations,
       members: @tour.tour_memberships.includes(:user).filter_map { |m|
         next unless m.user
@@ -107,6 +108,21 @@ class ToursController < ApplicationController
             url: img.file.attached? ? rails_blob_path(img.file, only_path: true) : nil
           }
         }
+    end
+
+    def route_legs_for(tour)
+      tour.route_legs.map { |leg|
+        {
+          id: leg.id,
+          from_activity_id: leg.from_activity_id,
+          to_activity_id: leg.to_activity_id,
+          mode: leg.mode,
+          distance_m: leg.distance_m,
+          duration_s: leg.duration_s,
+          polyline: leg.polyline,
+          fetched_at: leg.fetched_at
+        }
+      }
     end
 
     def expenses_for(tour)

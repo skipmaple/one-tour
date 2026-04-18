@@ -70,57 +70,78 @@ export function buildMarkerHTML(activity, dayIndexById, theme) {
 // `path` is [[lng, lat], [lng, lat], ...] (AMap's coord order).
 //
 // Rules:
-// - Same-day lines: solid, day color, weight 3, opacity 0.7. Connects activities
-//   within a day in `position` order (NOT planned_start_at — matches Timeline).
-// - Cross-day lines: dashed, origin-day color, weight 2, opacity 0.5. Connects
-//   the last activity of D{n} to the first of D{n+visible}, skipping any day
-//   with zero activities (e.g., buffer_day with no activity).
+// - Same-day adjacent activities: one polyline per pair. If a cached
+//   driving-mode RouteLeg exists, use its real road path (solid, day color,
+//   weight 3, opacity 0.8). Otherwise fall back to a straight line between
+//   the two points (solid, opacity 0.7 — still clearly "we don't have a real
+//   route yet").
+// - Cross-day adjacent activities (last of day N → first of day N+1): same
+//   logic, but the fallback is dashed + weight 2 + opacity 0.5 to make the
+//   "jump" visually distinct from same-day travel.
 // - Activities with invalid lat/lng are skipped.
-// - Single-activity days produce no same-day line (1 point can't form a line).
-export function buildPolylineConfigs(activitiesGroupedByDay, days, theme) {
+// - `routeLegsByPair` shape: { [fromActivityId]: { [toActivityId]: { [mode]: leg } } }
+//   where leg has `polyline.coords` as [[lng, lat], ...]. When omitted or
+//   empty, behaviour matches the pre-Phase-C straight-line rendering.
+export function buildPolylineConfigs(activitiesGroupedByDay, days, theme, routeLegsByPair = {}) {
   const configs = []
-
-  // Sort days by day_index ascending; build a list of "day with valid coords"
   const orderedDays = [ ...days ].sort((a, b) => a.day_index - b.day_index)
 
-  // For each day, extract the list of [lng, lat] pairs in position order
-  const dayPaths = orderedDays.map(day => {
+  // For each day, keep full activity objects (not just coords) so we can
+  // look up route_legs by activity id.
+  const dayActs = orderedDays.map(day => {
     const acts = (activitiesGroupedByDay[day.id] || [])
       .slice()
       .sort((a, b) => a.position - b.position)
-      .map(a => [ parseFloat(a.lng), parseFloat(a.lat) ])
-      .filter(([ lng, lat ]) => Number.isFinite(lng) && Number.isFinite(lat))
-    return { day, path: acts }
+      .filter(a => Number.isFinite(parseFloat(a.lng)) && Number.isFinite(parseFloat(a.lat)))
+    return { day, acts }
   })
 
-  // Same-day lines (solid)
-  dayPaths.forEach(({ day, path }) => {
-    if (path.length < 2) return
-    configs.push({
-      path,
-      strokeColor: theme.colors[DAY_COLOR(day.day_index)][6],
-      strokeWeight: 3,
-      strokeOpacity: 0.7,
-      strokeStyle: 'solid',
-      showDir: false
-    })
+  const lookupLeg = (fromId, toId, mode = 'driving') =>
+    routeLegsByPair[fromId]?.[toId]?.[mode]
+
+  const coordsOf = (act) => [ parseFloat(act.lng), parseFloat(act.lat) ]
+
+  // Same-day segments: one polyline per adjacent pair.
+  dayActs.forEach(({ day, acts }) => {
+    const color = theme.colors[DAY_COLOR(day.day_index)][6]
+    for (let i = 0; i < acts.length - 1; i++) {
+      const a = acts[i]
+      const b = acts[i + 1]
+      const leg = lookupLeg(a.id, b.id)
+      if (leg?.polyline?.coords?.length) {
+        configs.push({
+          path: leg.polyline.coords, strokeColor: color,
+          strokeWeight: 3, strokeOpacity: 0.85, strokeStyle: 'solid', showDir: false,
+        })
+      } else {
+        configs.push({
+          path: [ coordsOf(a), coordsOf(b) ], strokeColor: color,
+          strokeWeight: 3, strokeOpacity: 0.7, strokeStyle: 'solid', showDir: false,
+        })
+      }
+    }
   })
 
-  // Cross-day lines (dashed): pair adjacent days with non-empty paths
-  const daysWithCoords = dayPaths.filter(d => d.path.length > 0)
-  for (let i = 0; i < daysWithCoords.length - 1; i++) {
-    const from = daysWithCoords[i]
-    const to   = daysWithCoords[i + 1]
-    const lastOfFrom  = from.path[from.path.length - 1]
-    const firstOfTo   = to.path[0]
-    configs.push({
-      path: [ lastOfFrom, firstOfTo ],
-      strokeColor: theme.colors[DAY_COLOR(from.day.day_index)][6],
-      strokeWeight: 2,
-      strokeOpacity: 0.5,
-      strokeStyle: 'dashed',
-      showDir: false
-    })
+  // Cross-day segments: last of day N → first of the next non-empty day.
+  const daysWithActs = dayActs.filter(d => d.acts.length > 0)
+  for (let i = 0; i < daysWithActs.length - 1; i++) {
+    const from = daysWithActs[i]
+    const to   = daysWithActs[i + 1]
+    const lastAct  = from.acts[from.acts.length - 1]
+    const firstAct = to.acts[0]
+    const color = theme.colors[DAY_COLOR(from.day.day_index)][6]
+    const leg = lookupLeg(lastAct.id, firstAct.id)
+    if (leg?.polyline?.coords?.length) {
+      configs.push({
+        path: leg.polyline.coords, strokeColor: color,
+        strokeWeight: 3, strokeOpacity: 0.85, strokeStyle: 'solid', showDir: false,
+      })
+    } else {
+      configs.push({
+        path: [ coordsOf(lastAct), coordsOf(firstAct) ], strokeColor: color,
+        strokeWeight: 2, strokeOpacity: 0.5, strokeStyle: 'dashed', showDir: false,
+      })
+    }
   }
 
   return configs
@@ -130,7 +151,7 @@ export function buildPolylineConfigs(activitiesGroupedByDay, days, theme) {
 // Backlog activities get a grey default-style marker; day-assigned activities
 // get a blue numbered label marker so you can tell at a glance which day they
 // belong to.
-function PlannerMapInner({ activities, days = [] }) {
+function PlannerMapInner({ activities, days = [], routeLegs = [] }) {
   const { amap_js_api_key, amap_js_security_code } = usePage().props
   const sdkState = useAmap(amap_js_api_key, amap_js_security_code)
 
@@ -155,6 +176,19 @@ function PlannerMapInner({ activities, days = [] }) {
     }
     return grouped
   }, [ activities ])
+
+  // Nested lookup: route_legs[fromActivityId][toActivityId][mode] = leg
+  // Used by buildPolylineConfigs to draw real road geometry when cached.
+  const routeLegsByPair = useMemo(() => {
+    const map = {}
+    for (const leg of routeLegs) {
+      if (!leg.polyline?.coords?.length) continue
+      map[leg.from_activity_id] ??= {}
+      map[leg.from_activity_id][leg.to_activity_id] ??= {}
+      map[leg.from_activity_id][leg.to_activity_id][leg.mode] = leg
+    }
+    return map
+  }, [ routeLegs ])
 
   // Tracks AMap's runtime auth failure (e.g. USERKEY_PLAT_NOMATCH when the key
   // is registered as Web服务/REST but not Web端JS). The SDK <script> itself
@@ -254,13 +288,13 @@ function PlannerMapInner({ activities, days = [] }) {
 
     if (viewMode === 'backlog') return  // no polylines in backlog mode
 
-    const configs = buildPolylineConfigs(activitiesByDay, days, theme)
+    const configs = buildPolylineConfigs(activitiesByDay, days, theme, routeLegsByPair)
     configs.forEach(cfg => {
       const polyline = new window.AMap.Polyline(cfg)
       polyline.setMap(map)
       polylinesRef.current.push(polyline)
     })
-  }, [ activitiesByDay, days, viewMode, theme, sdkState ])
+  }, [ activitiesByDay, days, viewMode, theme, sdkState, routeLegsByPair ])
 
   // Defensive: AMAP claims resizeEnable: true auto-detects container size changes,
   // but in flex layouts this is unreliable. Explicitly call map.resize() via
@@ -365,6 +399,7 @@ function ViewModeRadio({ value, onChange }) {
 export default function PlannerMap({
   activities,
   days = [],
+  routeLegs = [],
   open = true,
   onToggle,
   canToggle = true,
@@ -379,7 +414,7 @@ export default function PlannerMap({
       canToggle={canToggle}
       flexStyle={flexStyle}
     >
-      <PlannerMapInner activities={activities} days={days} />
+      <PlannerMapInner activities={activities} days={days} routeLegs={routeLegs} />
     </PanelShell>
   )
 }
