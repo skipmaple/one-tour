@@ -35,7 +35,7 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
   }
 
   return (
-    <Paper withBorder style={{ minWidth: 120, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+    <Paper withBorder style={{ flex: '0 0 200px', display: 'flex', flexDirection: 'column' }}>
       <div
         data-testid="day-header"
         onClick={handleHeaderClick}
