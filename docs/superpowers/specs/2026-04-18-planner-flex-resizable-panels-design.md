@@ -119,7 +119,7 @@ const DEFAULT_LAYOUT: PanelState = {
 #### 新增
 
 `app/javascript/hooks/usePlannerLayout.js`
-- 单参 `tourId`，返回 `{ panels, openCount, togglePanel(id), setPanelGrow(id, grow), toggleAutoFit(), resizeBetween(leftId, rightId, deltaPx, totalPx), handleVisible(leftId, rightId), flexStyle(id, opts?) }`
+- 单参 `tourId`，返回 `{ panels, openCount, togglePanel(id), toggleAutoFit(), resizeBetween(leftId, rightId, deltaPx, totalPx), handleVisible(leftId, rightId), flexStyle(id, opts?) }`
 - 内部管理 localStorage 读写、"至少一个开"约束、 grow 守恒计算
 - `handleVisible(a, b)` = `panels[a].open && panels[b].open`（两侧都开才显示手柄）
 
