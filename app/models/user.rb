@@ -6,7 +6,12 @@ class User < ApplicationRecord
   has_many :guidebook_memberships, dependent: :destroy
   has_many :conversations, dependent: :destroy
 
-  validates :name, presence: true
+  validates :name, presence: true,
+                   length: { maximum: 30 },
+                   format: {
+                     with: /\A[A-Za-z0-9\u4e00-\u9fff]+\z/,
+                     message: "只能包含字母、数字或中文"
+                   }
   validates :email, presence: true, uniqueness: true
 
   def display_avatar_url

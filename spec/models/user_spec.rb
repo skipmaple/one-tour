@@ -21,6 +21,43 @@ RSpec.describe User, type: :model do
       duplicate = User.new(name: "Second", email: "test@example.com")
       expect(duplicate).not_to be_valid
     end
+
+    it "rejects a name containing a space" do
+      user = User.new(name: "Drew Lee", email: "a@example.com")
+      expect(user).not_to be_valid
+      expect(user.errors[:name]).to be_present
+    end
+
+    it "rejects a name containing a hyphen" do
+      user = User.new(name: "drew-lee", email: "a@example.com")
+      expect(user).not_to be_valid
+    end
+
+    it "rejects a name containing an emoji" do
+      user = User.new(name: "drew😀", email: "a@example.com")
+      expect(user).not_to be_valid
+    end
+
+    it "rejects a name longer than 30 characters" do
+      user = User.new(name: "a" * 31, email: "a@example.com")
+      expect(user).not_to be_valid
+      expect(user.errors[:name]).to include(a_string_matching(/30/))
+    end
+
+    it "accepts ASCII alphanumeric names" do
+      user = User.new(name: "skipmaple42", email: "a@example.com")
+      expect(user).to be_valid
+    end
+
+    it "accepts pure Chinese names" do
+      user = User.new(name: "路书", email: "a@example.com")
+      expect(user).to be_valid
+    end
+
+    it "accepts mixed alphanumeric + Chinese names" do
+      user = User.new(name: "drew路书42", email: "a@example.com")
+      expect(user).to be_valid
+    end
   end
 
   describe "avatar attachment" do
