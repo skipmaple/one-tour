@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, test, expect, vi } from 'vitest'
+import { describe, test, expect, vi, beforeEach } from 'vitest'
 import ResizeHandle from '../ResizeHandle'
 
 describe('ResizeHandle', () => {
@@ -43,5 +43,24 @@ describe('ResizeHandle', () => {
     // After mouseup, further mousemove should NOT fire onResize
     fireEvent.mouseMove(window, { clientX: 700 })
     expect(onResize).not.toHaveBeenCalled()
+  })
+
+  test('hover widens the handle and changes color', () => {
+    render(<ResizeHandle onResize={() => {}} />)
+    const handle = screen.getByRole('separator')
+    expect(handle).toHaveStyle({ width: '6px' })
+    fireEvent.mouseEnter(handle)
+    expect(handle).toHaveStyle({ width: '10px' })
+    fireEvent.mouseLeave(handle)
+    expect(handle).toHaveStyle({ width: '6px' })
+  })
+
+  test('drag shows tooltip with current delta', () => {
+    render(<ResizeHandle onResize={() => {}} />)
+    const handle = screen.getByRole('separator')
+    fireEvent.mouseDown(handle, { clientX: 100 })
+    fireEvent.mouseMove(window, { clientX: 150 })
+    expect(screen.getByText(/\+50px/)).toBeInTheDocument()
+    fireEvent.mouseUp(window, { clientX: 150 })
   })
 })

@@ -9,19 +9,29 @@ import { useEffect, useRef, useState } from 'react'
  *
  * During a drag, a transparent fullscreen overlay captures mousemove/mouseup so
  * AMAP / iframes / canvases can't steal the events.
+ *
+ * Visual states:
+ *   idle:    6px grey (#cfcfd3)
+ *   hover:   10px blue (#0071e3)
+ *   drag:    10px blue + tooltip showing "↔ ${currentDeltaPx}px"
  */
 export default function ResizeHandle({ onResize, disabled = false }) {
   const [dragging, setDragging] = useState(false)
+  const [hovering, setHovering] = useState(false)
+  const [currentDelta, setCurrentDelta] = useState(0)
   const startXRef = useRef(0)
 
   useEffect(() => {
     if (!dragging) return
 
     function onMove(e) {
-      onResize(e.clientX - startXRef.current)
+      const delta = e.clientX - startXRef.current
+      setCurrentDelta(delta)
+      onResize(delta)
     }
     function onUp() {
       setDragging(false)
+      setCurrentDelta(0)
     }
 
     window.addEventListener('mousemove', onMove)
@@ -39,25 +49,50 @@ export default function ResizeHandle({ onResize, disabled = false }) {
     setDragging(true)
   }
 
+  const active = hovering || dragging
+  const width = active ? 10 : 6
+
   return (
     <>
       <div
         role="separator"
         aria-orientation="vertical"
         onMouseDown={onMouseDown}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => setHovering(false)}
         style={{
-          width: 6,
-          flex: '0 0 6px',
+          width,
+          flex: `0 0 ${width}px`,
           cursor: 'col-resize',
-          background: dragging ? '#0071e3' : '#cfcfd3',
+          background: active ? '#0071e3' : '#cfcfd3',
           margin: '0 3px',
           borderRadius: 2,
           alignSelf: 'stretch',
-          transition: 'background 0.1s',
+          transition: 'background 0.1s, width 0.1s',
+          position: 'relative',
         }}
-      />
+      >
+        {dragging && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: 18,
+            transform: 'translateY(-50%)',
+            background: '#0071e3',
+            color: '#fff',
+            fontSize: 11,
+            padding: '4px 10px',
+            borderRadius: 4,
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+            pointerEvents: 'none',
+            zIndex: 10000,
+          }}>
+            ↔ {currentDelta > 0 ? '+' : ''}{Math.round(currentDelta)}px
+          </div>
+        )}
+      </div>
       {dragging && (
-        // Fullscreen capture overlay — prevents AMAP / iframes from stealing events
         <div style={{
           position: 'fixed',
           inset: 0,
