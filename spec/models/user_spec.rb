@@ -128,6 +128,16 @@ RSpec.describe User, type: :model do
         attach_fixture
         expect(user).to be_valid
       end
+
+      it "rejects a non-image with a spoofed image/png content_type" do
+        user.avatar.attach(
+          io: StringIO.new("totally not a PNG"),
+          filename: "evil.png",
+          content_type: "image/png"
+        )
+        expect(user).not_to be_valid
+        expect(user.errors[:avatar]).to include("格式不支持")
+      end
     end
   end
 end

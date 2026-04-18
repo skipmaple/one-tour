@@ -9,6 +9,6 @@ class SanitizeExistingUserNames < ActiveRecord::Migration[8.0]
   end
 
   def down
-    # Irreversible — original names are not recoverable.
+    raise ActiveRecord::IrreversibleMigration
   end
 end

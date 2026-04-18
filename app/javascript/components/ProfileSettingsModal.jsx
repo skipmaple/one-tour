@@ -21,7 +21,7 @@ export default function ProfileSettingsModal({ opened, onClose }) {
   }, [form.data.avatar, current_user.avatar_url])
 
   const clientNameError = (() => {
-    const v = (form.data.name || '').trim()
+    const v = form.data.name || ''
     if (v.length === 0) return '昵称不能为空'
     if (v.length > 30) return '昵称不能超过 30 字符'
     if (!NAME_RE.test(v)) return '只能包含字母、数字或中文'

@@ -32,11 +32,42 @@ class User < ApplicationRecord
 
   private
     def avatar_format_and_size
-      if %w[image/jpeg image/png image/webp].exclude?(avatar.content_type)
-        errors.add(:avatar, "格式不支持")
-      end
       if avatar.byte_size > 5.megabytes
         errors.add(:avatar, "不能超过 5MB")
+      else
+        detected = avatar_mime_type
+        if %w[image/jpeg image/png image/webp].exclude?(detected)
+          errors.add(:avatar, "格式不支持")
+        end
+      end
+    end
+
+    def avatar_mime_type
+      # Before the file is uploaded to the service (e.g. during validation with
+      # transactional fixtures), attachment_changes holds the pending CreateOne
+      # change whose attachable still carries the raw IO. Read from that IO
+      # directly — without passing the client-declared content_type — so magic
+      # bytes alone determine the detected type and spoofed headers are rejected.
+      #
+      # Attachable shapes:
+      #   Hash     (io:, filename:, content_type:) — from direct attach calls
+      #   Rack::Test::UploadedFile / ActionDispatch::Http::UploadedFile — from
+      #     controller params; both expose .open or respond to read
+      #
+      # After commit (no pending change), fall back to avatar.download.
+      change = attachment_changes["avatar"]
+      io = case change&.attachable
+      when Hash
+        a = change.attachable
+        a[:io].tap(&:rewind)
+      when ->(a) { a.respond_to?(:open) }
+        change.attachable.open
+      end
+
+      if io
+        Marcel::MimeType.for(io)
+      else
+        Marcel::MimeType.for(StringIO.new(avatar.download))
       end
     end
 end
