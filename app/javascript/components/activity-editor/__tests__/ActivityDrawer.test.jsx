@@ -21,6 +21,21 @@ vi.mock('../../../hooks/useUndoStack', () => ({
   UNDO_CAP: 10,
 }))
 
+// Mock PoiSearchCombobox so tests can drive POI picks via a button instead of
+// the real debounce/combobox/keyboard flow (which is covered separately).
+vi.mock('../PoiSearchCombobox', () => ({
+  default: ({ onPick }) => (
+    <div data-testid="poi-stub">
+      <button type="button" onClick={() => onPick({ name: '兰州大学(地铁站)', lat: 36.05, lng: 103.82, address: '兰州城关区天水南路' })}>
+        pick-lanzhou
+      </button>
+      <button type="button" onClick={() => onPick({ name: '米生拉', lat: 29.77, lng: 87.25, address: '谢通门县 · 地名' })}>
+        pick-misheng
+      </button>
+    </div>
+  ),
+}))
+
 // Mock fetch for POI search and activity create/delete
 global.fetch = vi.fn()
 
@@ -127,6 +142,130 @@ test('calls fetch for day create (with targetDayId)', async () => {
       expect.objectContaining({ method: 'POST' })
     )
     expect(router.reload).toHaveBeenCalled()
+  })
+})
+
+test('re-picking a POI overwrites the auto-filled name, but not a user-typed one', async () => {
+  renderDrawer({ mode: 'create', targetDayId: 5 })
+  const nameInput = screen.getByLabelText('名称', { exact: false })
+  // First pick → name filled from POI
+  fireEvent.click(screen.getByRole('button', { name: 'pick-lanzhou' }))
+  await waitFor(() => expect(nameInput).toHaveValue('兰州大学(地铁站)'))
+  // Re-pick different POI without user edit → name should update
+  fireEvent.click(screen.getByRole('button', { name: 'pick-misheng' }))
+  await waitFor(() => expect(nameInput).toHaveValue('米生拉'))
+  // User edits the name manually
+  fireEvent.change(nameInput, { target: { value: '我的自定义名字' } })
+  // Another pick → name must be preserved
+  fireEvent.click(screen.getByRole('button', { name: 'pick-lanzhou' }))
+  await waitFor(() => {
+    // address should have updated
+    expect(screen.getByText(/兰州城关区天水南路/)).toBeInTheDocument()
+  })
+  expect(nameInput).toHaveValue('我的自定义名字')
+})
+
+test('form clears when switching from edit to create mode', async () => {
+  // Regression: Mantine's form.resetDirty() overwrites the reset-snapshot, so a
+  // naive form.reset() in create mode would restore the previously-edited
+  // activity's values. The drawer must explicitly set empty defaults when
+  // switching modes.
+  const { rerender } = render(
+    <MantineProvider>
+      <ModalsProvider>
+        <ActivityDrawer
+          tourId={1}
+          opened={true}
+          onClose={() => {}}
+          mode="edit"
+          activity={{
+            id: 42,
+            name: '金城宾馆',
+            kind: 'stay',
+            citizen_level: 'tier_three',
+            day_id: 5,
+            lat: 36.059,
+            lng: 103.832,
+            address: '兰州南关十字东500米',
+            details: {},
+          }}
+          targetDayId={null}
+        />
+      </ModalsProvider>
+    </MantineProvider>
+  )
+  expect(screen.getByLabelText('名称', { exact: false })).toHaveValue('金城宾馆')
+
+  rerender(
+    <MantineProvider>
+      <ModalsProvider>
+        <ActivityDrawer
+          tourId={1}
+          opened={true}
+          onClose={() => {}}
+          mode="create"
+          activity={null}
+          targetDayId={7}
+        />
+      </ModalsProvider>
+    </MantineProvider>
+  )
+  await waitFor(() => {
+    expect(screen.getByLabelText('名称', { exact: false })).toHaveValue('')
+  })
+  expect(screen.queryByText(/兰州南关十字东500米/)).not.toBeInTheDocument()
+})
+
+test('shows persisted address (prefixed "地址：", no emoji) when editing', () => {
+  renderDrawer({
+    mode: 'edit',
+    activity: {
+      id: 42,
+      name: '金城宾馆',
+      kind: 'stay',
+      citizen_level: 'tier_three',
+      day_id: 5,
+      lat: 36.059,
+      lng: 103.832,
+      address: '甘肃省兰州市城关区南关十字东500米',
+      details: {},
+    },
+  })
+  expect(screen.getByText('地址：甘肃省兰州市城关区南关十字东500米')).toBeInTheDocument()
+  // Coords should NOT be rendered (see spec 2026-04-18-activity-drawer-redesign — decision D)
+  expect(screen.queryByText(/36\.0590,\s*103\.8320/)).not.toBeInTheDocument()
+})
+
+test('update path includes address in save payload', async () => {
+  const { router } = await import('@inertiajs/react')
+  router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())
+  renderDrawer({
+    mode: 'edit',
+    activity: {
+      id: 42,
+      name: '金城宾馆',
+      kind: 'stay',
+      citizen_level: 'tier_three',
+      day_id: 5,
+      lat: 36.059,
+      lng: 103.832,
+      address: '甘肃省兰州市城关区南关十字东500米',
+      details: {},
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => {
+    expect(router.patch).toHaveBeenCalledWith(
+      '/activities/42',
+      expect.objectContaining({
+        activity: expect.objectContaining({
+          address: '甘肃省兰州市城关区南关十字东500米',
+          lat: 36.059,
+          lng: 103.832,
+        }),
+      }),
+      expect.anything()
+    )
   })
 })
 

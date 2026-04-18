@@ -18,8 +18,8 @@ export default function CommonFields({ form, onPoiPick, kind, details, onDetails
         maxLength={80}
         {...form.getInputProps('name')}
       />
-      {(lat && lng) && (
-        <Text size="xs" c="dimmed">📍 {Number(lat).toFixed(2)}, {Number(lng).toFixed(2)}</Text>
+      {form.values.address && (
+        <Text size="xs" c="dimmed">地址：{form.values.address}</Text>
       )}
       <Group grow>
         <Select
