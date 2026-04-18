@@ -13,7 +13,7 @@ export default function ChatPanel({
   canToggle = true,
   flexStyle,
 }) {
-  // Auto-expand and send when a pending prompt arrives (e.g. from ConstitutionBanner "帮我修正")
+  // Auto-expand and send when a pending prompt arrives (e.g. from ConstitutionChip "帮我修正")
   const needsExpand = pendingPrompt && !open
 
   useEffect(() => {
@@ -46,7 +46,7 @@ function ChatBody({ tour, pendingPrompt, onPromptConsumed }) {
     }
   }, [ messages, pendingToolCalls, streaming ])
 
-  // Auto-send pending prompt from ConstitutionBanner
+  // Auto-send pending prompt from ConstitutionChip
   useEffect(() => {
     if (pendingPrompt && !streaming) {
       send(pendingPrompt)

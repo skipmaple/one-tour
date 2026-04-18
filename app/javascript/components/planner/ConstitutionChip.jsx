@@ -34,12 +34,15 @@ export default function ConstitutionChip({
     closePopover()
   }
   const handleDismissOne = (i, v) => {
-    const next = new Set(dismissed)
-    next.add(i)
-    setDismissed(next)
+    setDismissed(prev => {
+      const next = new Set(prev)
+      next.add(i)
+      return next
+    })
     onDismiss(v)
-    // If this was the last visible one, close popover (chip will unmount on
-    // the next render because visible.length will be 0).
+    // visible was computed from this render's dismissed set, so its length is
+    // the pre-dismiss count — if it was 1, this dismiss makes it 0 and the
+    // chip will unmount on the next render. Close popover proactively.
     if (visible.length === 1) closePopover()
   }
 

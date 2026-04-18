@@ -30,22 +30,17 @@ describe('ConstitutionChip · render', () => {
     const chip = screen.getByTestId('constitution-chip')
     expect(chip).toBeInTheDocument()
     expect(chip).toHaveTextContent('⚠ 2')
-    // Check color is set via data attribute or class
-    const hasYellowColor = chip.className.includes('yellow') ||
-                           chip.getAttribute('data-color') === 'yellow' ||
-                           chip.style.cssText.includes('yellow')
-    expect(hasYellowColor).toBe(true)
+    // Mantine v9 Badge expresses color via a CSS custom property in inline style:
+    // --badge-bg: var(--mantine-color-yellow-filled). Assert via the style attribute
+    // so a single targeted check fails with a useful diff if the mechanism changes.
+    expect(chip.getAttribute('style')).toMatch(/yellow/)
   })
 
   test('any hard violation makes the chip red, count is total', () => {
     renderChip({ violations: [softV, hardV, softV2] })
     const chip = screen.getByTestId('constitution-chip')
     expect(chip).toHaveTextContent('⛔ 3')
-    // Check color is set via data attribute or class
-    const hasRedColor = chip.className.includes('red') ||
-                        chip.getAttribute('data-color') === 'red' ||
-                        chip.style.cssText.includes('red')
-    expect(hasRedColor).toBe(true)
+    expect(chip.getAttribute('style')).toMatch(/red/)
   })
 
   test('all hard: still red with count', () => {
