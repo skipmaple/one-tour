@@ -269,6 +269,32 @@ test('update path includes address in save payload', async () => {
   })
 })
 
+test('描述 writes to desc column (not description) on save', async () => {
+  const { router } = await import('@inertiajs/react')
+  router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())
+  renderDrawer({
+    mode: 'edit',
+    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_one', day_id: 5, details: {} },
+  })
+  // Expand "更多设置" to reveal the 描述 textarea
+  fireEvent.click(screen.getByRole('button', { name: /更多设置/ }))
+  const descInput = screen.getByLabelText('描述', { exact: false })
+  fireEvent.change(descInput, { target: { value: '测试描述文本' } })
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => {
+    expect(router.patch).toHaveBeenCalledWith(
+      '/activities/42',
+      expect.objectContaining({
+        activity: expect.objectContaining({ desc: '测试描述文本' }),
+      }),
+      expect.anything(),
+    )
+  })
+  const payload = router.patch.mock.calls[0][1]
+  expect(payload.activity).not.toHaveProperty('tips')
+  expect(payload.activity).not.toHaveProperty('description')
+})
+
 test('update path pushes undo entry on save success', async () => {
   const { router } = await import('@inertiajs/react')
   router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())

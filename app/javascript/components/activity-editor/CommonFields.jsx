@@ -62,14 +62,7 @@ export default function CommonFields({ form, onPoiPick, kind, details, onDetails
             minRows={2}
             maxRows={4}
             autosize
-            {...form.getInputProps('description')}
-          />
-          <Textarea
-            label="贴士"
-            minRows={1}
-            maxRows={3}
-            autosize
-            {...form.getInputProps('tips')}
+            {...form.getInputProps('desc')}
           />
           <DetailsFields kind={kind} details={details} onChange={onDetailsChange} />
         </Stack>

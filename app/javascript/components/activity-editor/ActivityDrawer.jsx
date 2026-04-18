@@ -17,8 +17,7 @@ const EMPTY_FORM_VALUES = {
   address: '',
   planned_start_at: '',
   planned_duration_min: '',
-  description: '',
-  tips: '',
+  desc: '',
 }
 
 export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId }) {
@@ -57,8 +56,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
         address: activity.address || '',
         planned_start_at: activity.planned_start_at || '',
         planned_duration_min: activity.planned_duration_min ?? '',
-        description: activity.description || '',
-        tips: activity.tips || '',
+        desc: activity.desc || '',
       })
       setDetails(activity.details || {})
       form.resetDirty()
@@ -216,6 +214,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
                     address: savedAttrs.address,
                     planned_start_at: savedAttrs.planned_start_at,
                     planned_duration_min: savedAttrs.planned_duration_min,
+                    desc: savedAttrs.desc,
                     details: savedAttrs.details || {}
                   }
                 }
