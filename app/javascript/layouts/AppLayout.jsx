@@ -20,7 +20,9 @@ export default function AppLayout({ children }) {
               <>
                 <Menu shadow="md" width={200}>
                   <Menu.Target>
-                    <Avatar src={current_user.avatar_url} radius="xl" size="sm" style={{ cursor: 'pointer' }} />
+                    <Avatar src={current_user.avatar_url} radius="xl" size="sm" style={{ cursor: 'pointer' }}>
+                      {current_user.name?.[0]?.toUpperCase()}
+                    </Avatar>
                   </Menu.Target>
                   <Menu.Dropdown>
                     <Menu.Label>{current_user.name}</Menu.Label>
