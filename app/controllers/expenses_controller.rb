@@ -17,11 +17,11 @@ class ExpensesController < ApplicationController
       end
     end
 
-    render json: expense_json(expense)
+    respond_with_success(expense_json(expense))
   rescue ActiveRecord::RecordInvalid => e
-    render json: { errors: e.record.errors.full_messages }, status: :unprocessable_entity
+    respond_with_error(e.record.errors.full_messages.join("；"))
   rescue ArgumentError => e
-    render json: { errors: [ e.message ] }, status: :unprocessable_entity
+    respond_with_error(e.message)
   end
 
   def update
@@ -35,16 +35,20 @@ class ExpensesController < ApplicationController
       end
     end
 
-    render json: expense_json(@expense)
+    respond_with_success(expense_json(@expense))
   rescue ActiveRecord::RecordInvalid => e
-    render json: { errors: e.record.errors.full_messages }, status: :unprocessable_entity
+    respond_with_error(e.record.errors.full_messages.join("；"))
   rescue ArgumentError => e
-    render json: { errors: [ e.message ] }, status: :unprocessable_entity
+    respond_with_error(e.message)
   end
 
   def destroy
     @expense.destroy!
-    head :no_content
+    if inertia_request?
+      redirect_to tour_path(@tour)
+    else
+      head :no_content
+    end
   end
 
   private
@@ -67,6 +71,22 @@ class ExpensesController < ApplicationController
         :amount_cents, :category, :note, :occurred_on,
         :split_strategy, :external_count, :external_attributed_to_id
       )
+    end
+
+    def respond_with_success(json_body)
+      if inertia_request?
+        redirect_to tour_path(@tour)
+      else
+        render json: json_body
+      end
+    end
+
+    def respond_with_error(message, status: :unprocessable_entity)
+      if inertia_request?
+        redirect_to tour_path(@tour), alert: message
+      else
+        render json: { errors: [ message ] }, status: status
+      end
     end
 
     def expense_json(expense)

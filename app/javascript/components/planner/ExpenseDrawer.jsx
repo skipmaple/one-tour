@@ -50,8 +50,15 @@ export default function ExpenseDrawer({
       onConfirm: () => {
         router.delete(`/expenses/${expense.id}`, {
           preserveScroll: true,
-          only: [ 'expenses', 'expenses_summary' ],
-          onSuccess: () => notifications.show({ message: '已删除', color: 'green' }),
+          only: [ 'expenses', 'expenses_summary', 'flash' ],
+          onSuccess: (page) => {
+            const alert = page?.props?.flash?.alert
+            if (alert) {
+              notifications.show({ message: alert, color: 'red' })
+            } else {
+              notifications.show({ message: '已删除', color: 'green' })
+            }
+          },
           onError: () => notifications.show({ message: '删除失败', color: 'red' }),
         })
       },

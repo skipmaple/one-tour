@@ -29,6 +29,15 @@ class ApplicationController < ActionController::Base
     current_user.present?
   end
 
+  # True when the request came from Inertia's router.* (X-Inertia header
+  # is set by @inertiajs/react). Used by JSON-returning mutation endpoints
+  # to distinguish Inertia callers (need a redirect so the middleware
+  # converts it into a proper Inertia partial reload) from plain JSON
+  # callers (fetch() with Accept: application/json).
+  def inertia_request?
+    request.headers["X-Inertia"].present?
+  end
+
   private
     def require_login
       unless logged_in?

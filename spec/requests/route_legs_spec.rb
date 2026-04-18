@@ -84,6 +84,32 @@ RSpec.describe "RouteLegs", type: :request do
       expect(response).to have_http_status(:forbidden)
     end
 
+    # Inertia's router.post sends X-Inertia: true and expects a redirect (not
+    # JSON). Before this fix, render json: triggered Inertia's "invalid response"
+    # modal in the browser and the route_leg still got created but the UI
+    # appeared stuck. Regression guard.
+    context "when called by Inertia (X-Inertia header set)" do
+      it "redirects to tour_path with 302 so Inertia partial-reload can fire" do
+        login_as(author)
+        post tour_route_legs_path(tour),
+          params: { from_activity_id: from_act.id, to_activity_id: to_act.id, mode: "driving" },
+          headers: { "X-Inertia" => "true" }
+        expect(response).to redirect_to(tour_path(tour))
+      end
+
+      it "surfaces Amap errors via flash[:alert] instead of 502 JSON" do
+        stub_request(:get, /restapi\.amap\.com/).to_return(
+          status: 200, body: { status: "0", info: "QUOTA_EXCEEDED" }.to_json
+        )
+        login_as(author)
+        post tour_route_legs_path(tour),
+          params: { from_activity_id: from_act.id, to_activity_id: to_act.id, mode: "driving" },
+          headers: { "X-Inertia" => "true" }
+        expect(response).to redirect_to(tour_path(tour))
+        expect(flash[:alert]).to match(/地图路线服务/)
+      end
+    end
+
     context "throttle" do
       around do |example|
         original = Rails.cache

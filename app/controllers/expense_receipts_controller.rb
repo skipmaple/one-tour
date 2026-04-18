@@ -4,6 +4,7 @@ class ExpenseReceiptsController < ApplicationController
   def create
     expense = Expense.find(params[:expense_id])
     head :forbidden and return unless expense.tour.editable_by?(current_user)
+    @tour = expense.tour
 
     receipt = expense.receipts.build(
       uploaded_by: current_user,
@@ -12,17 +13,30 @@ class ExpenseReceiptsController < ApplicationController
     receipt.file.attach(params[:file]) if params[:file].present?
 
     if receipt.save
-      render json: receipt_json(receipt)
+      if inertia_request?
+        redirect_to tour_path(@tour)
+      else
+        render json: receipt_json(receipt)
+      end
     else
-      render json: { errors: receipt.errors.full_messages }, status: :unprocessable_entity
+      if inertia_request?
+        redirect_to tour_path(@tour), alert: receipt.errors.full_messages.join("；")
+      else
+        render json: { errors: receipt.errors.full_messages }, status: :unprocessable_entity
+      end
     end
   end
 
   def destroy
     receipt = ExpenseReceipt.find(params[:id])
     head :forbidden and return unless receipt.expense.tour.editable_by?(current_user)
+    tour = receipt.expense.tour
     receipt.destroy!
-    head :no_content
+    if inertia_request?
+      redirect_to tour_path(tour)
+    else
+      head :no_content
+    end
   end
 
   private

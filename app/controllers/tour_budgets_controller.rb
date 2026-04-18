@@ -7,28 +7,32 @@ class TourBudgetsController < ApplicationController
   def create
     budget = @tour.tour_budgets.build(budget_params)
     if budget.save
-      render json: budget_json(budget)
+      respond_with_success(budget_json(budget))
     else
-      render json: { errors: budget.errors.full_messages }, status: :unprocessable_entity
+      respond_with_error(budget.errors.full_messages.join("；"))
     end
   rescue ActiveRecord::RecordNotUnique
     # Partial unique index (per scope) can raise here even when model validations pass.
-    render json: { errors: [ "已有同范围的预算，请改用更新" ] }, status: :unprocessable_entity
+    respond_with_error("已有同范围的预算，请改用更新")
   end
 
   def update
     if @budget.update(budget_params)
-      render json: budget_json(@budget)
+      respond_with_success(budget_json(@budget))
     else
-      render json: { errors: @budget.errors.full_messages }, status: :unprocessable_entity
+      respond_with_error(@budget.errors.full_messages.join("；"))
     end
   rescue ActiveRecord::RecordNotUnique
-    render json: { errors: [ "已有同范围的预算" ] }, status: :unprocessable_entity
+    respond_with_error("已有同范围的预算")
   end
 
   def destroy
     @budget.destroy!
-    head :no_content
+    if inertia_request?
+      redirect_to tour_path(@tour)
+    else
+      head :no_content
+    end
   end
 
   private
@@ -47,6 +51,22 @@ class TourBudgetsController < ApplicationController
 
     def budget_params
       params.require(:tour_budget).permit(:user_id, :day_id, :activity_id, :amount_cents)
+    end
+
+    def respond_with_success(json_body)
+      if inertia_request?
+        redirect_to tour_path(@tour)
+      else
+        render json: json_body
+      end
+    end
+
+    def respond_with_error(message)
+      if inertia_request?
+        redirect_to tour_path(@tour), alert: message
+      else
+        render json: { errors: [ message ] }, status: :unprocessable_entity
+      end
     end
 
     def budget_json(budget)

@@ -16,20 +16,24 @@ class RouteLegsController < ApplicationController
       mode:             params[:mode].presence || "driving"
     ).call
 
-    render json: leg_json(leg)
+    respond_with_success(leg_json(leg))
   rescue ActiveRecord::RecordNotFound
-    head :not_found
+    respond_with_error("找不到对应的站点", status: :not_found)
   rescue AmapDirectionService::UnsupportedModeError => e
-    render json: { errors: [ e.message ] }, status: :unprocessable_entity
+    respond_with_error(e.message, status: :unprocessable_entity)
   rescue AmapDirectionService::Error => e
-    render json: { errors: [ "地图路线服务暂时不可用，稍后再试" ], detail: e.message }, status: :bad_gateway
+    respond_with_error("地图路线服务暂时不可用，稍后再试", status: :bad_gateway, detail: e.message)
   rescue ActiveRecord::RecordInvalid => e
-    render json: { errors: e.record.errors.full_messages }, status: :unprocessable_entity
+    respond_with_error(e.record.errors.full_messages.join("；"), status: :unprocessable_entity)
   end
 
   def destroy
     @leg.destroy!
-    head :no_content
+    if inertia_request?
+      redirect_to tour_path(@tour)
+    else
+      head :no_content
+    end
   end
 
   private
@@ -64,5 +68,26 @@ class RouteLegsController < ApplicationController
         polyline: leg.polyline,
         fetched_at: leg.fetched_at
       }
+    end
+
+    # Inertia's router.post expects a redirect (or Inertia-rendered page).
+    # When the request carries X-Inertia, redirect to the tour page so the
+    # frontend's partial reload (only: ['route_legs']) picks up fresh data.
+    # Non-Inertia callers (e.g. direct fetch() / specs) still get JSON.
+    # #inertia_request? is defined in ApplicationController.
+    def respond_with_success(json_body)
+      if inertia_request?
+        redirect_to tour_path(@tour)
+      else
+        render json: json_body
+      end
+    end
+
+    def respond_with_error(message, status:, detail: nil)
+      if inertia_request?
+        redirect_to tour_path(@tour), alert: message
+      else
+        render json: { errors: [ message ], detail: detail }.compact, status: status
+      end
     end
 end

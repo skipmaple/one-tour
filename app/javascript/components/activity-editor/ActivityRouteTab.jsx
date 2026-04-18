@@ -86,10 +86,17 @@ export default function ActivityRouteTab({ tourId, activity, allActivities, days
       mode,
     }, {
       preserveScroll: true,
-      only: [ 'route_legs' ],
-      onSuccess: () => {
+      // Controllers redirect back to tour_path on success; partial reload
+      // picks up fresh route_legs + flash.
+      only: [ 'route_legs', 'flash' ],
+      onSuccess: (page) => {
         setRefreshing(false)
-        notifications.show({ message: '路线已更新', color: 'green' })
+        const alert = page?.props?.flash?.alert
+        if (alert) {
+          notifications.show({ message: alert, color: 'red' })
+        } else {
+          notifications.show({ message: '路线已更新', color: 'green' })
+        }
       },
       onError: (errors) => {
         setRefreshing(false)

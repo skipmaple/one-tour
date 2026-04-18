@@ -116,11 +116,16 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     setSaving(true)
     router.post(`/tours/${tour.id}/expenses`, payload, {
       preserveScroll: true,
-      only: [ 'expenses', 'expenses_summary' ],
-      onSuccess: () => {
+      only: [ 'expenses', 'expenses_summary', 'flash' ],
+      onSuccess: (page) => {
         setSaving(false)
-        notifications.show({ message: '已记下这笔花销', color: 'green' })
-        onClose()
+        const alert = page?.props?.flash?.alert
+        if (alert) {
+          notifications.show({ message: alert, color: 'red' })
+        } else {
+          notifications.show({ message: '已记下这笔花销', color: 'green' })
+          onClose()
+        }
       },
       onError: (errors) => {
         setSaving(false)
