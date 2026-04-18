@@ -13,8 +13,9 @@ class Expense < ApplicationRecord
   enum :category,       food: 0, fuel: 1, lodging: 2, ticket: 3, refund: 4, misc: 5
   # `individual` is the "各付各" mode — no ExpenseSplit rows, not part of
   # settlement. Named `individual` (not `none`) to avoid clashing with
-  # ActiveRecord::FinderMethods#none.
-  enum :split_strategy, equal: 0, percentage: 1, custom: 2, individual: 3
+  # ActiveRecord::FinderMethods#none. `prefix: :split` gives us
+  # split_individual? without polluting the global predicate namespace.
+  enum :split_strategy, { equal: 0, percentage: 1, custom: 2, individual: 3 }, prefix: :split
 
   validates :amount_cents, presence: true
   validates :external_count, numericality: { greater_than_or_equal_to: 0 }

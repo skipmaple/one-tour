@@ -28,6 +28,8 @@ Rails.application.routes.draw do
       resources :activities, only: [ :create ]
     end
     resources :backlog_activities, only: [ :create ], controller: :activities
+    resources :expenses, only: [ :create ]
+    resources :budgets, only: [ :create ], controller: :tour_budgets
     resource  :conversation, only: [ :show, :destroy ] do
       resources :messages, only: [ :create ], controller: "conversations/messages"
     end
@@ -38,6 +40,12 @@ Rails.application.routes.draw do
     resources :images, only: [ :create ], controller: :activity_images
   end
   resources :activity_images, only: [ :update, :destroy ]
+
+  resources :expenses, only: [ :update, :destroy ] do
+    resources :receipts, only: [ :create ], controller: :expense_receipts
+  end
+  resources :expense_receipts, only: [ :destroy ]
+  resources :tour_budgets, only: [ :update, :destroy ]
 
   get "/poi_search", to: "poi_searches#index"
 

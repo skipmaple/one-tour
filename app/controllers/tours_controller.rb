@@ -23,10 +23,16 @@ class ToursController < ApplicationController
       days: @tour.days.map { |d| d.as_json.merge("intensity_derived" => d.intensity_derived(tour_violations).to_s) },
       activities: @tour.activities.as_json,
       activity_images: activity_images_for(@tour),
+      expenses: expenses_for(@tour),
+      expenses_summary: Expense::Summarize.new(@tour, current_user).call,
+      tour_budgets: @tour.tour_budgets.as_json,
       violations: tour_violations,
       members: @tour.tour_memberships.includes(:user).filter_map { |m|
         next unless m.user
-        { id: m.id, user_id: m.user_id, email: m.user.email, role: m.role }
+        {
+          id: m.id, user_id: m.user_id, email: m.user.email, role: m.role,
+          participating_day_ids: m.participating_day_ids
+        }
       },
       author: { user_id: @tour.author_id, email: @tour.author.email },
       conversation_empty: !conv || !conv.messages.exists?
@@ -60,7 +66,10 @@ class ToursController < ApplicationController
     end
 
     def tour_params
-      params.require(:tour).permit(:title, :date_range, :vehicle, :team_size, :trip_style, :budget_per_person, :archived)
+      params.require(:tour).permit(
+        :title, :date_range, :vehicle, :team_size, :trip_style, :budget_per_person,
+        :archived, :currency, :timezone
+      )
     end
 
     def tour_index_entry(tour, user_id)
@@ -98,5 +107,28 @@ class ToursController < ApplicationController
             url: img.file.attached? ? rails_blob_path(img.file, only_path: true) : nil
           }
         }
+    end
+
+    def expenses_for(tour)
+      tour.expenses.includes(:splits, receipts: { file_attachment: :blob }).map { |e|
+        {
+          id: e.id,
+          activity_id: e.activity_id,
+          day_id: e.day_id,
+          scope: e.scope,
+          paid_by_id: e.paid_by_id,
+          amount_cents: e.amount_cents,
+          category: e.category,
+          split_strategy: e.split_strategy,
+          external_count: e.external_count,
+          external_attributed_to_id: e.external_attributed_to_id,
+          note: e.note,
+          occurred_on: e.occurred_on,
+          splits: e.splits.map { |s| { user_id: s.user_id, shares: s.shares, amount_cents: s.amount_cents } },
+          receipts: e.receipts.map { |r|
+            { id: r.id, url: r.file.attached? ? rails_blob_path(r.file, only_path: true) : nil }
+          }
+        }
+      }
     end
 end
