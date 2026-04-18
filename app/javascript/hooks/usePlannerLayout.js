@@ -42,10 +42,19 @@ export default function usePlannerLayout(tourId) {
     })
   }, [tourId])
 
-  // Stub — fleshed out in later tasks
+  const openCount = Object.values(panels).filter(p => p.open).length
+
   const togglePanel = useCallback((id) => {
-    setPanels(prev => ({ ...prev, [id]: { ...prev[id], open: !prev[id].open } }))
+    setPanels(prev => {
+      const isOpen = prev[id].open
+      // At-least-one-open: refuse to close if this is the last open
+      if (isOpen) {
+        const otherOpen = Object.entries(prev).filter(([k, p]) => k !== id && p.open).length
+        if (otherOpen === 0) return prev
+      }
+      return { ...prev, [id]: { ...prev[id], open: !isOpen } }
+    })
   }, [setPanels])
 
-  return { panels, togglePanel }
+  return { panels, openCount, togglePanel }
 }

@@ -46,3 +46,34 @@ describe('usePlannerLayout · defaults & persistence', () => {
     expect(window.localStorage.getItem('planner-layout-v1-99')).toBeNull()
   })
 })
+
+describe('usePlannerLayout · togglePanel + at-least-one-open', () => {
+  test('togglePanel flips open state', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    expect(result.current.panels.candidates.open).toBe(true)
+    act(() => result.current.togglePanel('candidates'))
+    expect(result.current.panels.candidates.open).toBe(false)
+    act(() => result.current.togglePanel('candidates'))
+    expect(result.current.panels.candidates.open).toBe(true)
+  })
+
+  test('openCount derived correctly', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    expect(result.current.openCount).toBe(4)
+    act(() => result.current.togglePanel('candidates'))
+    expect(result.current.openCount).toBe(3)
+  })
+
+  test('cannot close last open panel (at-least-one-open)', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    act(() => result.current.togglePanel('candidates'))
+    act(() => result.current.togglePanel('days'))
+    act(() => result.current.togglePanel('ai'))
+    expect(result.current.openCount).toBe(1)
+    expect(result.current.panels.map.open).toBe(true)
+    // Try to close the last one — should be no-op
+    act(() => result.current.togglePanel('map'))
+    expect(result.current.panels.map.open).toBe(true)
+    expect(result.current.openCount).toBe(1)
+  })
+})
