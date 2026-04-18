@@ -6,7 +6,7 @@ Rails.application.routes.draw do
   delete "/logout", to: "sessions#destroy"
 
   resource :profile, only: [ :update ] do
-    resource :avatar, only: [ :destroy ]
+    resource :avatar, only: [ :destroy ], controller: "profiles/avatars"
   end
 
   # Email + verification code auth
