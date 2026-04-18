@@ -35,7 +35,9 @@ Rails.application.routes.draw do
 
   resources :activities, only: [ :update, :destroy ] do
     resource :position, only: [ :update ], controller: :activity_positions
+    resources :images, only: [ :create ], controller: :activity_images
   end
+  resources :activity_images, only: [ :update, :destroy ]
 
   get "/poi_search", to: "poi_searches#index"
 

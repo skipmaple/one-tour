@@ -21,7 +21,7 @@ import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
 
-export default function Show({ tour, days, activities, violations, members, author, conversation_empty }) {
+export default function Show({ tour, days, activities, activity_images, violations, members, author, conversation_empty }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const layout = usePlannerLayout(tour.id)
@@ -42,12 +42,24 @@ export default function Show({ tour, days, activities, violations, members, auth
   // Shape: { [activityId]: { day_id, position } }
   const [localOverrides, setLocalOverrides] = useState({})
 
-  // Merge server activities with local overrides
-  const displayActivities = activities.map(a =>
-    localOverrides[a.id]
-      ? { ...a, ...localOverrides[a.id] }
-      : a
-  )
+  // Group images by activity for O(1) lookup when enriching activities.
+  const imagesByActivityId = (activity_images || []).reduce((acc, img) => {
+    (acc[img.activity_id] ??= []).push(img)
+    return acc
+  }, {})
+
+  // Merge server activities with local overrides and cover-thumb metadata.
+  // ActivityCard reads `_coverUrl` + `_imageCount` to render the cover thumbnail.
+  const displayActivities = activities.map(a => {
+    const imgs = imagesByActivityId[a.id] || []
+    const cover = imgs.find(i => i.is_cover) || imgs[0]
+    const base = {
+      ...a,
+      _coverUrl: cover?.url,
+      _imageCount: imgs.length,
+    }
+    return localOverrides[a.id] ? { ...base, ...localOverrides[a.id] } : base
+  })
 
   const activeActivity = activeId
     ? displayActivities.find(a => `activity-${a.id}` === activeId)
@@ -83,6 +95,12 @@ export default function Show({ tour, days, activities, violations, members, auth
   const closeEditor = () => setEditor({ open: false, mode: 'create', activityId: null, targetDayId: null })
 
   const editingActivity = editor.activityId ? activities.find(a => a.id === editor.activityId) : null
+
+  // Filter images for the currently-open activity drawer. Updates automatically
+  // when router.reload({only: ['activity_images']}) refreshes the prop.
+  const editingImages = editor.activityId
+    ? (activity_images || []).filter(img => img.activity_id === editor.activityId)
+    : []
 
   // On mount, check URL hash for activity anchor (#activity-{id})
   // This supports deep links from the Timeline page.
@@ -236,6 +254,7 @@ export default function Show({ tour, days, activities, violations, members, auth
         mode={editor.mode}
         activity={editingActivity}
         targetDayId={editor.targetDayId}
+        images={editingImages}
       />
 
       <AcknowledgeModal

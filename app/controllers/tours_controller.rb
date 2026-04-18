@@ -22,6 +22,7 @@ class ToursController < ApplicationController
       tour: @tour.as_json.merge("editable_by_current_user" => @tour.editable_by?(current_user)),
       days: @tour.days.map { |d| d.as_json.merge("intensity_derived" => d.intensity_derived(tour_violations).to_s) },
       activities: @tour.activities.as_json,
+      activity_images: activity_images_for(@tour),
       violations: tour_violations,
       members: @tour.tour_memberships.includes(:user).filter_map { |m|
         next unless m.user
@@ -79,5 +80,23 @@ class ToursController < ApplicationController
     def role_on(tour, user_id)
       return "author" if tour.author_id == user_id
       tour.tour_memberships.find { |m| m.user_id == user_id }&.role || "reader"
+    end
+
+    def activity_images_for(tour)
+      ActivityImage
+        .joins(:activity)
+        .where(activities: { tour_id: tour.id })
+        .with_attached_file
+        .order(:activity_id, :position)
+        .map { |img|
+          {
+            id: img.id,
+            activity_id: img.activity_id,
+            caption: img.caption,
+            position: img.position,
+            is_cover: img.is_cover,
+            url: img.file.attached? ? rails_blob_path(img.file, only_path: true) : nil
+          }
+        }
     end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_18_113705) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_18_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -62,6 +62,20 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_113705) do
     t.index ["tour_id", "day_id", "position"], name: "index_activities_on_tour_id_and_day_id_and_position"
     t.index ["tour_id", "kind", "citizen_level"], name: "index_activities_on_tour_id_and_kind_and_citizen_level"
     t.index ["tour_id"], name: "index_activities_on_tour_id"
+  end
+
+  create_table "activity_images", force: :cascade do |t|
+    t.bigint "activity_id", null: false
+    t.bigint "uploaded_by_id", null: false
+    t.string "caption", limit: 280
+    t.integer "position", default: 0, null: false
+    t.boolean "is_cover", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["activity_id", "position"], name: "index_activity_images_on_activity_id_and_position"
+    t.index ["activity_id"], name: "idx_activity_images_single_cover", unique: true, where: "(is_cover = true)"
+    t.index ["activity_id"], name: "index_activity_images_on_activity_id"
+    t.index ["uploaded_by_id"], name: "index_activity_images_on_uploaded_by_id"
   end
 
   create_table "conversations", force: :cascade do |t|
@@ -165,6 +179,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_113705) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "activities", "days"
   add_foreign_key "activities", "tours"
+  add_foreign_key "activity_images", "activities", on_delete: :cascade
+  add_foreign_key "activity_images", "users", column: "uploaded_by_id"
   add_foreign_key "conversations", "tours"
   add_foreign_key "conversations", "users"
   add_foreign_key "days", "tours"

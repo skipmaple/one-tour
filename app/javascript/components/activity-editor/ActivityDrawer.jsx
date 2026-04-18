@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Drawer, Button, Group, Stack } from '@mantine/core'
+import { Drawer, Button, Group, Stack, Tabs } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
@@ -7,6 +7,7 @@ import { router } from '@inertiajs/react'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import { KIND_SCHEMA } from './detailsSchema'
 import CommonFields from './CommonFields'
+import ActivityGalleryTab from './ActivityGalleryTab'
 
 const EMPTY_FORM_VALUES = {
   name: '',
@@ -20,9 +21,10 @@ const EMPTY_FORM_VALUES = {
   desc: '',
 }
 
-export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId }) {
+export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId, images }) {
   const isEdit = mode === 'edit'
   const [saving, setSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState('basic')
   const undoStack = useUndoStack()
 
   const form = useForm({
@@ -68,6 +70,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       setDetails({})
       poiFilledName.current = ''
     }
+    if (opened) setActiveTab('basic')
   }, [opened, isEdit, activity?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // When kind changes, keep only the keys that belong to the new kind's schema
@@ -259,18 +262,37 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       onClose={handleClose}
       title={isEdit ? '编辑行' : '新建行'}
       position="right"
-      size={420}
+      size={520}
       overlayProps={{ opacity: 0.4 }}
       padding="md"
     >
       <Stack gap="md">
-        <CommonFields
-          form={formWithKindHook}
-          onPoiPick={handlePoiPick}
-          kind={form.values.kind}
-          details={details}
-          onDetailsChange={setDetails}
-        />
+        <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs.List>
+            <Tabs.Tab value="basic">基础</Tabs.Tab>
+            {isEdit && <Tabs.Tab value="images">图片{images?.length > 0 && ` (${images.length})`}</Tabs.Tab>}
+          </Tabs.List>
+
+          <Tabs.Panel value="basic" pt="md">
+            <CommonFields
+              form={formWithKindHook}
+              onPoiPick={handlePoiPick}
+              kind={form.values.kind}
+              details={details}
+              onDetailsChange={setDetails}
+            />
+          </Tabs.Panel>
+
+          {isEdit && (
+            <Tabs.Panel value="images" pt="md">
+              <ActivityGalleryTab
+                activityId={activity?.id}
+                images={images || []}
+                hasCoordinates={Boolean(activity?.lat) && Boolean(activity?.lng)}
+              />
+            </Tabs.Panel>
+          )}
+        </Tabs>
 
         <Group justify="space-between" mt="md" pt="md" style={{ borderTop: '1px solid #eee' }}>
           <Group>
