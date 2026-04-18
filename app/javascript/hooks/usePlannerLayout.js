@@ -8,6 +8,11 @@ export const DEFAULT_LAYOUT = {
 }
 
 const STORAGE_PREFIX = 'planner-layout-v1-'
+const MIN_GROW = 0.5  // Hard floor; below this a panel becomes invisibly thin
+
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v))
+}
 
 function loadFromStorage(tourId) {
   try {
@@ -56,5 +61,39 @@ export default function usePlannerLayout(tourId) {
     })
   }, [setPanels])
 
-  return { panels, openCount, togglePanel }
+  const resizeBetween = useCallback((leftId, rightId, deltaPx, totalPx) => {
+    setPanels(prev => {
+      const left = prev[leftId], right = prev[rightId]
+      const totalGrow = left.grow + right.grow
+      // Compute the shared px-space these two panels occupy together
+      const sumOfOpenGrows = Object.values(prev).reduce(
+        (s, p) => s + (p.open ? p.grow : 0),
+        0
+      )
+      const sharedSpace = totalPx * (totalGrow / sumOfOpenGrows)
+      if (sharedSpace <= 0) return prev
+      const deltaGrow = (deltaPx / sharedSpace) * totalGrow
+      const newLeftGrow = clamp(left.grow + deltaGrow, MIN_GROW, totalGrow - MIN_GROW)
+      const newRightGrow = totalGrow - newLeftGrow
+      const next = {
+        ...prev,
+        [leftId]:  { ...left,  grow: newLeftGrow },
+        [rightId]: { ...right, grow: newRightGrow },
+      }
+      // Dragging days↔map turns off auto-fit (user is taking manual control)
+      if ((leftId === 'days' && rightId === 'map') || (leftId === 'map' && rightId === 'days')) {
+        next.days = { ...next.days, autoFit: false }
+      }
+      return next
+    })
+  }, [setPanels])
+
+  const toggleAutoFit = useCallback(() => {
+    setPanels(prev => ({
+      ...prev,
+      days: { ...prev.days, autoFit: !prev.days.autoFit }
+    }))
+  }, [setPanels])
+
+  return { panels, openCount, togglePanel, resizeBetween, toggleAutoFit }
 }

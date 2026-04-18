@@ -77,3 +77,47 @@ describe('usePlannerLayout · togglePanel + at-least-one-open', () => {
     expect(result.current.openCount).toBe(1)
   })
 })
+
+describe('usePlannerLayout · resizeBetween + autoFit', () => {
+  test('resizeBetween conserves grow sum between two panels', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    const before = result.current.panels.days.grow + result.current.panels.map.grow
+    act(() => result.current.resizeBetween('days', 'map', 50, 1000))
+    const after = result.current.panels.days.grow + result.current.panels.map.grow
+    expect(after).toBeCloseTo(before, 5)
+    expect(result.current.panels.days.grow).toBeGreaterThan(5) // shifted right
+    expect(result.current.panels.map.grow).toBeLessThan(5)
+  })
+
+  test('resizeBetween days↔map auto-disables autoFit', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    expect(result.current.panels.days.autoFit).toBe(true)
+    act(() => result.current.resizeBetween('days', 'map', 30, 1000))
+    expect(result.current.panels.days.autoFit).toBe(false)
+  })
+
+  test('resizeBetween candidates↔days does NOT touch autoFit', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    act(() => result.current.resizeBetween('candidates', 'days', 30, 1000))
+    expect(result.current.panels.days.autoFit).toBe(true)
+  })
+
+  test('toggleAutoFit flips days.autoFit', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    expect(result.current.panels.days.autoFit).toBe(true)
+    act(() => result.current.toggleAutoFit())
+    expect(result.current.panels.days.autoFit).toBe(false)
+    act(() => result.current.toggleAutoFit())
+    expect(result.current.panels.days.autoFit).toBe(true)
+  })
+
+  test('resizeBetween clamps so neither side goes below MIN_GROW', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    // Push hard right — map grow should not go below 0.5 (MIN_GROW guard)
+    act(() => result.current.resizeBetween('days', 'map', 9999, 1000))
+    expect(result.current.panels.map.grow).toBeGreaterThanOrEqual(0.5)
+    // And total still conserved
+    const total = result.current.panels.days.grow + result.current.panels.map.grow
+    expect(total).toBeCloseTo(10, 5)
+  })
+})
