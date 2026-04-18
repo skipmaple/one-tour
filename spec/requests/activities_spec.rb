@@ -50,6 +50,17 @@ RSpec.describe "Activities", type: :request do
     expect(response).to have_http_status(:forbidden)
   end
 
+  it "PATCH saves desc and ignores tips" do
+    a = create(:activity, tour: tour, name: "旧", desc: "")
+    login_as(author)
+    patch activity_path(a), params: {
+      activity: { desc: "新备注", tips: "should be ignored" }
+    }
+    a.reload
+    expect(a.desc).to eq("新备注")
+    expect(Activity.column_names).not_to include("tips")
+  end
+
   describe "POST create with Accept: application/json" do
     it "returns id and position in JSON for day-scoped create" do
       day = create(:day, tour: tour, day_index: 2)
