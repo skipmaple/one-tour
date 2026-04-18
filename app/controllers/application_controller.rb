@@ -1,6 +1,13 @@
 class ApplicationController < ActionController::Base
   inertia_share flash: -> { { alert: flash[:alert], notice: flash[:notice] } }
-  inertia_share current_user: -> { current_user&.as_json(only: [ :id, :name, :email, :avatar_url ]) }
+  inertia_share current_user: -> {
+    next unless current_user
+    current_user.as_json(only: [ :id, :name, :email ])
+                .merge(
+                  "avatar_url"        => current_user.display_avatar_url,
+                  "has_custom_avatar" => current_user.has_custom_avatar?
+                )
+  }
   # Expose AMAP Web JS credentials to the frontend. AMAP 2.0 requires BOTH
   # the key and the security code to be set before the SDK script runs; both
   # are domain-allowlist protected in the AMAP console, so leaking them in
