@@ -10,7 +10,7 @@ export const KIND_SCHEMA = {
     { key: 'need_reservation',   label: '需要预约',   type: 'checkbox' },
     { key: 'best_light',         label: '最佳光线',   type: 'select',
       options: ['日出', '上午', '正午', '下午', '黄昏', '夜景', '全天'] },
-    { key: 'altitude',           label: '海拔',       type: 'number_with_suffix', suffix: '米' },
+    { key: 'altitude',           label: '海拔',       type: 'number_with_suffix', suffix: '米', max: 9000 },
     { key: 'ticket_info',        label: '门票',       type: 'number_with_suffix', suffix: '元' },
     { key: 'recommend_stay_min', label: '建议停留',   type: 'number_with_suffix', suffix: '分钟', presets: DURATION_PRESETS },
   ],
@@ -27,7 +27,7 @@ export const KIND_SCHEMA = {
     { key: 'cuisine',    label: '菜系',      type: 'autocomplete',
       suggestions: ['甘肃菜', '川菜', '粤菜', '湘菜', '东北菜', '清真', '西餐', '其他'] },
     { key: 'must_eat',   label: '必吃',      type: 'text' },
-    { key: 'open_hours', label: '营业时间',   type: 'text' },
+    { key: 'open_hours', label: '营业时间',   type: 'text', placeholder: '如：10:00-22:00 周一休息' },
     { key: 'price_pp',   label: '人均',       type: 'number_with_suffix', suffix: '元' },
   ],
   stay: [

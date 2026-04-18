@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
 import { vi, beforeEach } from 'vitest'
@@ -269,16 +269,14 @@ test('update path includes address in save payload', async () => {
   })
 })
 
-test('描述 writes to desc column (not description) on save', async () => {
+test('备注 writes to desc column on save', async () => {
   const { router } = await import('@inertiajs/react')
   router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())
   renderDrawer({
     mode: 'edit',
     activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_one', day_id: 5, details: {} },
   })
-  // Expand "更多设置" to reveal the 描述 textarea
-  fireEvent.click(screen.getByRole('button', { name: /更多设置/ }))
-  const descInput = screen.getByLabelText('描述', { exact: false })
+  const descInput = screen.getByLabelText('备注', { exact: false })
   fireEvent.change(descInput, { target: { value: '测试描述文本' } })
   fireEvent.click(screen.getByRole('button', { name: '保存' }))
   await waitFor(() => {
@@ -293,6 +291,56 @@ test('描述 writes to desc column (not description) on save', async () => {
   const payload = router.patch.mock.calls[0][1]
   expect(payload.activity).not.toHaveProperty('tips')
   expect(payload.activity).not.toHaveProperty('description')
+})
+
+test('三段式结构：位置 / 分类与时间 / 详情', () => {
+  renderDrawer({ mode: 'create', targetDayId: 5 })
+  expect(screen.getByText('位置')).toBeInTheDocument()
+  expect(screen.getByText('分类与时间')).toBeInTheDocument()
+  expect(screen.getByText('详情')).toBeInTheDocument()
+  // "更多设置" 折叠按钮不应再存在
+  expect(screen.queryByRole('button', { name: /更多设置/ })).not.toBeInTheDocument()
+})
+
+test('开始时间 是 TimeInput（type=time）', () => {
+  renderDrawer({ mode: 'create', targetDayId: 5 })
+  const input = screen.getByLabelText('开始时间', { exact: false })
+  expect(input).toHaveAttribute('type', 'time')
+})
+
+test('时长 下方出现预设芯片（30/60/90/120/180），点击写入', () => {
+  renderDrawer({ mode: 'create', targetDayId: 5 })
+  const durationField = screen.getByTestId('duration-field')
+  const durationInput = within(durationField).getByLabelText('时长', { exact: false })
+  // 只看"时长"区域内的芯片（详情段 recommend_stay_min 也有同样数值的芯片）
+  expect(within(durationField).getByRole('button', { name: '60' })).toBeInTheDocument()
+  fireEvent.click(within(durationField).getByRole('button', { name: '120' }))
+  expect(durationInput).toHaveValue('120')
+})
+
+test('时长 NumberInput 显示 "分钟" 后缀', () => {
+  renderDrawer({ mode: 'create', targetDayId: 5 })
+  // drawer 内应能找到 "分钟" 文本（可能出现在多个细节字段上，所以用 getAllByText）
+  expect(screen.getAllByText('分钟').length).toBeGreaterThanOrEqual(1)
+})
+
+test('备注 字段绑定 desc（原描述+贴士合并）', async () => {
+  const { router } = await import('@inertiajs/react')
+  router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())
+  renderDrawer({
+    mode: 'edit',
+    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_one', day_id: 5, details: {} },
+  })
+  const note = screen.getByLabelText('备注', { exact: false })
+  fireEvent.change(note, { target: { value: '合并后的备注' } })
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => {
+    expect(router.patch).toHaveBeenCalledWith(
+      '/activities/42',
+      expect.objectContaining({ activity: expect.objectContaining({ desc: '合并后的备注' }) }),
+      expect.anything(),
+    )
+  })
 })
 
 test('update path pushes undo entry on save success', async () => {

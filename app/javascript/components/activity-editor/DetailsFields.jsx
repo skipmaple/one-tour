@@ -52,6 +52,7 @@ export default function DetailsFields({ kind, details, onChange }) {
               <NumberInput
                 label={field.label}
                 min={0}
+                max={field.max}
                 value={value ?? ''}
                 onChange={v => set(field.key, v === '' ? null : v)}
                 rightSection={field.suffix ? <span style={{ fontSize: 12, color: 'var(--mantine-color-gray-6)', paddingRight: 8 }}>{field.suffix}</span> : null}
@@ -63,21 +64,11 @@ export default function DetailsFields({ kind, details, onChange }) {
             </div>
           )
         }
-        if (field.type === 'number') {
-          return (
-            <TextInput
-              key={field.key}
-              label={field.label}
-              type="number"
-              value={value ?? ''}
-              onChange={e => set(field.key, e.currentTarget.value === '' ? null : Number(e.currentTarget.value))}
-            />
-          )
-        }
         return (
           <TextInput
             key={field.key}
             label={field.label}
+            placeholder={field.placeholder}
             value={value || ''}
             onChange={e => set(field.key, e.currentTarget.value)}
           />
