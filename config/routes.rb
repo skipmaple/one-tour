@@ -5,6 +5,10 @@ Rails.application.routes.draw do
   # OmniAuth developer strategy serves a form at GET /auth/developer (handled by middleware)
   delete "/logout", to: "sessions#destroy"
 
+  resource :profile, only: [ :update ] do
+    resource :avatar, only: [ :destroy ]
+  end
+
   # Email + verification code auth
   post "/auth/email/send",   to: "sessions#send_code"
   post "/auth/email/verify", to: "sessions#verify_code"
