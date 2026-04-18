@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, test, expect, vi } from 'vitest'
 import { MantineProvider } from '@mantine/core'
 import ConstitutionChip from '../ConstitutionChip'
@@ -51,5 +51,35 @@ describe('ConstitutionChip · render', () => {
   test('all hard: still red with count', () => {
     renderChip({ violations: [hardV, hardV2] })
     expect(screen.getByTestId('constitution-chip')).toHaveTextContent('⛔ 2')
+  })
+})
+
+describe('ConstitutionChip · popover', () => {
+  test('clicking the chip opens the popover with violation messages', async () => {
+    renderChip({ violations: [softV, hardV] })
+    // Popover content not yet visible
+    expect(screen.queryByText(/D3 驾驶超 7h/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('constitution-chip'))
+
+    await waitFor(() => {
+      expect(screen.getByText(/建议 ≥ 1 个机动日/)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/D3 驾驶超 7h/)).toBeInTheDocument()
+  })
+
+  test('clicking the chip again closes the popover', async () => {
+    renderChip({ violations: [softV] })
+    const chip = screen.getByTestId('constitution-chip')
+
+    fireEvent.click(chip)
+    await waitFor(() => {
+      expect(screen.getByText(/建议 ≥ 1 个机动日/)).toBeInTheDocument()
+    })
+
+    fireEvent.click(chip)
+    await waitFor(() => {
+      expect(screen.queryByText(/建议 ≥ 1 个机动日/)).not.toBeInTheDocument()
+    })
   })
 })
