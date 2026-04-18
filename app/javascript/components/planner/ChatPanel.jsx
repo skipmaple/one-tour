@@ -1,9 +1,18 @@
-import { Paper, Text, Button, Textarea, Stack, Group, Badge, Code, UnstyledButton } from '@mantine/core'
+import { Paper, Text, Button, Textarea, Stack, Group, Badge, Code } from '@mantine/core'
 import { useEffect, useRef, useState } from 'react'
 import useChat from '../../hooks/useChat'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
+import PanelShell from './PanelLayout/PanelShell'
 
-export default function ChatPanel({ tour, open, onToggle, pendingPrompt, onPromptConsumed }) {
+export default function ChatPanel({
+  tour,
+  open,
+  onToggle,
+  pendingPrompt,
+  onPromptConsumed,
+  canToggle = true,
+  flexStyle,
+}) {
   // Auto-expand and send when a pending prompt arrives (e.g. from ConstitutionBanner "帮我修正")
   const needsExpand = pendingPrompt && !open
 
@@ -11,36 +20,17 @@ export default function ChatPanel({ tour, open, onToggle, pendingPrompt, onPromp
     if (needsExpand && onToggle) onToggle()
   }, [needsExpand]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!open) {
-    return (
-      <UnstyledButton
-        onClick={onToggle}
-        aria-label="展开 AI 对话"
-        style={{
-          cursor: 'pointer',
-          background: '#f3f3f3',
-          border: '1px solid var(--mantine-color-default-border)',
-          borderRadius: 4,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '100%',
-          height: '100%',
-        }}
-      >
-        <Text size="xs" c="gray.7" style={{ writingMode: 'vertical-rl' }}>◂ 展开 AI 对话</Text>
-      </UnstyledButton>
-    )
-  }
-
   return (
-    <Paper withBorder style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 400 }}>
-      <Group justify="space-between" p="xs" bg="gray.1">
-        <Text fw={600} size="sm">AI 对话</Text>
-        <Button size="compact-xs" variant="subtle" onClick={onToggle}>收起 ▸</Button>
-      </Group>
+    <PanelShell
+      title="AI 对话"
+      icon="💬"
+      open={open}
+      onToggle={onToggle}
+      canToggle={canToggle}
+      flexStyle={flexStyle}
+    >
       <ChatBody tour={tour} pendingPrompt={pendingPrompt} onPromptConsumed={onPromptConsumed} />
-    </Paper>
+    </PanelShell>
   )
 }
 
