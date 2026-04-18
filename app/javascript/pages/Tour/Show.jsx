@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
 import { Button, Group, Text } from '@mantine/core'
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core'
@@ -26,11 +26,11 @@ export default function Show({ tour, days, activities, violations, members, auth
   const canEdit = tour.editable_by_current_user
   const layout = usePlannerLayout(tour.id)
   const containerRef = useRef(null)
-  const handleResize = (leftId, rightId) => (deltaPx) => {
+  const handleResize = useCallback((leftId, rightId) => (deltaPx) => {
     const total = containerRef.current?.getBoundingClientRect().width
     if (!total) return
     layout.resizeBetween(leftId, rightId, deltaPx, total)
-  }
+  }, [layout.resizeBetween])
 
   const undoStack = useUndoStack()
 
