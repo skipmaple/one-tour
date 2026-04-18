@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Paper, Title, Stack, Text, Button, Group, Select, UnstyledButton } from '@mantine/core'
+import { Stack, Text, Button, Group, Select } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
 import ActivityCard from './ActivityCard'
+import PanelShell from './PanelLayout/PanelShell'
 
 const KIND_FILTER_OPTIONS = [
   { value: '',       label: '所有类型' },
@@ -29,9 +30,9 @@ export default function BacklogList({
   readOnly,
   open = true,
   onToggle,
+  canToggle = true,
+  flexStyle,
 }) {
-  // Hooks must run unconditionally every render (Rules of Hooks). The folded
-  // branch below is an early return AFTER all hooks have been called.
   const [kindFilter, setKindFilter] = useState('')
   const [levelFilter, setLevelFilter] = useState('')
 
@@ -54,55 +55,23 @@ export default function BacklogList({
   // but not hovering this droppable) → over (hovering this droppable).
   const dragState = active ? (isOver ? 'over' : 'active') : 'idle'
 
-  // Folded rendering: mirror ChatPanel's collapsed vertical strip.
-  if (!open) {
-    return (
-      <UnstyledButton
-        onClick={onToggle}
-        aria-label="展开候选池"
-        style={{
-          cursor: 'pointer',
-          background: '#f3f3f3',
-          border: '1px solid var(--mantine-color-default-border)',
-          borderRadius: 4,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '100%',
-          height: '100%',
-        }}
-      >
-        <Text size="xs" c="gray.7" style={{ writingMode: 'vertical-rl' }}>
-          展开候选池 ▸
-        </Text>
-      </UnstyledButton>
-    )
-  }
-
   const isEmpty = activities.length === 0
   const hasFilter = kindFilter || levelFilter
 
-  // Three exclusive modes:
-  //  - isEmpty + !readOnly → dashed three-CTA frame (onboarding path)
-  //  - isEmpty + readOnly → plain "尚无候选" text
-  //  - !isEmpty → normal behavior (filters + top "+ 加一个" + cards)
-
   return (
-    <Paper withBorder style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Group justify="space-between" p="xs" bg="gray.1">
-        <Title order={5} m={0}>
-          候选池
-          {hasFilter && !isEmpty && (
-            <Text component="span" size="xs" c="dimmed" ml={6}>
-              {filtered.length}/{activities.length}
-            </Text>
-          )}
-        </Title>
-        {onToggle && (
-          <Button size="compact-xs" variant="subtle" onClick={onToggle}>收起 ◂</Button>
-        )}
-      </Group>
-
+    <PanelShell
+      title="候选池"
+      icon="📋"
+      open={open}
+      onToggle={onToggle}
+      canToggle={canToggle}
+      flexStyle={flexStyle}
+      headerExtra={hasFilter && !isEmpty && (
+        <Text size="xs" c="dimmed">
+          {filtered.length}/{activities.length}
+        </Text>
+      )}
+    >
       <div
         ref={setNodeRef}
         style={{
@@ -203,6 +172,6 @@ export default function BacklogList({
           </>
         )}
       </div>
-    </Paper>
+    </PanelShell>
   )
 }

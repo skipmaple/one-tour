@@ -171,8 +171,8 @@ test('when open=false, renders a collapsed trigger instead of filters/list', () 
       </DndContext>
     </MantineProvider>
   )
-  // Folded label is present
-  expect(screen.getByText(/展开候选池/)).toBeInTheDocument()
+  // PanelShell renders a rail button with aria-label "展开 候选池"
+  expect(screen.getByRole('button', { name: '展开 候选池' })).toBeInTheDocument()
   // Fixtures are NOT rendered
   expect(screen.queryByText('赛里木湖')).not.toBeInTheDocument()
   expect(screen.queryByText('独库公路')).not.toBeInTheDocument()
@@ -191,11 +191,11 @@ test('clicking the collapsed trigger calls onToggle', () => {
       </DndContext>
     </MantineProvider>
   )
-  fireEvent.click(screen.getByText(/展开候选池/))
+  fireEvent.click(screen.getByRole('button', { name: '展开 候选池' }))
   expect(onToggle).toHaveBeenCalledTimes(1)
 })
 
-test('when open=true (default), renders a 收起 button that calls onToggle', () => {
+test('when open=true (default), renders a collapse button that calls onToggle', () => {
   const onToggle = vi.fn()
   render(
     <MantineProvider>
@@ -208,11 +208,12 @@ test('when open=true (default), renders a 收起 button that calls onToggle', ()
       </DndContext>
     </MantineProvider>
   )
-  fireEvent.click(screen.getByRole('button', { name: /收起/ }))
+  // PanelShell renders collapse button with aria-label "折叠"
+  fireEvent.click(screen.getByRole('button', { name: '折叠' }))
   expect(onToggle).toHaveBeenCalledTimes(1)
 })
 
-test('folded state exposes role=button with accessible name 展开候选池', () => {
+test('folded state exposes role=button with accessible name 展开 候选池', () => {
   const onToggle = vi.fn()
   render(
     <MantineProvider>
@@ -221,7 +222,8 @@ test('folded state exposes role=button with accessible name 展开候选池', ()
       </DndContext>
     </MantineProvider>
   )
-  const btn = screen.getByRole('button', { name: '展开候选池' })
+  // PanelShell uses aria-label="展开 ${title}" — note the space
+  const btn = screen.getByRole('button', { name: '展开 候选池' })
   expect(btn).toBeInTheDocument()
   fireEvent.click(btn)
   expect(onToggle).toHaveBeenCalledTimes(1)
