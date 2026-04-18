@@ -32,7 +32,7 @@ class User < ApplicationRecord
 
   private
     def avatar_format_and_size
-      unless %w[image/jpeg image/png image/webp].include?(avatar.content_type)
+      if %w[image/jpeg image/png image/webp].exclude?(avatar.content_type)
         errors.add(:avatar, "格式不支持")
       end
       if avatar.byte_size > 5.megabytes
