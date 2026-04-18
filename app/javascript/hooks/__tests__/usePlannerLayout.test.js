@@ -129,6 +129,15 @@ describe('usePlannerLayout · resizeBetween + autoFit', () => {
     const total = result.current.panels.days.grow + result.current.panels.map.grow
     expect(total).toBeCloseTo(10, 5)
   })
+
+  test('resizeBetween respects per-panel min-width via min-grow', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    // Push hard right at 1000px viewport. Map's min-width=240, so its min-grow at
+    // 1000px is roughly 240/1000 * 14 = 3.36. After pushing right, map.grow must
+    // not go below ~3.36.
+    act(() => result.current.resizeBetween('days', 'map', 9999, 1000))
+    expect(result.current.panels.map.grow).toBeGreaterThanOrEqual(3.0)
+  })
 })
 
 describe('usePlannerLayout · flexStyle + handleVisible', () => {

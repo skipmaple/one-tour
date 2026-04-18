@@ -75,22 +75,24 @@ export default function usePlannerLayout(tourId) {
     setPanels(prev => {
       const left = prev[leftId], right = prev[rightId]
       const totalGrow = left.grow + right.grow
-      // Compute the shared px-space these two panels occupy together
       const sumOfOpenGrows = Object.values(prev).reduce(
         (s, p) => s + (p.open ? p.grow : 0),
         0
       )
       const sharedSpace = totalPx * (totalGrow / sumOfOpenGrows)
       if (sharedSpace <= 0) return prev
+      // Per-panel min-grow: derive from the panel's MIN_WIDTH so drag can't push
+      // a panel below its readable minimum width.
+      const leftMinGrow  = Math.max(MIN_GROW, (MIN_WIDTH[leftId]  / totalPx) * sumOfOpenGrows)
+      const rightMinGrow = Math.max(MIN_GROW, (MIN_WIDTH[rightId] / totalPx) * sumOfOpenGrows)
       const deltaGrow = (deltaPx / sharedSpace) * totalGrow
-      const newLeftGrow = clamp(left.grow + deltaGrow, MIN_GROW, totalGrow - MIN_GROW)
+      const newLeftGrow = clamp(left.grow + deltaGrow, leftMinGrow, totalGrow - rightMinGrow)
       const newRightGrow = totalGrow - newLeftGrow
       const next = {
         ...prev,
         [leftId]:  { ...left,  grow: newLeftGrow },
         [rightId]: { ...right, grow: newRightGrow },
       }
-      // Dragging days↔map turns off auto-fit (user is taking manual control)
       if ((leftId === 'days' && rightId === 'map') || (leftId === 'map' && rightId === 'days')) {
         next.days = { ...next.days, autoFit: false }
       }
