@@ -1,4 +1,4 @@
-import { TextInput, Textarea, Select, Radio, Group, Stack, Text, NumberInput, Divider } from '@mantine/core'
+import { TextInput, Textarea, Select, Radio, Group, SimpleGrid, Stack, Text, NumberInput, Divider } from '@mantine/core'
 import { TimeInput } from '@mantine/dates'
 import { KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS } from './detailsSchema'
 import PoiSearchCombobox from './PoiSearchCombobox'
@@ -30,11 +30,11 @@ export default function CommonFields({ form, onPoiPick, kind, details, onDetails
         {...form.getInputProps('kind')}
       />
       <Radio.Group label="公民等级" {...form.getInputProps('citizen_level')}>
-        <Group mt={4} gap="md">
+        <SimpleGrid cols={2} spacing="xs" mt={4}>
           {CITIZEN_LEVEL_OPTIONS.map(o => (
             <Radio key={o.value} value={o.value} label={o.label} />
           ))}
-        </Group>
+        </SimpleGrid>
       </Radio.Group>
       <Group grow align="flex-end">
         <TimeInput
@@ -53,6 +53,7 @@ export default function CommonFields({ form, onPoiPick, kind, details, onDetails
           <PresetChips
             values={DURATION_PRESET_CHIPS}
             onPick={v => form.setFieldValue('planned_duration_min', v)}
+            ariaLabelPrefix="时长"
           />
         </Stack>
       </Group>

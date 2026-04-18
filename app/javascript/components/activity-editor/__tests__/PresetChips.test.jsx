@@ -29,3 +29,16 @@ test('renders nothing when values is empty', () => {
   const { container } = renderChips({ values: [] })
   expect(container.querySelectorAll('button')).toHaveLength(0)
 })
+
+test('attaches aria-label on each button when ariaLabelPrefix is given', () => {
+  renderChips({ ariaLabelPrefix: '时长' })
+  expect(screen.getByRole('button', { name: '设置 时长 为 30' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '设置 时长 为 60' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: '设置 时长 为 90' })).toBeInTheDocument()
+})
+
+test('without ariaLabelPrefix, accessible name falls back to chip text', () => {
+  renderChips()
+  // no aria-label → accessible name = chip text
+  expect(screen.getByRole('button', { name: '60' })).toBeInTheDocument()
+})

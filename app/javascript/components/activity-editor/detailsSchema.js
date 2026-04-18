@@ -1,8 +1,11 @@
 // Single source of truth for kind-specific detail fields.
-// field.type ∈ text | number | number_with_suffix | checkbox | select | autocomplete
-//   number_with_suffix: { suffix, presets? }
+// field.type ∈ text | number_with_suffix | checkbox | select | autocomplete
+//   number_with_suffix: { suffix, presets?, max? }
 //   autocomplete:       { suggestions }
 //   select:             { options }
+//   text:               { placeholder? }
+// field.row (optional): adjacent fields with the same row id render side-by-side
+//   in a flex row (used to pair related numeric fields).
 const DURATION_PRESETS = [30, 60, 90, 120, 180]
 
 export const KIND_SCHEMA = {
@@ -10,15 +13,15 @@ export const KIND_SCHEMA = {
     { key: 'need_reservation',   label: '需要预约',   type: 'checkbox' },
     { key: 'best_light',         label: '最佳光线',   type: 'select',
       options: ['日出', '上午', '正午', '下午', '黄昏', '夜景', '全天'] },
-    { key: 'altitude',           label: '海拔',       type: 'number_with_suffix', suffix: '米', max: 9000 },
+    { key: 'altitude',           label: '海拔',       type: 'number_with_suffix', suffix: '米', max: 9000, row: 'scenic-nums' },
+    { key: 'recommend_stay_min', label: '建议停留',   type: 'number_with_suffix', suffix: '分钟', presets: DURATION_PRESETS, row: 'scenic-nums' },
     { key: 'ticket_info',        label: '门票',       type: 'number_with_suffix', suffix: '元' },
-    { key: 'recommend_stay_min', label: '建议停留',   type: 'number_with_suffix', suffix: '分钟', presets: DURATION_PRESETS },
   ],
   road: [
     { key: 'from_name', label: '起点',           type: 'text' },
     { key: 'to_name',   label: '终点',           type: 'text' },
-    { key: 'km',        label: '里程',           type: 'number_with_suffix', suffix: 'km' },
-    { key: 'drive_min', label: '驾驶时长',       type: 'number_with_suffix', suffix: '分钟', presets: DURATION_PRESETS },
+    { key: 'km',        label: '里程',           type: 'number_with_suffix', suffix: 'km', row: 'road-nums' },
+    { key: 'drive_min', label: '驾驶时长',       type: 'number_with_suffix', suffix: '分钟', presets: DURATION_PRESETS, row: 'road-nums' },
     { key: 'road_type', label: '路型',           type: 'select',
       options: ['高速', '国道', '省道', '山路', '城市'] },
     { key: 'day_only',  label: '仅白天通行',     type: 'checkbox' },

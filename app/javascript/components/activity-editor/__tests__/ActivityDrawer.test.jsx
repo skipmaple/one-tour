@@ -311,10 +311,10 @@ test('开始时间 是 TimeInput（type=time）', () => {
 test('时长 下方出现预设芯片（30/60/90/120/180），点击写入', () => {
   renderDrawer({ mode: 'create', targetDayId: 5 })
   const durationField = screen.getByTestId('duration-field')
-  const durationInput = within(durationField).getByLabelText('时长', { exact: false })
-  // 只看"时长"区域内的芯片（详情段 recommend_stay_min 也有同样数值的芯片）
-  expect(within(durationField).getByRole('button', { name: '60' })).toBeInTheDocument()
-  fireEvent.click(within(durationField).getByRole('button', { name: '120' }))
+  const durationInput = within(durationField).getByLabelText('时长', { exact: true })
+  // aria-label is "设置 时长 为 60"; match with regex on the numeric portion
+  expect(within(durationField).getByRole('button', { name: /时长 为 60/ })).toBeInTheDocument()
+  fireEvent.click(within(durationField).getByRole('button', { name: /时长 为 120/ }))
   expect(durationInput).toHaveValue('120')
 })
 
