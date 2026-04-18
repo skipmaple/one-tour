@@ -105,7 +105,7 @@ describe('ChatPanel', () => {
         <ChatPanel tour={{ id: 1, title: 't' }} open={false} onToggle={() => {}} />
       </MantineProvider>
     )
-    expect(screen.getByText(/展开 AI 对话/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '展开 AI 对话' })).toBeInTheDocument()
     expect(screen.queryByPlaceholderText(/说点什么/)).not.toBeInTheDocument()
   })
 

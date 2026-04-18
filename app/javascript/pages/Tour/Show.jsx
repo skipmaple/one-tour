@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
-import { Button, Group, Paper, Text, Stack } from '@mantine/core'
+import { Button, Group, Text } from '@mantine/core'
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { ActivityCardOverlay } from '../../components/planner/ActivityCard'
 import BacklogList from '../../components/planner/BacklogList'
-import DayColumn from '../../components/planner/DayColumn'
 import PlannerMap from '../../components/planner/PlannerMap'
 import ChatPanel from '../../components/planner/ChatPanel'
-import ConstitutionBanner from '../../components/planner/ConstitutionBanner'
+import DayPanel from '../../components/planner/DayPanel'
+import ResizeHandle from '../../components/planner/PanelLayout/ResizeHandle'
+import ConstitutionChip from '../../components/planner/ConstitutionChip'
 import TourTabs from '../../components/tour/TourTabs'
 import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
@@ -18,12 +19,18 @@ import DayEditModal from '../../components/planner/DayEditModal'
 import TourSettingsModal from '../../components/planner/TourSettingsModal'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
+import usePlannerLayout from '../../hooks/usePlannerLayout'
 
 export default function Show({ tour, days, activities, violations, members, author, conversation_empty }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
-  const [chatOpen, setChatOpen] = useState(true)
-  const [backlogOpen, setBacklogOpen] = useState(true)
+  const layout = usePlannerLayout(tour.id)
+  const containerRef = useRef(null)
+  const handleResize = useCallback((leftId, rightId) => (deltaPx) => {
+    const total = containerRef.current?.getBoundingClientRect().width
+    if (!total) return
+    layout.resizeBetween(leftId, rightId, deltaPx, total)
+  }, [layout.resizeBetween])
 
   const undoStack = useUndoStack()
 
@@ -113,20 +120,29 @@ export default function Show({ tour, days, activities, violations, members, auth
         <div style={{ padding: 10 }}>
           <TourTabs tour={tour} active="planner" />
           <Group justify="space-between" mb="xs" mt="sm">
-            <div
-              onClick={() => canEdit && setSettingsOpen(true)}
-              style={{ cursor: canEdit ? 'pointer' : 'default' }}
-              className={canEdit ? 'tour-title-editable' : undefined}
-            >
-              <Text fw={700} size="lg" className="tour-title-text">{tour.title}</Text>
-              {canEdit && <Text fw={700} size="lg" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none' }}>✎ 编辑</Text>}
-              {canEdit && (
-                <style>{`
-                  .tour-title-editable:hover .tour-title-text { display: none; }
-                  .tour-title-editable:hover .tour-title-edit-hint { display: inline !important; }
-                `}</style>
-              )}
-            </div>
+            <Group gap="xs" wrap="nowrap">
+              <div
+                onClick={() => canEdit && setSettingsOpen(true)}
+                style={{ cursor: canEdit ? 'pointer' : 'default' }}
+                className={canEdit ? 'tour-title-editable' : undefined}
+              >
+                <Text fw={700} size="lg" className="tour-title-text">{tour.title}</Text>
+                {canEdit && <Text fw={700} size="lg" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none' }}>✎ 编辑</Text>}
+                {canEdit && (
+                  <style>{`
+                    .tour-title-editable:hover .tour-title-text { display: none; }
+                    .tour-title-editable:hover .tour-title-edit-hint { display: inline !important; }
+                  `}</style>
+                )}
+              </div>
+              <ConstitutionChip
+                violations={violations}
+                onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
+                onAcknowledge={(v) => setAcknowledgingViolation(v)}
+                onDismiss={() => {}}
+                readOnly={!canEdit}
+              />
+            </Group>
             <Button
               size="compact-xs"
               variant="default"
@@ -135,19 +151,13 @@ export default function Show({ tour, days, activities, violations, members, auth
               成员
             </Button>
           </Group>
-          <ConstitutionBanner
-            violations={violations}
-            onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
-            onAcknowledge={(v) => setAcknowledgingViolation(v)}
-            onDismiss={() => {}}
-            readOnly={!canEdit}
-          />
         </div>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: `${backlogOpen ? 260 : 44}px 1fr ${chatOpen ? 320 : 44}px`,
-          gap: 10,
+        <div ref={containerRef} style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          gap: 0,
           padding: 10,
+          height: 'calc(100vh - 200px)',
         }}>
           <BacklogList
             activities={backlog}
@@ -155,53 +165,59 @@ export default function Show({ tour, days, activities, violations, members, auth
             onEditActivity={canEdit ? openEdit : undefined}
             onAskAI={canEdit ? () => setPendingChatPrompt(ASK_AI_BACKLOG_PROMPT) : undefined}
             readOnly={!canEdit}
-            open={backlogOpen}
-            onToggle={() => setBacklogOpen(v => !v)}
+            open={layout.panels.candidates.open}
+            onToggle={() => layout.togglePanel('candidates')}
+            canToggle={layout.openCount > 1 || !layout.panels.candidates.open}
+            flexStyle={layout.flexStyle('candidates')}
           />
-          <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', gap: 10 }}>
-            <PlannerMap activities={activities} days={days} />
-            <div style={{
-              display: 'flex',
-              gap: 8,
-              overflowX: 'auto',
-              alignItems: 'stretch',
-              // Scroll-shadow trick (Roma Komarov): two white "covers" scroll
-              // with the content (background-attachment: local), two shadows
-              // stay fixed. When content doesn't overflow, the covers sit on
-              // top of the shadows and hide them.
-              background: `
-                linear-gradient(to right, white, white),
-                linear-gradient(to left, white, white),
-                linear-gradient(to right, rgba(0,0,0,0.1), rgba(0,0,0,0)),
-                linear-gradient(to left, rgba(0,0,0,0.1), rgba(0,0,0,0))
-              `,
-              backgroundPosition: 'left center, right center, left center, right center',
-              backgroundSize: '20px 100%, 20px 100%, 10px 100%, 10px 100%',
-              backgroundRepeat: 'no-repeat',
-              backgroundAttachment: 'local, local, scroll, scroll',
-            }}>
-              {days.map(d => (
-                <DayColumn
-                  key={d.id}
-                  day={d}
-                  activities={byDay[d.id] || []}
-                  constitution={tour.constitution}
-                  onAddActivity={canEdit ? openCreate : undefined}
-                  onEditActivity={canEdit ? openEdit : undefined}
-                  onEditDay={canEdit ? setEditingDayId : undefined}
-                  readOnly={!canEdit}
-                  dragWarning={dragWarning?.dayId === d.id ? dragWarning : null}
-                />
-              ))}
-              <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />
-            </div>
-          </div>
+          <ResizeHandle
+            disabled={!layout.handleVisible('candidates', 'days')}
+            onResize={handleResize('candidates', 'days')}
+          />
+
+          <DayPanel
+            days={days}
+            byDay={byDay}
+            tour={tour}
+            nextDayIndex={nextDayIndex}
+            onAddActivity={canEdit ? openCreate : undefined}
+            onEditActivity={canEdit ? openEdit : undefined}
+            onEditDay={canEdit ? setEditingDayId : undefined}
+            readOnly={!canEdit}
+            dragWarning={dragWarning}
+            open={layout.panels.days.open}
+            onToggle={() => layout.togglePanel('days')}
+            canToggle={layout.openCount > 1 || !layout.panels.days.open}
+            autoFit={layout.panels.days.autoFit}
+            onToggleAutoFit={layout.toggleAutoFit}
+            flexStyle={layout.flexStyle('days', { autoFitWidth: days.length * 200 + 32 })}
+          />
+          <ResizeHandle
+            disabled={!layout.handleVisible('days', 'map')}
+            onResize={handleResize('days', 'map')}
+          />
+
+          <PlannerMap
+            activities={activities}
+            days={days}
+            open={layout.panels.map.open}
+            onToggle={() => layout.togglePanel('map')}
+            canToggle={layout.openCount > 1 || !layout.panels.map.open}
+            flexStyle={layout.flexStyle('map')}
+          />
+          <ResizeHandle
+            disabled={!layout.handleVisible('map', 'ai')}
+            onResize={handleResize('map', 'ai')}
+          />
+
           <ChatPanel
             tour={tour}
-            open={chatOpen}
-            onToggle={() => setChatOpen(!chatOpen)}
             pendingPrompt={pendingChatPrompt}
             onPromptConsumed={() => setPendingChatPrompt(null)}
+            open={layout.panels.ai.open}
+            onToggle={() => layout.togglePanel('ai')}
+            canToggle={layout.openCount > 1 || !layout.panels.ai.open}
+            flexStyle={layout.flexStyle('ai')}
           />
         </div>
         <DragOverlay>
@@ -364,65 +380,3 @@ function fixPromptFor(v) {
   return `请分析 ${v.message} 的硬违反，给我 3 个修正方案，每个说明原因、对其他日的影响，以及整程天数/体验是否变化。`
 }
 
-function AddDayButton({ tour, nextDayIndex, empty }) {
-  const handleAdd = () => {
-    router.post(
-      `/tours/${tour.id}/days`,
-      { day: { day_index: nextDayIndex } },
-      {
-        only: [ 'days', 'activities', 'violations' ],
-        preserveState: true,
-        preserveScroll: true
-      }
-    )
-  }
-
-  if (empty) {
-    return (
-      <Paper
-        withBorder
-        style={{
-          minWidth: 260,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          border: '2px dashed #ccc',
-          background: '#fafafa',
-          padding: 24,
-          gap: 8
-        }}
-      >
-        <Stack gap={6} align="center">
-          <Text fw={600} size="sm">还没有日</Text>
-          <Text size="xs" c="dimmed" ta="center">
-            从第 1 天开始，或让 AI 帮你一次排完
-          </Text>
-          <Button size="xs" onClick={handleAdd} data-testid="add-day-empty">
-            + 新建 D1
-          </Button>
-        </Stack>
-      </Paper>
-    )
-  }
-
-  return (
-    <Paper
-      withBorder
-      onClick={handleAdd}
-      style={{
-        minWidth: 60,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        border: '2px dashed #ccc',
-        background: '#fafafa',
-        color: '#666'
-      }}
-      data-testid="add-day-slot"
-    >
-      <Text size="sm" fw={500}>+ D{nextDayIndex}</Text>
-    </Paper>
-  )
-}

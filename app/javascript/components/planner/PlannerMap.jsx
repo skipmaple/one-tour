@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo, useState } from 'react'
 import { usePage } from '@inertiajs/react'
 import { Paper, Text, SegmentedControl, useMantineTheme } from '@mantine/core'
 import useAmap from '../../hooks/useAmap'
+import PanelShell from './PanelLayout/PanelShell'
 
 // 10-color palette using Mantine theme color names. Cycles when day_index > 10.
 // Used by buildMarkerHTML and buildPolylineConfigs to color markers/lines per day.
@@ -129,7 +130,7 @@ export function buildPolylineConfigs(activitiesGroupedByDay, days, theme) {
 // Backlog activities get a grey default-style marker; day-assigned activities
 // get a blue numbered label marker so you can tell at a glance which day they
 // belong to.
-export default function PlannerMap({ activities, days = [] }) {
+function PlannerMapInner({ activities, days = [] }) {
   const { amap_js_api_key, amap_js_security_code } = usePage().props
   const sdkState = useAmap(amap_js_api_key, amap_js_security_code)
 
@@ -261,10 +262,25 @@ export default function PlannerMap({ activities, days = [] }) {
     })
   }, [ activitiesByDay, days, viewMode, theme, sdkState ])
 
+  // Defensive: AMAP claims resizeEnable: true auto-detects container size changes,
+  // but in flex layouts this is unreliable. Explicitly call map.resize() via
+  // ResizeObserver so drag-resize of parent flex panels redraws the map correctly.
+  useEffect(() => {
+    const map = mapRef.current
+    const container = containerRef.current
+    if (!map || !container || typeof window.ResizeObserver === 'undefined') return
+
+    const observer = new window.ResizeObserver(() => {
+      map.resize?.()
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [sdkState])
+
   return (
     <Paper
       withBorder
-      style={{ height: 260, position: 'relative', overflow: 'hidden', background: '#fafafa' }}
+      style={{ height: '100%', position: 'relative', overflow: 'hidden', background: '#fafafa' }}
     >
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       {sdkState === 'ready' && !authFailed && (
@@ -343,5 +359,27 @@ function ViewModeRadio({ value, onChange }) {
         size="xs"
       />
     </div>
+  )
+}
+
+export default function PlannerMap({
+  activities,
+  days = [],
+  open = true,
+  onToggle,
+  canToggle = true,
+  flexStyle,
+}) {
+  return (
+    <PanelShell
+      title="地图"
+      icon="🗺"
+      open={open}
+      onToggle={onToggle}
+      canToggle={canToggle}
+      flexStyle={flexStyle}
+    >
+      <PlannerMapInner activities={activities} days={days} />
+    </PanelShell>
   )
 }
