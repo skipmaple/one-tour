@@ -1,10 +1,20 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import {
   Modal, Stack, Group, Button, Select, NumberInput, TextInput,
-  Checkbox, Text, Divider, SegmentedControl,
+  Checkbox, Text, Divider, SegmentedControl, ActionIcon,
 } from '@mantine/core'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
+import { IconPlus, IconX, IconReceipt2 } from '@tabler/icons-react'
+import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
+
+const MAX_RECEIPTS = 3
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024
+const ALLOWED_RECEIPT_TYPES = [ 'image/jpeg', 'image/jpg', 'image/png', 'image/webp' ]
+
+function csrfToken() {
+  return document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
+}
 
 // Minimal MVP: supports equal split + individual mode. Percentage / custom
 // are UI-TODO; backend already supports them via params[:splits].
@@ -40,6 +50,9 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   const [note, setNote] = useState('')
   const [participantIds, setParticipantIds] = useState([])
   const [saving, setSaving] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(null)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
 
   // Users that can participate: author + all members.
   const allUsers = useMemo(() => {
@@ -90,6 +103,60 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     setParticipantIds((prev) =>
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [ ...prev, userId ]
     )
+  }
+
+  const receipts = isEdit ? (expense.receipts || []) : []
+  const canUploadMore = receipts.length < MAX_RECEIPTS
+
+  const handleFilesPicked = (e) => {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (files.length === 0) return
+    const slots = MAX_RECEIPTS - receipts.length
+    files.slice(0, slots).forEach(uploadReceipt)
+    if (files.length > slots) {
+      notifications.show({ message: `最多 ${MAX_RECEIPTS} 张,已忽略多余的`, color: 'orange' })
+    }
+  }
+
+  const uploadReceipt = (file) => {
+    if (!ALLOWED_RECEIPT_TYPES.includes(file.type)) {
+      notifications.show({ message: `不支持 ${file.type},只能传 JPG/PNG/WebP`, color: 'orange' })
+      return
+    }
+    if (file.size > MAX_RECEIPT_BYTES) {
+      notifications.show({ message: '单张不能超过 5MB', color: 'orange' })
+      return
+    }
+    const fd = new FormData()
+    fd.append('file', file)
+    setUploading(true)
+    fetch(`/expenses/${expense.id}/receipts`, {
+      method: 'POST',
+      body: fd,
+      headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
+    })
+      .then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}))
+          throw new Error(err.errors?.join('；') || `HTTP ${r.status}`)
+        }
+        router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] })
+      })
+      .catch((err) => notifications.show({ message: `上传失败：${err.message}`, color: 'red' }))
+      .finally(() => setUploading(false))
+  }
+
+  const deleteReceipt = (receiptId) => {
+    fetch(`/expense_receipts/${receiptId}`, {
+      method: 'DELETE',
+      headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] })
+      })
+      .catch(() => notifications.show({ message: '删除失败', color: 'red' }))
   }
 
   const handleSave = () => {
@@ -252,6 +319,61 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
 
         {strategy === 'individual' && (
           <Text size="xs" c="dimmed">各付各：只记录付款人的一笔花销，不进结算</Text>
+        )}
+
+        {isEdit && (
+          <>
+            <Divider label="小票" labelPosition="left" my="xs" />
+            <Group gap="xs" wrap="wrap">
+              {receipts.map((r, i) => (
+                <div key={r.id} style={{ position: 'relative', width: 64, height: 64 }}>
+                  <img
+                    src={r.url}
+                    alt="小票"
+                    onClick={() => setLightboxIndex(i)}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4, cursor: 'pointer', border: '1px solid #e9ecef' }}
+                  />
+                  <ActionIcon
+                    size="xs"
+                    variant="filled"
+                    color="red"
+                    style={{ position: 'absolute', top: -6, right: -6 }}
+                    onClick={() => deleteReceipt(r.id)}
+                    aria-label="删除小票"
+                  >
+                    <IconX size={12} stroke={2} />
+                  </ActionIcon>
+                </div>
+              ))}
+              {canUploadMore && (
+                <Button
+                  variant="light"
+                  size="sm"
+                  leftSection={<IconPlus size={14} />}
+                  loading={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  上传小票
+                </Button>
+              )}
+            </Group>
+            <Text size="xs" c="dimmed">
+              最多 {MAX_RECEIPTS} 张,JPG / PNG / WebP,单张 5MB 以内
+            </Text>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ALLOWED_RECEIPT_TYPES.join(',')}
+              multiple
+              style={{ display: 'none' }}
+              onChange={handleFilesPicked}
+            />
+            <ActivityGalleryLightbox
+              images={receipts}
+              initialIndex={lightboxIndex}
+              onClose={() => setLightboxIndex(null)}
+            />
+          </>
         )}
 
         <Group justify="flex-end" mt="md">

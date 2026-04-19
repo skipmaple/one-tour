@@ -6,7 +6,7 @@ import {
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
-import { IconPlus, IconFileExport } from '@tabler/icons-react'
+import { IconPlus, IconFileExport, IconReceipt2 } from '@tabler/icons-react'
 import AddExpenseDialog from './AddExpenseDialog'
 import { groupExpenses } from './expenseGrouping'
 
@@ -31,7 +31,14 @@ export default function ExpenseDrawer({
 }) {
   const [activeTab, setActiveTab] = useState('overview')
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingExpense, setEditingExpense] = useState(null)
+  const [editingExpenseId, setEditingExpenseId] = useState(null)
+
+  // Derive the editing expense from fresh props so receipt uploads/deletes
+  // (which trigger router.reload) surface without closing the dialog.
+  const editingExpense = useMemo(
+    () => editingExpenseId ? expenses.find((e) => e.id === editingExpenseId) : null,
+    [editingExpenseId, expenses],
+  )
 
   const currentUser = useMemo(() => ({
     id: author?.user_id,
@@ -108,8 +115,8 @@ export default function ExpenseDrawer({
             activities={activities}
             days={days}
             canEdit={canEdit}
-            onAddClick={() => { setEditingExpense(null); setDialogOpen(true) }}
-            onEdit={(e) => { setEditingExpense(e); setDialogOpen(true) }}
+            onAddClick={() => { setEditingExpenseId(null); setDialogOpen(true) }}
+            onEdit={(e) => { setEditingExpenseId(e.id); setDialogOpen(true) }}
             onDelete={handleDeleteExpense}
           />
         )}
@@ -296,6 +303,12 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
               <Table.Td>
                 <Text size="sm">{where}</Text>
                 {e.note && <Text size="xs" c="dimmed">{e.note}</Text>}
+                {e.receipts?.length > 0 && (
+                  <Group gap={4} mt={2}>
+                    <IconReceipt2 size={12} stroke={1.5} style={{ color: '#868e96' }} />
+                    <Text size="xs" c="dimmed">{e.receipts.length}</Text>
+                  </Group>
+                )}
               </Table.Td>
               <Table.Td>{participantsLookup[e.paid_by_id] || '?'}</Table.Td>
               <Table.Td>{CATEGORY_LABELS[e.category] || e.category}</Table.Td>
