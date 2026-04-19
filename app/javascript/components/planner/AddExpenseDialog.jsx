@@ -21,7 +21,7 @@ function csrfToken() {
 // Minimal MVP: supports equal split + individual mode. Percentage / custom
 // are UI-TODO; backend already supports them via params[:splits].
 const SCOPE_OPTIONS = [
-  { value: 'activity', label: '关联到具体站点' },
+  { value: 'activity', label: '关联到具体行' },
   { value: 'day',      label: '关联到某一天' },
   { value: 'tour',     label: '整程（出发前垫付等）' },
 ]
@@ -251,7 +251,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     }
     setAmountError(null)
     if (scope === 'activity' && !activityId) {
-      notifications.show({ message: '请选择关联的站点', color: 'orange' })
+      notifications.show({ message: '请选择关联的行', color: 'orange' })
       return
     }
     if (scope === 'day' && !dayId) {
@@ -379,14 +379,14 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
 
         {scope === 'activity' && (
           <Select
-            label="关联站点"
+            label="关联行"
             data={nonBacklogActivities.map((a) => ({ value: String(a.id), label: a.name }))}
             value={activityId}
             onChange={(v) => v && setActivityId(v)}
             searchable
             allowDeselect={false}
-            placeholder="选择某个站点"
-            nothingFoundMessage="没有可关联的站点（请先把活动排入某一天）"
+            placeholder="选择某一行"
+            nothingFoundMessage="没有可关联的行（请先把活动排入某一天）"
           />
         )}
 

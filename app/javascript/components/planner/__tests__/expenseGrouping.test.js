@@ -96,7 +96,7 @@ describe('groupExpenses', () => {
     it('labels deleted activities gracefully', () => {
       const expenses = [ mk({ activity_id: 999 /* not in lookup */ }) ]
       const groups = groupExpenses(expenses, 'by_activity', {}, dayById)
-      expect(groups[0].label).toBe('（已删除站点）')
+      expect(groups[0].label).toBe('（已删除行）')
     })
   })
 })

@@ -38,7 +38,7 @@ export function groupExpenses(expenses, mode, activityById, dayById) {
         const dayIdx = a?.day_id ? (dayById[a.day_id]?.day_index ?? 999) : 999
         pushTo(
           `act-${e.activity_id}`,
-          a ? a.name : '（已删除站点）',
+          a ? a.name : '（已删除行）',
           dayIdx * 10000 + (a?.position ?? 0),
           e,
         )

@@ -179,15 +179,17 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
     [expenses, grouping, activityById, dayById],
   )
 
-  // Show the grouping toggle only when it adds value: at least 5 entries AND
-  // some grouping mode would actually produce >1 bucket. On a 1-day trip with
-  // 3 expenses any "group by" is a single wrapper — pure overhead.
+  // Show the grouping toggle only when it adds value — i.e. some grouping
+  // mode would actually split into ≥2 buckets. 1-day tours with every
+  // expense in the same bucket would produce a single Accordion wrapper,
+  // which is pure overhead. An arbitrary minimum-entries threshold is
+  // unreliable: 3 expenses across 2 days is already useful to group.
   const groupingToggleUseful = useMemo(() => {
-    if (expenses.length < 5) return false
-    if (days.length > 1) return true
-    const distinctActIds = new Set(expenses.map((e) => e.activity_id).filter(Boolean))
-    return distinctActIds.size > 1
-  }, [expenses, days])
+    if (expenses.length === 0) return false
+    const byDay = groupExpenses(expenses, 'by_day', activityById, dayById)
+    const byAct = groupExpenses(expenses, 'by_activity', activityById, dayById)
+    return (byDay?.length ?? 0) > 1 || (byAct?.length ?? 0) > 1
+  }, [expenses, activityById, dayById])
 
   // If the toggle becomes unavailable while user is in a grouped mode, snap
   // back to flat so they don't get stuck.
@@ -238,7 +240,7 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
           data={[
             { value: 'flat',        label: '时间顺序' },
             { value: 'by_day',      label: '按天' },
-            { value: 'by_activity', label: '按站点' },
+            { value: 'by_activity', label: '按行' },
           ]}
           size="xs"
           fullWidth
@@ -316,7 +318,7 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
       <Stack gap="xs">
         {expenses.map((e) => {
           const where = e.activity_id
-            ? (activityById[e.activity_id]?.name || '（已删除站点）')
+            ? (activityById[e.activity_id]?.name || '（已删除行）')
             : e.day_id
             ? `${dayById[e.day_id]?.day_index ? 'D' + dayById[e.day_id].day_index : '某天'} · 全天`
             : '出发前'
@@ -377,7 +379,7 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
       <Table.Tbody>
         {expenses.map((e) => {
           const where = e.activity_id
-            ? (activityById[e.activity_id]?.name || '（已删除站点）')
+            ? (activityById[e.activity_id]?.name || '（已删除行）')
             : e.day_id
             ? `${dayById[e.day_id]?.day_index ? 'D' + dayById[e.day_id].day_index : '某天'} · 全天`
             : '出发前'
