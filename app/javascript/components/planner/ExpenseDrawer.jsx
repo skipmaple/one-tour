@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import {
   Drawer, Tabs, Stack, Group, Text, Button, Table, Badge, Card, Divider,
+  SegmentedControl, Accordion,
 } from '@mantine/core'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { IconPlus, IconFileExport } from '@tabler/icons-react'
 import AddExpenseDialog from './AddExpenseDialog'
+import { groupExpenses } from './expenseGrouping'
 
 const CATEGORY_LABELS = {
   food: '吃饭', fuel: '加油', lodging: '住宿', ticket: '门票', refund: '退款', misc: '其他',
@@ -136,6 +138,8 @@ export default function ExpenseDrawer({
 }
 
 function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, tour, activities, days, canEdit, onAddClick, onDelete }) {
+  const [grouping, setGrouping] = useState('flat')
+
   const activityById = useMemo(() => {
     const m = {}
     activities.forEach((a) => { m[a.id] = a })
@@ -147,6 +151,11 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
     days.forEach((d) => { m[d.id] = d })
     return m
   }, [days])
+
+  const groups = useMemo(
+    () => groupExpenses(expenses, grouping, activityById, dayById),
+    [expenses, grouping, activityById, dayById],
+  )
 
   return (
     <Stack gap="md">
@@ -184,6 +193,20 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
         )}
       </Group>
 
+      {expenses.length > 1 && (
+        <SegmentedControl
+          value={grouping}
+          onChange={setGrouping}
+          data={[
+            { value: 'flat',        label: '时间顺序' },
+            { value: 'by_day',      label: '按天' },
+            { value: 'by_activity', label: '按站点' },
+          ]}
+          size="xs"
+          fullWidth
+        />
+      )}
+
       {expenses.length === 0 ? (
         <Card padding="xl" radius="sm" withBorder>
           <Stack align="center" gap="xs">
@@ -199,53 +222,96 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
             )}
           </Stack>
         </Card>
+      ) : grouping === 'flat' || !groups ? (
+        <ExpenseTable
+          expenses={expenses}
+          activityById={activityById}
+          dayById={dayById}
+          participantsLookup={participantsLookup}
+          tour={tour}
+          canEdit={canEdit}
+          onDelete={onDelete}
+        />
       ) : (
-        <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>花在哪</Table.Th>
-              <Table.Th>谁付的</Table.Th>
-              <Table.Th>类别</Table.Th>
-              <Table.Th style={{ textAlign: 'right' }}>金额</Table.Th>
-              <Table.Th>分摊</Table.Th>
-              {canEdit && <Table.Th></Table.Th>}
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {expenses.map((e) => {
-              const where = e.activity_id
-                ? (activityById[e.activity_id]?.name || '（已删除站点）')
-                : e.day_id
-                ? `${dayById[e.day_id]?.day_index ? 'D' + dayById[e.day_id].day_index : '某天'} · 全天`
-                : '出发前'
-              return (
-                <Table.Tr key={e.id}>
-                  <Table.Td>
-                    <Text size="sm">{where}</Text>
-                    {e.note && <Text size="xs" c="dimmed">{e.note}</Text>}
-                  </Table.Td>
-                  <Table.Td>{participantsLookup[e.paid_by_id] || '?'}</Table.Td>
-                  <Table.Td>{CATEGORY_LABELS[e.category] || e.category}</Table.Td>
-                  <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
-                    {formatCents(e.amount_cents, tour.currency)}
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge size="sm" variant="light">{STRATEGY_LABELS[e.split_strategy] || e.split_strategy}</Badge>
-                  </Table.Td>
-                  {canEdit && (
-                    <Table.Td>
-                      <Button size="compact-xs" variant="subtle" color="red" onClick={() => onDelete(e)}>
-                        删
-                      </Button>
-                    </Table.Td>
-                  )}
-                </Table.Tr>
-              )
-            })}
-          </Table.Tbody>
-        </Table>
+        <Accordion key={grouping} multiple defaultValue={groups.map((g) => g.key)} variant="separated">
+          {groups.map((g) => {
+            const subtotal = g.expenses.reduce((s, e) => s + (e.amount_cents || 0), 0)
+            return (
+              <Accordion.Item key={g.key} value={g.key}>
+                <Accordion.Control>
+                  <Group justify="space-between" wrap="nowrap" pr="xs">
+                    <Text fw={500} size="sm" truncate>{g.label}</Text>
+                    <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                      {g.expenses.length} 笔 · {formatCents(subtotal, tour.currency)}
+                    </Text>
+                  </Group>
+                </Accordion.Control>
+                <Accordion.Panel>
+                  <ExpenseTable
+                    expenses={g.expenses}
+                    activityById={activityById}
+                    dayById={dayById}
+                    participantsLookup={participantsLookup}
+                    tour={tour}
+                    canEdit={canEdit}
+                    onDelete={onDelete}
+                  />
+                </Accordion.Panel>
+              </Accordion.Item>
+            )
+          })}
+        </Accordion>
       )}
     </Stack>
+  )
+}
+
+function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tour, canEdit, onDelete }) {
+  return (
+    <Table>
+      <Table.Thead>
+        <Table.Tr>
+          <Table.Th>花在哪</Table.Th>
+          <Table.Th>谁付的</Table.Th>
+          <Table.Th>类别</Table.Th>
+          <Table.Th style={{ textAlign: 'right' }}>金额</Table.Th>
+          <Table.Th>分摊</Table.Th>
+          {canEdit && <Table.Th></Table.Th>}
+        </Table.Tr>
+      </Table.Thead>
+      <Table.Tbody>
+        {expenses.map((e) => {
+          const where = e.activity_id
+            ? (activityById[e.activity_id]?.name || '（已删除站点）')
+            : e.day_id
+            ? `${dayById[e.day_id]?.day_index ? 'D' + dayById[e.day_id].day_index : '某天'} · 全天`
+            : '出发前'
+          return (
+            <Table.Tr key={e.id}>
+              <Table.Td>
+                <Text size="sm">{where}</Text>
+                {e.note && <Text size="xs" c="dimmed">{e.note}</Text>}
+              </Table.Td>
+              <Table.Td>{participantsLookup[e.paid_by_id] || '?'}</Table.Td>
+              <Table.Td>{CATEGORY_LABELS[e.category] || e.category}</Table.Td>
+              <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
+                {formatCents(e.amount_cents, tour.currency)}
+              </Table.Td>
+              <Table.Td>
+                <Badge size="sm" variant="light">{STRATEGY_LABELS[e.split_strategy] || e.split_strategy}</Badge>
+              </Table.Td>
+              {canEdit && (
+                <Table.Td>
+                  <Button size="compact-xs" variant="subtle" color="red" onClick={() => onDelete(e)}>
+                    删
+                  </Button>
+                </Table.Td>
+              )}
+            </Table.Tr>
+          )
+        })}
+      </Table.Tbody>
+    </Table>
   )
 }
 
