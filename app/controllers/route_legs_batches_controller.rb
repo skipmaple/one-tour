@@ -6,6 +6,11 @@ class RouteLegsBatchesController < ApplicationController
   MAX_PAIRS   = 100
   RATE_LIMIT  = 10
   RATE_WINDOW = 60
+  # Sleep between Amap-hitting upserts to stay under Amap's ~3 QPS per-key
+  # cap. 0.35s → ~2.85 QPS, comfortably below. Cached pairs skip the sleep
+  # (they don't call Amap at all). Service-level retry covers the residual
+  # case where two editors batch concurrently and share the QPS budget.
+  INTER_CALL_DELAY = 0.35
 
   before_action :require_login
   before_action :set_tour
@@ -19,10 +24,16 @@ class RouteLegsBatchesController < ApplicationController
     end
 
     summary = { total: pairs.size, computed: 0, cached: 0, failed: 0, errors: [] }
-    pairs.each do |from, to|
+    pairs.each_with_index do |(from, to), i|
+      # Space Amap-hitting calls apart to stay under ~3 QPS. Done BEFORE the
+      # call so the sleep count matches the request count (N calls → N-1 gaps).
+      # Skipped on first iteration and when the previous upsert was cached
+      # (cache hits don't load Amap's rate limiter).
+      sleep(INTER_CALL_DELAY) if i > 0 && @last_status != :cached
       result = upsert_one(from, to)
       summary[result[:status]] += 1
       summary[:errors] << result[:error] if result[:error]
+      @last_status = result[:status]
     end
 
     respond_with_success(summary)

@@ -78,4 +78,61 @@ RSpec.describe AmapDirectionService do
       }.to raise_error(AmapDirectionService::UnsupportedModeError)
     end
   end
+
+  # Amap free tier ~3 QPS; a batch of 20+ pairs at ~150ms each will trip it.
+  # The service transparently retries on that specific error only. Any other
+  # Amap error (INVALID_USER_KEY, quota, etc.) surfaces immediately.
+  describe "retry on CUQPS_HAS_EXCEEDED_THE_LIMIT" do
+    # Collect sleep durations instead of actually sleeping — keeps the spec fast
+    # and lets us assert backoff shape.
+    let(:sleeps) { [] }
+    let(:service) { described_class.new(sleep_fn: ->(s) { sleeps << s }) }
+
+    let(:rate_limited_body) { { status: "0", info: "CUQPS_HAS_EXCEEDED_THE_LIMIT" }.to_json }
+
+    it "retries on CUQPS error and succeeds on second attempt" do
+      stub_request(:get, /restapi\.amap\.com/)
+        .to_return({ status: 200, body: rate_limited_body },
+                   { status: 200, body: driving_body })
+
+      result = service.fetch(from_lat: 44.6, from_lng: 81.0, to_lat: 43.3, to_lng: 82.1)
+      expect(result[:distance_m]).to eq(418_000)
+      expect(WebMock).to have_requested(:get, /restapi\.amap\.com/).twice
+      expect(sleeps).to eq([ 0.5 ])  # attempt 1 waited 0.5s before retry
+    end
+
+    it "backs off linearly across multiple retries" do
+      stub_request(:get, /restapi\.amap\.com/)
+        .to_return({ status: 200, body: rate_limited_body },
+                   { status: 200, body: rate_limited_body },
+                   { status: 200, body: driving_body })
+
+      service.fetch(from_lat: 44.6, from_lng: 81.0, to_lat: 43.3, to_lng: 82.1)
+      expect(WebMock).to have_requested(:get, /restapi\.amap\.com/).times(3)
+      expect(sleeps).to eq([ 0.5, 1.0 ])  # linear: attempt 1 × 0.5, attempt 2 × 1.0
+    end
+
+    it "gives up after max_retries and raises the rate-limit error" do
+      stub_request(:get, /restapi\.amap\.com/)
+        .to_return(status: 200, body: rate_limited_body)
+
+      expect {
+        service.fetch(from_lat: 44.6, from_lng: 81.0, to_lat: 43.3, to_lng: 82.1)
+      }.to raise_error(AmapDirectionService::Error, /CUQPS_HAS_EXCEEDED_THE_LIMIT/)
+      # 1 initial + 2 retries = 3 calls
+      expect(WebMock).to have_requested(:get, /restapi\.amap\.com/).times(3)
+      expect(sleeps).to eq([ 0.5, 1.0 ])
+    end
+
+    it "does NOT retry on other Amap errors (INVALID_USER_KEY etc.)" do
+      stub_request(:get, /restapi\.amap\.com/)
+        .to_return(status: 200, body: { status: "0", info: "INVALID_USER_KEY" }.to_json)
+
+      expect {
+        service.fetch(from_lat: 44.6, from_lng: 81.0, to_lat: 43.3, to_lng: 82.1)
+      }.to raise_error(AmapDirectionService::Error, /INVALID_USER_KEY/)
+      expect(WebMock).to have_requested(:get, /restapi\.amap\.com/).once
+      expect(sleeps).to be_empty
+    end
+  end
 end

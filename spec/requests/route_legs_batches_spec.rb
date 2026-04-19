@@ -28,6 +28,10 @@ RSpec.describe "RouteLegsBatches", type: :request do
   end
 
   describe "POST /tours/:tour_id/route_legs_batch" do
+    # Default 0.35s inter-call sleep would add multi-second waits to every
+    # spec with ≥2 pairs — behavior stays the same with 0 delay, so we stub.
+    before { stub_const("RouteLegsBatchesController::INTER_CALL_DELAY", 0) }
+
     before do
       stub_request(:get, /restapi\.amap\.com\/v5\/direction\/driving/)
         .to_return(status: 200, body: amap_body)
@@ -98,6 +102,25 @@ RSpec.describe "RouteLegsBatches", type: :request do
       body = JSON.parse(response.body)
       # a1 dropped → only (a2→a3) remains
       expect(body["total"]).to eq(1)
+    end
+
+    # Self-throttle correctness: sleep between Amap-hitting calls only, not
+    # between cache hits. This keeps a fully-cached re-click effectively
+    # instant while still respecting Amap's 3 QPS on fresh work.
+    it "does not sleep between cached-only upserts" do
+      # Prime cache so both pairs short-circuit inside Upsert
+      login_as(author)
+      post tour_route_legs_batch_path(tour)
+      stub_const("RouteLegsBatchesController::INTER_CALL_DELAY", 5.0)
+      # If cached pairs were slept between, this would take ≥5s — assert the
+      # whole re-call finishes in well under that window.
+      elapsed = Benchmark.realtime do
+        post tour_route_legs_batch_path(tour)
+      end
+      expect(elapsed).to be < 1.0
+      body = JSON.parse(response.body)
+      expect(body["cached"]).to eq(2)
+      expect(body["computed"]).to eq(0)
     end
 
     it "non-editor is forbidden" do
