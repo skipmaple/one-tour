@@ -42,6 +42,8 @@ Each entry below is "if you see X, consider Y" — match on the trigger, don't m
 - **Adding a network call from the frontend** — Use Inertia `router.*`. The one exception is `useChat.js` (streaming + DELETE-then-refetch don't fit Inertia) — don't add a second exception without a similarly strong reason.
 - **Touching `config/storage.yml`** — Keep `request_checksum_calculation: when_required` and `response_checksum_validation: when_required`. R2 rejects aws-sdk-s3's default CRC32 checksum.
 - **Reasoning about user identity** — OAuth logins and email-code logins resolve to the **same** `User` when the email matches. One user may have multiple `OauthIdentity` rows on one account.
+- **改 expense / settlement 数学** — `paid_cents` 刻意排除各付各(各付各不进结算,否则产生幽灵应收);`my_spend_cents`(owed + 我付的各付各)才是预算卡用的"我实际承担"。四字段完整定义 + 为什么这么拆 在 `app/models/expense/summarize.rb` 类头注释,改之前读完。
+- **写 Inertia mutation 控制器 action** — 必须 `inertia_request?` 分流:Inertia 走 `redirect_to + flash[:alert/:notice]`,fetch/specs 走 `render json:`。返 JSON 给 Inertia 会让前端弹 "invalid response" modal(曾有 4 个 mutation endpoint 踩过)。照抄 `ExpensesController#update` 或 `SettlementsController#create`,详细理由在 `ApplicationController#inertia_request?` 注释里。
 
 ## Where the sharp edges are
 
