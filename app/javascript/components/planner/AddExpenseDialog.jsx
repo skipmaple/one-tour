@@ -40,7 +40,7 @@ const STRATEGY_OPTIONS = [
   { value: 'individual', label: '各付各（不分摊）' },
 ]
 
-export default function AddExpenseDialog({ opened, onClose, tour, days, activities, members, author, expense }) {
+export default function AddExpenseDialog({ opened, onClose, tour, days, activities, members, author, expense, readOnly = false }) {
   const isEdit = Boolean(expense)
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [scope, setScope] = useState('activity')
@@ -72,7 +72,8 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   })
 
   const confirmClose = () => {
-    if (currentSnapshot() === initialSnapshotRef.current) {
+    // View-only dialogs have no edits to lose.
+    if (readOnly || currentSnapshot() === initialSnapshotRef.current) {
       onClose()
       return
     }
@@ -387,7 +388,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   }
 
   return (
-    <Modal opened={opened} onClose={confirmClose} title={isEdit ? '改一笔花销' : '记一笔花销'} size={isMobile ? '100%' : 'md'} fullScreen={isMobile} padding="md">
+    <Modal opened={opened} onClose={confirmClose} title={readOnly ? '查看花销' : (isEdit ? '改一笔花销' : '记一笔花销')} size={isMobile ? '100%' : 'md'} fullScreen={isMobile} padding="md">
       <Stack gap="sm">
         <Select
           label="适用范围"
@@ -395,6 +396,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           value={scope}
           onChange={(v) => v && setScope(v)}
           allowDeselect={false}
+          disabled={readOnly}
         />
 
         {scope === 'activity' && (
@@ -426,6 +428,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           value={paidById}
           onChange={(v) => v && setPaidById(v)}
           allowDeselect={false}
+          disabled={readOnly}
         />
 
         <NumberInput
@@ -437,6 +440,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           thousandSeparator=","
           description="退款请填负数"
           error={amountError}
+          disabled={readOnly}
         />
 
         <Select
@@ -445,6 +449,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           value={category}
           onChange={(v) => v && setCategory(v)}
           allowDeselect={false}
+          disabled={readOnly}
         />
 
         <TextInput
@@ -453,6 +458,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           value={note}
           onChange={(e) => setNote(e.currentTarget.value)}
           maxLength={280}
+          disabled={readOnly}
         />
 
         <Divider label="怎么分" labelPosition="left" my="xs" />
@@ -462,6 +468,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           onChange={setStrategy}
           data={STRATEGY_OPTIONS}
           fullWidth
+          disabled={readOnly}
         />
 
         {strategy === 'equal' && (
@@ -473,6 +480,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
                 label={u.email + (u.user_id === author.user_id ? '（作者）' : '')}
                 checked={participantIds.includes(u.user_id)}
                 onChange={() => toggleParticipant(u.user_id)}
+                disabled={readOnly}
               />
             ))}
             <Group gap="xs" mt={6} align="flex-end" wrap="wrap">
@@ -483,6 +491,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
                 max={20}
                 value={externalCount}
                 onChange={(v) => setExternalCount(v === '' || v == null ? 0 : Number(v))}
+                disabled={readOnly}
                 style={{ minWidth: 160 }}
               />
               {externalCount > 0 && (
@@ -522,19 +531,21 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
                 onClick={() => setLightboxIndex(i)}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4, cursor: 'pointer', border: '1px solid #e9ecef' }}
               />
-              <ActionIcon
-                size="xs"
-                variant="filled"
-                color="red"
-                style={{ position: 'absolute', top: -6, right: -6 }}
-                onClick={() => deleteReceipt(r)}
-                aria-label="删除小票"
-              >
-                <IconX size={12} stroke={2} />
-              </ActionIcon>
+              {!readOnly && (
+                <ActionIcon
+                  size="xs"
+                  variant="filled"
+                  color="red"
+                  style={{ position: 'absolute', top: -6, right: -6 }}
+                  onClick={() => deleteReceipt(r)}
+                  aria-label="删除小票"
+                >
+                  <IconX size={12} stroke={2} />
+                </ActionIcon>
+              )}
             </div>
           ))}
-          {canUploadMore && (
+          {canUploadMore && !readOnly && (
             <Button
               variant="light"
               size="sm"
@@ -545,11 +556,16 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
               上传小票
             </Button>
           )}
+          {readOnly && displayReceipts.length === 0 && (
+            <Text size="xs" c="dimmed">（没有上传小票）</Text>
+          )}
         </Group>
-        <Text size="xs" c="dimmed">
-          最多 {MAX_RECEIPTS} 张,JPG / PNG / WebP,单张 5MB 以内
-          {!isEdit && pendingFiles.length > 0 && `（保存时上传）`}
-        </Text>
+        {!readOnly && (
+          <Text size="xs" c="dimmed">
+            最多 {MAX_RECEIPTS} 张,JPG / PNG / WebP,单张 5MB 以内
+            {!isEdit && pendingFiles.length > 0 && `（保存时上传）`}
+          </Text>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -565,8 +581,14 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
         />
 
         <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={confirmClose} disabled={saving}>取消</Button>
-          <Button onClick={handleSave} loading={saving}>保存</Button>
+          {readOnly ? (
+            <Button variant="default" onClick={onClose}>关闭</Button>
+          ) : (
+            <>
+              <Button variant="default" onClick={confirmClose} disabled={saving}>取消</Button>
+              <Button onClick={handleSave} loading={saving}>保存</Button>
+            </>
+          )}
         </Group>
       </Stack>
     </Modal>

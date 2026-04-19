@@ -221,6 +221,7 @@ export default function ExpenseDrawer({
         members={members}
         author={author}
         expense={editingExpense}
+        readOnly={!canEdit}
       />
 
       <ActivityGalleryLightbox
@@ -292,7 +293,12 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
         </Card>
       )}
 
-      {canEdit && <BudgetCard balance={balance} tour={tour} onEditBudget={onEditBudget} />}
+      {/* Budget is personal — show when the current user is participating
+          (paid or owed anything) or already has a budget set. A pure observer
+          with no stake has no reason to see the card. */}
+      {balance && (balance.paid_cents !== 0 || balance.owed_cents !== 0 || balance.tour_budget_cents != null) && (
+        <BudgetCard balance={balance} tour={tour} onEditBudget={onEditBudget} />
+      )}
 
       {summary && (
         <Group grow>
@@ -484,12 +490,16 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
                 </Stack>
                 <Stack gap={4} align="flex-end" style={{ flexShrink: 0 }}>
                   <Text fw={700} size="md">{formatCents(e.amount_cents, tour.currency)}</Text>
-                  {canEdit && (
-                    <Group gap={6} wrap="nowrap">
-                      <Button size="compact-xs" variant="subtle" onClick={() => onEdit(e)}>改</Button>
-                      <Button size="compact-xs" variant="subtle" color="red" onClick={() => onDelete(e)}>删</Button>
-                    </Group>
-                  )}
+                  <Group gap={6} wrap="nowrap">
+                    {canEdit ? (
+                      <>
+                        <Button size="compact-xs" variant="subtle" onClick={() => onEdit(e)}>改</Button>
+                        <Button size="compact-xs" variant="subtle" color="red" onClick={() => onDelete(e)}>删</Button>
+                      </>
+                    ) : (
+                      <Button size="compact-xs" variant="subtle" onClick={() => onEdit(e)}>看</Button>
+                    )}
+                  </Group>
                 </Stack>
               </Group>
             </Card>
@@ -507,7 +517,7 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
           <Table.Th>类别</Table.Th>
           <Table.Th style={{ textAlign: 'right' }}>金额</Table.Th>
           <Table.Th>分摊</Table.Th>
-          {canEdit && <Table.Th></Table.Th>}
+          <Table.Th></Table.Th>
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
@@ -544,18 +554,18 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
               <Table.Td>
                 <Badge size="sm" variant="light">{STRATEGY_LABELS[e.split_strategy] || e.split_strategy}</Badge>
               </Table.Td>
-              {canEdit && (
-                <Table.Td>
-                  <Group gap={4} wrap="nowrap" justify="flex-end">
-                    <Button size="compact-xs" variant="subtle" onClick={() => onEdit(e)}>
-                      改
-                    </Button>
-                    <Button size="compact-xs" variant="subtle" color="red" onClick={() => onDelete(e)}>
-                      删
-                    </Button>
-                  </Group>
-                </Table.Td>
-              )}
+              <Table.Td>
+                <Group gap={4} wrap="nowrap" justify="flex-end">
+                  {canEdit ? (
+                    <>
+                      <Button size="compact-xs" variant="subtle" onClick={() => onEdit(e)}>改</Button>
+                      <Button size="compact-xs" variant="subtle" color="red" onClick={() => onDelete(e)}>删</Button>
+                    </>
+                  ) : (
+                    <Button size="compact-xs" variant="subtle" onClick={() => onEdit(e)}>看</Button>
+                  )}
+                </Group>
+              </Table.Td>
             </Table.Tr>
           )
         })}

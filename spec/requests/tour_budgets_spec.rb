@@ -37,10 +37,33 @@ RSpec.describe "TourBudgets", type: :request do
       expect(response).to have_http_status(:unprocessable_entity)
     end
 
-    it "non-editor is forbidden" do
+    it "non-member is forbidden" do
       login_as(create(:user))
       post tour_budgets_path(tour), params: { tour_budget: { user_id: author.id, amount_cents: 100 } }
       expect(response).to have_http_status(:forbidden)
+    end
+
+    # Budgets are personal — a reader-member can still track their own budget
+    # against a tour they can view. user_id is forced to current_user server-side.
+    it "reader-member can create their own budget" do
+      reader = create(:user)
+      tour.tour_memberships.create!(user: reader, role: :reader)
+      login_as(reader)
+      post tour_budgets_path(tour), params: { tour_budget: { amount_cents: 5000 } }
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["user_id"]).to eq(reader.id)
+    end
+  end
+
+  describe "PATCH + DELETE cross-user guard" do
+    it "editor A cannot modify editor B's budget" do
+      other = create(:user)
+      tour.tour_memberships.create!(user: other, role: :editor)
+      b_of_other = TourBudget.create!(tour: tour, user: other, amount_cents: 1000)
+      login_as(author)
+      patch tour_budget_path(b_of_other), params: { tour_budget: { amount_cents: 9999 } }
+      expect(response).to have_http_status(:forbidden)
+      expect(b_of_other.reload.amount_cents).to eq(1000)
     end
   end
 
