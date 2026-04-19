@@ -47,7 +47,7 @@ function CurrentMembers({ tour, members, author, isAuthor, days }) {
       <Group justify="space-between" p="xs" wrap="nowrap" style={{ background: '#f9f9f9', borderRadius: 4 }}>
         <div style={{ flex: 1, minWidth: 0 }} title={author.email}>
           <UserLabel user={author} isAuthor size={22} fz="sm" />
-          <Text size="xs" c="dimmed" truncate>{author.email}</Text>
+          {author.name && <Text size="xs" c="dimmed" truncate>{author.email}</Text>}
         </div>
         <Badge color="gray" variant="light" style={{ flexShrink: 0 }}>作者</Badge>
       </Group>
@@ -57,7 +57,7 @@ function CurrentMembers({ tour, members, author, isAuthor, days }) {
           <Group justify="space-between" wrap="nowrap">
             <div style={{ flex: 1, minWidth: 0 }} title={m.email}>
               <UserLabel user={m} size={22} fz="sm" />
-              <Text size="xs" c="dimmed" truncate>{m.email}</Text>
+              {m.name && <Text size="xs" c="dimmed" truncate>{m.email}</Text>}
             </div>
             <Group gap="xs">
               <Select

@@ -27,13 +27,22 @@ class ExpensesController < ApplicationController
   def update
     ActiveRecord::Base.transaction do
       @expense.update!(expense_params)
-      # Always recompute — the service destroy_all's existing splits first,
-      # and the individual case is a clean no-op (just clears old rows). Without
-      # this the guard would leak stale splits after an equal→individual switch.
-      Expense::ComputeSplits.new(@expense,
-        participant_ids: params[:participant_ids],
-        splits: Array(params[:splits]).map(&:to_unsafe_h)
-      ).call
+
+      # Only recompute when the client explicitly touched splits, or a
+      # split-affecting column actually changed. A partial PATCH (e.g. only
+      # `note`) must not silently wipe splits — ComputeSplits opens with
+      # destroy_all, so running it unconditionally on every update turned
+      # any note-only edit into a settlement-math bomb.
+      #
+      # When participants aren't supplied but we do need to recompute
+      # (e.g. amount changed), fall back to the existing split's participants
+      # so the row set stays intact.
+      if should_recompute_splits?
+        Expense::ComputeSplits.new(@expense,
+          participant_ids: params[:participant_ids] || @expense.splits.map(&:user_id),
+          splits: Array(params[:splits]).map(&:to_unsafe_h)
+        ).call
+      end
     end
 
     respond_with_success(expense_json(@expense))
@@ -64,6 +73,17 @@ class ExpensesController < ApplicationController
 
     def require_editor
       head(:forbidden) unless @tour.editable_by?(current_user)
+    end
+
+    # True when the client touched splits params or when `update!` wrote a
+    # column that changes how splits are derived.
+    def should_recompute_splits?
+      return true if params.key?(:participant_ids) || params.key?(:splits)
+
+      @expense.saved_change_to_amount_cents? ||
+        @expense.saved_change_to_split_strategy? ||
+        @expense.saved_change_to_external_count? ||
+        @expense.saved_change_to_external_attributed_to_id?
     end
 
     def expense_params

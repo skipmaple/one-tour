@@ -57,12 +57,22 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   const [externalAttributedToId, setExternalAttributedToId] = useState('')
   const [saving, setSaving] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(null)
-  const [uploading, setUploading] = useState(false)
+  // Counter, not a boolean — edit mode can kick off multiple concurrent
+  // uploads (one per file), and a single flag would flip off as soon as the
+  // first one resolved while others were still in-flight. `uploading` below
+  // is derived as `uploadsInFlight > 0`.
+  const [uploadsInFlight, setUploadsInFlight] = useState(0)
+  const uploading = uploadsInFlight > 0
   const [amountError, setAmountError] = useState(null)
   // CREATE mode: files are staged locally until the expense gets an id,
   // then uploaded in a second phase on save. Each stored as { file, url }
   // with url = createObjectURL(file) for preview + revoked on cleanup.
   const [pendingFiles, setPendingFiles] = useState([])
+  // Mirror current pendingFiles into a ref so the unmount cleanup can see the
+  // latest list — the `[], no-deps` effect below otherwise closes over the
+  // initial empty array and never revokes anything.
+  const pendingFilesRef = useRef(pendingFiles)
+  pendingFilesRef.current = pendingFiles
   const fileInputRef = useRef(null)
   const initialSnapshotRef = useRef('')
 
@@ -72,9 +82,28 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     externalCount, externalAttributedToId,
   })
 
+  // Revokes blob URLs for staged receipts and empties the staging list.
+  // Must be called on any exit path — close, successful save, unmount — or
+  // the previews stay allocated until the tab unloads.
+  const cleanupPendingFiles = () => {
+    setPendingFiles((prev) => {
+      prev.forEach((p) => URL.revokeObjectURL(p.url))
+      return []
+    })
+  }
+
   const confirmClose = () => {
     // View-only dialogs have no edits to lose.
-    if (readOnly || currentSnapshot() === initialSnapshotRef.current) {
+    if (readOnly) {
+      onClose()
+      return
+    }
+    // Staged receipts count as unsaved work even when the form itself is
+    // otherwise pristine — without this guard a user can select 3 receipts
+    // and close the dialog with no warning, losing the selection.
+    const isDirty = currentSnapshot() !== initialSnapshotRef.current || pendingFiles.length > 0
+    if (!isDirty) {
+      cleanupPendingFiles()
       onClose()
       return
     }
@@ -82,7 +111,10 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
       title: '放弃未保存的修改？',
       labels: { confirm: '放弃', cancel: '继续编辑' },
       confirmProps: { color: 'red' },
-      onConfirm: onClose,
+      onConfirm: () => {
+        cleanupPendingFiles()
+        onClose()
+      },
     })
   }
 
@@ -148,11 +180,8 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     setExternalCount(v.externalCount)
     setExternalAttributedToId(v.externalAttributedToId)
     setAmountError(null)
-    // Clean up any stale pending previews from a previous open and reset.
-    setPendingFiles((prev) => {
-      prev.forEach((p) => URL.revokeObjectURL(p.url))
-      return []
-    })
+    // Clean up any stale previews from a previous open before starting fresh.
+    cleanupPendingFiles()
 
     // Snapshot for dirty-check on close.
     initialSnapshotRef.current = JSON.stringify({
@@ -161,10 +190,11 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     })
   }, [opened, expense?.id])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Revoke preview object URLs on unmount to avoid leaks.
+  // Revoke preview object URLs on unmount — reads from the ref so we see the
+  // current list, not the one captured at mount.
   useEffect(() => () => {
-    pendingFiles.forEach((p) => URL.revokeObjectURL(p.url))
-  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+    pendingFilesRef.current.forEach((p) => URL.revokeObjectURL(p.url))
+  }, [])
 
   const toggleParticipant = (userId) => {
     setParticipantIds((prev) =>
@@ -213,7 +243,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   const uploadReceiptNow = (file) => {
     const fd = new FormData()
     fd.append('file', file)
-    setUploading(true)
+    setUploadsInFlight((n) => n + 1)
     fetch(`/expenses/${expense.id}/receipts`, {
       method: 'POST',
       body: fd,
@@ -227,7 +257,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
         router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] })
       })
       .catch((err) => notifications.show({ message: `上传失败：${err.message}`, color: 'red' }))
-      .finally(() => setUploading(false))
+      .finally(() => setUploadsInFlight((n) => n - 1))
   }
 
   const deleteReceipt = (receipt) => {
@@ -327,6 +357,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           notifications.show({ message: alert, color: 'red' })
         } else {
           notifications.show({ message: isEdit ? '已更新' : '已记下这笔花销', color: 'green' })
+          cleanupPendingFiles()
           onClose()
         }
       },
@@ -381,6 +412,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           color: 'orange',
         })
       }
+      cleanupPendingFiles()
       onClose()
     } catch (err) {
       setSaving(false)

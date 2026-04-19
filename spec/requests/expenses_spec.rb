@@ -114,6 +114,47 @@ RSpec.describe "Expenses", type: :request do
       expect(e.splits.count).to eq(0)
     end
 
+    # Regression: a note-only PATCH used to wipe splits because the controller
+    # ran ComputeSplits unconditionally (which opens with destroy_all). Any
+    # stray note edit turned settlement math into phantom zeros.
+    it "preserves splits on a note-only PATCH" do
+      e = Expense.create!(
+        tour: tour, activity: activity, scope: :activity,
+        paid_by: author, created_by: author,
+        amount_cents: 9_000, category: :food, split_strategy: :equal
+      )
+      Expense::ComputeSplits.new(e, participant_ids: [ author.id, u2.id ]).call
+      expect(e.splits.count).to eq(2)
+
+      login_as(author)
+      patch expense_path(e), params: { expense: { note: "改备注" } }
+
+      expect(response).to have_http_status(:ok)
+      expect(e.reload.note).to eq("改备注")
+      expect(e.splits.count).to eq(2)
+      expect(e.splits.pluck(:amount_cents).sum).to eq(9_000)
+    end
+
+    # Regression: amount-only PATCH (no participant_ids supplied) must re-
+    # proportion the existing split rows, not wipe them.
+    it "re-proportions existing splits when only amount changes" do
+      e = Expense.create!(
+        tour: tour, activity: activity, scope: :activity,
+        paid_by: author, created_by: author,
+        amount_cents: 9_000, category: :food, split_strategy: :equal
+      )
+      Expense::ComputeSplits.new(e, participant_ids: [ author.id, u2.id ]).call
+      expect(e.splits.count).to eq(2)
+
+      login_as(author)
+      patch expense_path(e), params: { expense: { amount_cents: 12_000 } }
+
+      expect(response).to have_http_status(:ok)
+      expect(e.reload.amount_cents).to eq(12_000)
+      expect(e.splits.count).to eq(2)
+      expect(e.splits.pluck(:amount_cents).sum).to eq(12_000)
+    end
+
     it "creates splits when switching individual → equal" do
       e = Expense.create!(
         tour: tour, activity: activity, scope: :activity,

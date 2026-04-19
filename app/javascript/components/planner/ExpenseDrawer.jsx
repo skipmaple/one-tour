@@ -430,12 +430,16 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
       )}
 
       {/* Budget is personal — show when the current user has any stake:
-          paid an expense, owed on a split, ever transferred money via a
-          settlement, or already set a budget. A pure observer with no
-          stake has no reason to see the card. */}
+          paid for group, owed on a split, spent on 各付各 (my_spend),
+          ever transferred money via a settlement, or already set a budget.
+          A pure observer with no stake has no reason to see the card.
+          Note: individual-only spenders have paid=0 and owed=0 but my_spend>0,
+          so without my_spend the card (and 设预算 entry point) would silently
+          disappear for them. */}
       {balance && (
         balance.paid_cents !== 0
         || balance.owed_cents !== 0
+        || (balance.my_spend_cents ?? 0) !== 0
         || (balance.settled_out_cents ?? 0) !== 0
         || (balance.settled_in_cents ?? 0) !== 0
         || balance.tour_budget_cents != null
