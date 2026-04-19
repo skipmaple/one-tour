@@ -8,6 +8,7 @@ class Settlement < ApplicationRecord
   validates :settled_at,   presence: true
   validate  :different_users
   validate  :both_sides_tour_members
+  validate  :recorder_is_party_or_editor
 
   before_validation :default_settled_at
 
@@ -30,5 +31,17 @@ class Settlement < ApplicationRecord
           errors.add(:base, "#{u.email} 不在此行程成员里")
         end
       end
+    end
+
+    # Who may record a settlement:
+    #   - either party (it's their own money)
+    #   - any tour editor (coordinator role)
+    # An uninvolved reader-member could otherwise forge ledger entries
+    # between other people.
+    def recorder_is_party_or_editor
+      return unless tour && recorded_by
+      return if recorded_by_id == from_user_id || recorded_by_id == to_user_id
+      return if tour.editable_by?(recorded_by)
+      errors.add(:recorded_by_id, "只能记录自己参与的转账，除非你是编辑者")
     end
 end

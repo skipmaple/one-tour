@@ -10,6 +10,7 @@ import { modals } from '@mantine/modals'
 import { IconPlus, IconFileExport, IconReceipt2, IconWallet } from '@tabler/icons-react'
 import AddExpenseDialog from './AddExpenseDialog'
 import BudgetModal from './BudgetModal'
+import ManualSettlementDialog from './ManualSettlementDialog'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import { groupExpenses } from './expenseGrouping'
 
@@ -37,6 +38,7 @@ export default function ExpenseDrawer({
   const [editingExpenseId, setEditingExpenseId] = useState(null)
   const [rowLightbox, setRowLightbox] = useState({ receipts: [], index: null })
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
+  const [manualSettlementOpen, setManualSettlementOpen] = useState(false)
   const isMobile = useMediaQuery('(max-width: 640px)')
 
   // Derive the editing expense from fresh props so receipt uploads/deletes
@@ -210,6 +212,7 @@ export default function ExpenseDrawer({
             tour={tour}
             canEdit={canEdit}
             currentUserId={currentUserId}
+            onManualRecord={() => setManualSettlementOpen(true)}
           />
         )}
       </Drawer>
@@ -238,6 +241,15 @@ export default function ExpenseDrawer({
         tour={tour}
         days={days}
         budgets={budgets || []}
+      />
+
+      <ManualSettlementDialog
+        opened={manualSettlementOpen}
+        onClose={() => setManualSettlementOpen(false)}
+        tour={tour}
+        members={members}
+        author={author}
+        currentUserId={currentUserId}
       />
     </>
   )
@@ -576,7 +588,7 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
   )
 }
 
-function SettleTab({ summary, expenses, settlements, members, author, tour, canEdit, currentUserId }) {
+function SettleTab({ summary, expenses, settlements, members, author, tour, canEdit, currentUserId, onManualRecord }) {
   if (!summary || expenses.length === 0) {
     return (
       <Card padding="xl" radius="sm" withBorder>
@@ -609,15 +621,15 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
 
   const markPaid = (transfer) => {
     modals.openConfirmModal({
-      title: '确认这笔转账已完成？',
+      title: '这笔转账已完成？',
       children: (
         <Text size="sm">
-          {userLookup[transfer.from]} 已付给 {userLookup[transfer.to]}{' '}
+          {userLookup[transfer.from]} → {userLookup[transfer.to]}{' '}
           <Text component="span" fw={700}>{formatCents(transfer.amount, tour.currency)}</Text>
-          ，登记一条结算记录。
+          ，登记为已结清。
         </Text>
       ),
-      labels: { confirm: '已付', cancel: '取消' },
+      labels: { confirm: '已结', cancel: '取消' },
       onConfirm: () => postSettlement(transfer),
     })
   }
@@ -660,7 +672,12 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
 
   return (
     <Stack gap="md">
-      <Text fw={600} size="sm">每个人应收 / 应付</Text>
+      <Group justify="space-between">
+        <Text fw={600} size="sm">每个人应收 / 应付</Text>
+        <Button size="compact-xs" variant="light" leftSection={<IconPlus size={12} />} onClick={onManualRecord}>
+          记一笔结算
+        </Button>
+      </Group>
       <Stack gap="xs">
         {userRows.map((r) => (
           <Card key={r.user_id} padding="sm" radius="sm" withBorder
@@ -703,10 +720,13 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
                   <Group gap="xs" wrap="nowrap">
                     <Text fw={700}>{formatCents(t.amount, tour.currency)}</Text>
                     {/* Any party to the transfer can mark it settled — this is
-                        their own money, not a coordinator-only action. */}
+                        their own money, not a coordinator-only action.
+                        Neutral copy ("这笔已结") reads correctly from BOTH
+                        payer and receiver POV; "标记已付" was confusing for
+                        the receiver. */}
                     {(currentUserId === t.from || currentUserId === t.to) && (
                       <Button size="compact-xs" variant="light" onClick={() => markPaid(t)}>
-                        标记已付
+                        这笔已结
                       </Button>
                     )}
                   </Group>

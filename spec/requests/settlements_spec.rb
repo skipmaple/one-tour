@@ -59,6 +59,32 @@ RSpec.describe "Settlements", type: :request do
       expect(response).to have_http_status(:forbidden)
     end
 
+    # A reader-member can record settlements they're a party to — it's
+    # their own money.
+    it "lets a reader-party record a settlement they're part of" do
+      reader = create(:user, email: "reader-party@test.com")
+      tour.tour_memberships.create!(user: reader, role: :reader)
+      login_as(reader)
+      post tour_settlements_path(tour), params: {
+        settlement: { from_user_id: reader.id, to_user_id: author.id, amount_cents: 500 }
+      }
+      expect(response).to have_http_status(:ok)
+    end
+
+    # But a reader who is NEITHER recorder-party NOR editor cannot forge
+    # ledger entries between other members. Closes an S3-class data
+    # integrity hole.
+    it "rejects a reader-non-party recording a transfer between others" do
+      observer = create(:user, email: "observer@test.com")
+      tour.tour_memberships.create!(user: observer, role: :reader)
+      login_as(observer)
+      post tour_settlements_path(tour), params: {
+        settlement: { from_user_id: author.id, to_user_id: other.id, amount_cents: 99_999 }
+      }
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(JSON.parse(response.body)["errors"].first).to match(/只能记录自己参与的转账/)
+    end
+
     # Summarize should net out the settlement: receiver's net goes DOWN, payer's
     # net goes UP. Validates the behavior end-to-end since this is the whole
     # point of the feature.
