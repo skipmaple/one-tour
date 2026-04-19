@@ -182,11 +182,7 @@ export default function ActivityCard({ activity, onClick, readOnly }) {
     >
       {isOver && <div data-testid="drop-indicator" className="ac-drop-indicator" />}
       <ThumbAndBadge activity={activity} />
-      <div
-        className="ac-body"
-        onClick={handleBodyClick}
-        role={onClick && !readOnly ? 'button' : undefined}
-      >
+      <div className="ac-body" onClick={handleBodyClick}>
         <div className="ac-name-row">
           <KindIcon kind={activity.kind} />
           <span className="ac-name">{activity.name}</span>

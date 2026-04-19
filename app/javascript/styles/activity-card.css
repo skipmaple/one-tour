@@ -16,12 +16,16 @@
   position: relative;
   font-size: 12px;
   color: #222;
-  cursor: grab;
+  cursor: default;
 }
 
-.ac-card.ac-dragging { opacity: 0.4; cursor: grabbing; }
-
+/* Cursor affordance matches actual capability:
+   - draggable (dnd-kit spread adds aria-roledescription) → grab
+   - readOnly + onClick only → pointer
+   - actively dragging → grabbing (last rule for source-order win) */
+.ac-card[aria-roledescription="draggable"] { cursor: grab; }
 .ac-card.ac-readonly { cursor: pointer; }
+.ac-card.ac-dragging { opacity: 0.4; cursor: grabbing; }
 
 /* drop indicator — preserved from old component */
 .ac-drop-indicator {
