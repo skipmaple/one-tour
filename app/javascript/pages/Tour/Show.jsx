@@ -22,7 +22,7 @@ import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
 
-export default function Show({ tour, days, activities, activity_images, expenses, expenses_summary, tour_budgets, route_legs, violations, members, author, conversation_empty }) {
+export default function Show({ tour, days, activities, activity_images, expenses, expenses_summary, tour_budgets, settlements, route_legs, violations, members, author, conversation_empty }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const layout = usePlannerLayout(tour.id)
@@ -301,6 +301,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
         expenses={expenses || []}
         summary={expenses_summary}
         budgets={tour_budgets || []}
+        settlements={settlements || []}
         canEdit={canEdit}
       />
 

@@ -2,10 +2,12 @@ class TourBudgetsController < ApplicationController
   before_action :require_login
   before_action :set_tour, only: [ :create ]
   before_action :set_budget, only: [ :update, :destroy ]
-  before_action :require_editor
+  before_action :require_tour_access
 
   def create
-    budget = @tour.tour_budgets.build(budget_params)
+    # user_id is derived from current_user — budgets are always "my budget".
+    # Clients shouldn't set this; the permit list enforces that too.
+    budget = @tour.tour_budgets.build(budget_params.merge(user_id: current_user.id))
     if budget.save
       respond_with_success(budget_json(budget))
     else
@@ -17,6 +19,7 @@ class TourBudgetsController < ApplicationController
   end
 
   def update
+    head(:forbidden) and return unless @budget.user_id == current_user.id
     if @budget.update(budget_params)
       respond_with_success(budget_json(@budget))
     else
@@ -27,6 +30,7 @@ class TourBudgetsController < ApplicationController
   end
 
   def destroy
+    head(:forbidden) and return unless @budget.user_id == current_user.id
     @budget.destroy!
     if inertia_request?
       redirect_to tour_path(@tour)
@@ -45,12 +49,18 @@ class TourBudgetsController < ApplicationController
       @tour = @budget.tour
     end
 
-    def require_editor
-      head(:forbidden) unless @tour.editable_by?(current_user)
+    # Budgets are per-user (user_id is set from current_user in create()), so
+    # any tour viewer is allowed to manage their own budget — they might be a
+    # participant whose membership is only :reader. update/destroy additionally
+    # verify @budget.user_id == current_user.id inline.
+    def require_tour_access
+      head(:forbidden) unless @tour.visible_to?(current_user)
     end
 
     def budget_params
-      params.require(:tour_budget).permit(:user_id, :day_id, :activity_id, :amount_cents)
+      # user_id is intentionally not permitted — create() overrides it with
+      # current_user.id so clients can only manage their own budgets.
+      params.require(:tour_budget).permit(:day_id, :activity_id, :amount_cents)
     end
 
     def respond_with_success(json_body)

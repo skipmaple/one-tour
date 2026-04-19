@@ -3,6 +3,7 @@ import { Drawer, Stack, Text, Group, TextInput, Select, Button, Badge, Accordion
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { router, usePage } from '@inertiajs/react'
+import UserLabel from './UserLabel'
 
 const ROLE_OPTIONS = [
   { value: 'editor', label: '编辑者' },
@@ -44,18 +45,20 @@ function CurrentMembers({ tour, members, author, isAuthor, days }) {
 
       {/* Author row -- always first, not editable */}
       <Group justify="space-between" p="xs" wrap="nowrap" style={{ background: '#f9f9f9', borderRadius: 4 }}>
-        <Text size="sm" title={author.email} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {author.email}
-        </Text>
+        <div style={{ flex: 1, minWidth: 0 }} title={author.email}>
+          <UserLabel user={author} isAuthor size={22} fz="sm" />
+          {author.name && <Text size="xs" c="dimmed" truncate>{author.email}</Text>}
+        </div>
         <Badge color="gray" variant="light" style={{ flexShrink: 0 }}>作者</Badge>
       </Group>
 
       {members.map(m => (
         <Stack key={m.id} gap={6} p="xs" style={{ borderBottom: '1px solid #eee' }}>
           <Group justify="space-between" wrap="nowrap">
-            <Text size="sm" title={m.email} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {m.email}
-            </Text>
+            <div style={{ flex: 1, minWidth: 0 }} title={m.email}>
+              <UserLabel user={m} size={22} fz="sm" />
+              {m.name && <Text size="xs" c="dimmed" truncate>{m.email}</Text>}
+            </div>
             <Group gap="xs">
               <Select
                 data={ROLE_OPTIONS}
@@ -78,7 +81,7 @@ function CurrentMembers({ tour, members, author, isAuthor, days }) {
                   color="red"
                   onClick={() => {
                     modals.openConfirmModal({
-                      title: `将 ${m.email} 移出本程？`,
+                      title: `将 ${m.name || m.email} 移出本程？`,
                       labels: { confirm: '移除', cancel: '取消' },
                       confirmProps: { color: 'red' },
                       onConfirm: () => {

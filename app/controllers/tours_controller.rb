@@ -25,17 +25,28 @@ class ToursController < ApplicationController
       activity_images: activity_images_for(@tour),
       expenses: expenses_for(@tour),
       expenses_summary: Expense::Summarize.new(@tour, current_user).call,
-      tour_budgets: @tour.tour_budgets.as_json,
+      tour_budgets: @tour.tour_budgets.where(user_id: current_user.id).as_json,
+      settlements: settlements_for(@tour),
       route_legs: route_legs_for(@tour),
       violations: tour_violations,
-      members: @tour.tour_memberships.includes(:user).filter_map { |m|
+      members: @tour.tour_memberships.includes(user: { avatar_attachment: :blob }).filter_map { |m|
         next unless m.user
         {
-          id: m.id, user_id: m.user_id, email: m.user.email, role: m.role,
+          id: m.id,
+          user_id: m.user_id,
+          email: m.user.email,
+          name: m.user.name,
+          avatar_url: m.user.display_avatar_url,
+          role: m.role,
           participating_day_ids: m.participating_day_ids
         }
       },
-      author: { user_id: @tour.author_id, email: @tour.author.email },
+      author: {
+        user_id: @tour.author_id,
+        email: @tour.author.email,
+        name: @tour.author.name,
+        avatar_url: @tour.author.display_avatar_url
+      },
       conversation_empty: !conv || !conv.messages.exists?
     }
   end
@@ -125,6 +136,21 @@ class ToursController < ApplicationController
       }
     end
 
+    def settlements_for(tour)
+      tour.settlements.order(settled_at: :desc).map { |s|
+        {
+          id: s.id,
+          tour_id: s.tour_id,
+          from_user_id: s.from_user_id,
+          to_user_id: s.to_user_id,
+          amount_cents: s.amount_cents,
+          settled_at: s.settled_at,
+          note: s.note,
+          recorded_by_id: s.recorded_by_id
+        }
+      }
+    end
+
     def expenses_for(tour)
       tour.expenses.includes(:splits, receipts: { file_attachment: :blob }).map { |e|
         {
@@ -140,6 +166,7 @@ class ToursController < ApplicationController
           external_attributed_to_id: e.external_attributed_to_id,
           note: e.note,
           occurred_on: e.occurred_on,
+          created_at: e.created_at,
           splits: e.splits.map { |s| { user_id: s.user_id, shares: s.shares, amount_cents: s.amount_cents } },
           receipts: e.receipts.map { |r|
             { id: r.id, url: r.file.attached? ? rails_blob_path(r.file, only_path: true) : nil }
