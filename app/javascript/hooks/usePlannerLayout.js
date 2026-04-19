@@ -93,7 +93,11 @@ export default function usePlannerLayout(tourId) {
         [leftId]:  { ...left,  grow: newLeftGrow },
         [rightId]: { ...right, grow: newRightGrow },
       }
-      if ((leftId === 'days' && rightId === 'map') || (leftId === 'map' && rightId === 'days')) {
+      // Any resize involving the days panel must disable autoFit — otherwise
+      // days stays pinned to `flex: 0 1 ${autoFitWidth}px` and the drag visually
+      // does nothing even though grow values update. Previously this only fired
+      // for days↔map; dragging candidates↔days was a silent no-op.
+      if (leftId === 'days' || rightId === 'days') {
         next.days = { ...next.days, autoFit: false }
       }
       return next

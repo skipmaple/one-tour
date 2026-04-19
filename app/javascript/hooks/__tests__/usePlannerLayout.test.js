@@ -105,9 +105,20 @@ describe('usePlannerLayout · resizeBetween + autoFit', () => {
     expect(result.current.panels.days.autoFit).toBe(false)
   })
 
-  test('resizeBetween candidates↔days does NOT touch autoFit', () => {
+  // Previously a silent no-op: with autoFit on, days is pinned to
+  // `flex: 0 1 ${autoFitWidth}px` so grow changes had no visible effect.
+  // Fixed by disabling autoFit on ANY resize involving the days panel.
+  test('resizeBetween candidates↔days also disables autoFit', () => {
     const { result } = renderHook(() => usePlannerLayout(42))
+    expect(result.current.panels.days.autoFit).toBe(true)
     act(() => result.current.resizeBetween('candidates', 'days', 30, 1000))
+    expect(result.current.panels.days.autoFit).toBe(false)
+  })
+
+  test('resizeBetween map↔ai leaves autoFit alone (days not involved)', () => {
+    const { result } = renderHook(() => usePlannerLayout(42))
+    expect(result.current.panels.days.autoFit).toBe(true)
+    act(() => result.current.resizeBetween('map', 'ai', 30, 1000))
     expect(result.current.panels.days.autoFit).toBe(true)
   })
 
