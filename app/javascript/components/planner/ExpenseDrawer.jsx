@@ -26,7 +26,9 @@ function formatCents(cents, currency = 'CNY') {
   if (cents === null || cents === undefined) return '—'
   const sign = cents < 0 ? '-' : ''
   const abs = Math.abs(cents)
-  const yuan = (abs / 100).toFixed(0)
+  // zh-CN grouping so ¥100497 renders as ¥100,497 — without this, 6-digit
+  // amounts are unreadable (typical real trip spending crosses ¥10k easily).
+  const yuan = Math.round(abs / 100).toLocaleString('zh-CN')
   return `${sign}¥${yuan}`
 }
 
@@ -424,7 +426,9 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
 
 function BudgetCard({ balance, tour, onEditBudget }) {
   const budgetCents = balance?.tour_budget_cents
-  const owed = balance?.owed_cents || 0
+  // Use my_spend_cents (owed + individual-expenses-I-paid). Falls back to
+  // owed for older server responses that didn't yet return the field.
+  const spendCents = balance?.my_spend_cents ?? balance?.owed_cents ?? 0
   const overCents = balance?.over_tour_budget_cents || 0
 
   if (!budgetCents) {
@@ -441,7 +445,7 @@ function BudgetCard({ balance, tour, onEditBudget }) {
     )
   }
 
-  const percent = Math.min(owed / budgetCents, 1) * 100
+  const percent = Math.min(spendCents / budgetCents, 1) * 100
   const overSpent = overCents > 0
 
   return (
@@ -461,7 +465,7 @@ function BudgetCard({ balance, tour, onEditBudget }) {
       <Progress value={percent} color={overSpent ? 'red' : 'blue'} size="sm" />
       <Group justify="space-between" mt={6}>
         <Text size="xs" c="dimmed">
-          已承担 {formatCents(owed, tour.currency)} / 预算 {formatCents(budgetCents, tour.currency)}
+          已花 {formatCents(spendCents, tour.currency)} / 预算 {formatCents(budgetCents, tour.currency)}
         </Text>
         {overSpent && (
           <Text size="xs" c="red" fw={500}>

@@ -45,16 +45,30 @@ class Expense::Summarize
       owed = splits.select { |s| s.user_id == uid }.sum(&:amount_cents)
       settled_out = settlements.select { |s| s.from_user_id == uid }.sum(&:amount_cents)
       settled_in  = settlements.select { |s| s.to_user_id   == uid }.sum(&:amount_cents)
+
+      # "My spend" — the money I actually bear for this trip. Two parts:
+      #   1. My share of split expenses (owed_cents).
+      #   2. Individual (各付各) expenses I paid for myself — no split row exists
+      #      for these, so they're invisible to owed_cents, but they're 100%
+      #      my personal cost. Without this component, a user recording all
+      #      their own meals as 各付各 would see a permanently empty budget
+      #      bar (the bug that surfaced in production testing on tour 5).
+      individual_paid = expenses
+        .select { |e| e.paid_by_id == uid && e.split_individual? }
+        .sum(&:amount_cents)
+      spend = owed + individual_paid
+
       tour_budget = @tour.tour_budgets.find_by(user_id: uid, day_id: nil, activity_id: nil)
 
       {
         paid_cents:              paid,
         owed_cents:              owed,
+        my_spend_cents:          spend,
         settled_out_cents:       settled_out,
         settled_in_cents:        settled_in,
         net_cents:               paid - owed + settled_out - settled_in,
         tour_budget_cents:       tour_budget&.amount_cents,
-        over_tour_budget_cents:  tour_budget ? [ owed - tour_budget.amount_cents, 0 ].max : nil
+        over_tour_budget_cents:  tour_budget ? [ spend - tour_budget.amount_cents, 0 ].max : nil
       }
     end
 end

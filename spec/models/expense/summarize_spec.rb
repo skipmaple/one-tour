@@ -59,7 +59,47 @@ RSpec.describe Expense::Summarize do
     TourBudget.create!(tour: tour, user: author, amount_cents: 2000)
     create_expense(paid_by: author, amount: 6000, participants: [ author, u2 ])
     summary = described_class.new(tour, author).call
-    # author owes 3000, budget 2000 → over 1000
+    # author's split share = 3000; budget 2000 → over 1000
     expect(summary[:current_user_balance][:over_tour_budget_cents]).to eq(1000)
+  end
+
+  # Regression: budget progress must include 各付各 expenses the user paid.
+  # Previously `my_spend_cents` was just `owed_cents`, so a user who
+  # recorded all their own meals as 各付各 saw a permanently empty budget
+  # bar. Fix: spend = owed + Σ individual-expenses-I-paid.
+  it "counts individual (各付各) expenses the user paid into my_spend_cents" do
+    # Split expense: author's share = 1000
+    create_expense(paid_by: author, amount: 2000, participants: [ author, u2 ])
+    # Individual expense paid by author: full 500 is author's own cost
+    Expense.create!(
+      tour: tour, activity: activity, scope: :activity,
+      paid_by: author, created_by: author,
+      amount_cents: 500, category: :food, split_strategy: :individual
+    )
+    # Individual paid by someone else: zero for author
+    Expense.create!(
+      tour: tour, activity: activity, scope: :activity,
+      paid_by: u2, created_by: u2,
+      amount_cents: 9999, category: :food, split_strategy: :individual
+    )
+
+    summary = described_class.new(tour, author).call
+    expect(summary[:current_user_balance][:owed_cents]).to eq(1000)
+    expect(summary[:current_user_balance][:my_spend_cents]).to eq(1500)
+  end
+
+  it "uses my_spend_cents (not owed) for over_tour_budget_cents" do
+    TourBudget.create!(tour: tour, user: author, amount_cents: 1200)
+    # Only individual expenses by author — owed=0 but spend=2000
+    Expense.create!(
+      tour: tour, activity: activity, scope: :activity,
+      paid_by: author, created_by: author,
+      amount_cents: 2000, category: :food, split_strategy: :individual
+    )
+    summary = described_class.new(tour, author).call
+    expect(summary[:current_user_balance][:owed_cents]).to eq(0)
+    expect(summary[:current_user_balance][:my_spend_cents]).to eq(2000)
+    # spend 2000 over budget 1200 → 800
+    expect(summary[:current_user_balance][:over_tour_budget_cents]).to eq(800)
   end
 end
