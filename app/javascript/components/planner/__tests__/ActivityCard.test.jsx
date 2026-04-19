@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { DndContext } from '@dnd-kit/core'
-import { vi } from 'vitest'
+import { vi, afterEach } from 'vitest'
 import ActivityCard, { ActivityCardOverlay } from '../ActivityCard'
 
 // Allow tests to override useDroppable return (used by insert-indicator test)
@@ -11,6 +11,10 @@ vi.mock('@dnd-kit/core', async () => {
     ...actual,
     useDroppable: () => mockDroppableReturn.current,
   }
+})
+
+afterEach(() => {
+  mockDroppableReturn.current = { setNodeRef: () => {}, isOver: false }
 })
 
 function renderInDnd(ui) {
@@ -42,16 +46,22 @@ test('renders tier1 badge only when citizen_level is tier_one', () => {
   expect(screen.queryByTestId('tier-badge')).not.toBeInTheDocument()
 })
 
-test('renders citizen signal with a data-level attribute', () => {
-  const { container, rerender } = renderInDnd(
+test('citizen signal carries data-level=tier_one', () => {
+  const { container } = renderInDnd(
     <ActivityCard activity={{ ...baseActivity, citizen_level: 'tier_one' }} />
   )
   const signal = container.querySelector('[data-testid="citizen-signal"]')
   expect(signal).toBeInTheDocument()
   expect(signal.getAttribute('data-level')).toBe('tier_one')
+})
 
-  rerender(<DndContext><ActivityCard activity={{ ...baseActivity, citizen_level: 'infrastructure' }} /></DndContext>)
-  expect(container.querySelector('[data-testid="citizen-signal"]').getAttribute('data-level')).toBe('infrastructure')
+test('citizen signal carries data-level=infrastructure', () => {
+  const { container } = renderInDnd(
+    <ActivityCard activity={{ ...baseActivity, citizen_level: 'infrastructure' }} />
+  )
+  const signal = container.querySelector('[data-testid="citizen-signal"]')
+  expect(signal).toBeInTheDocument()
+  expect(signal.getAttribute('data-level')).toBe('infrastructure')
 })
 
 test('renders planned time when provided', () => {
@@ -131,7 +141,6 @@ test('shows drop indicator when isOver=true', () => {
   mockDroppableReturn.current = { setNodeRef: () => {}, isOver: true }
   renderInDnd(<ActivityCard activity={baseActivity} />)
   expect(screen.getByTestId('drop-indicator')).toBeInTheDocument()
-  mockDroppableReturn.current = { setNodeRef: () => {}, isOver: false } // reset
 })
 
 test('hides drop indicator when isOver=false', () => {
