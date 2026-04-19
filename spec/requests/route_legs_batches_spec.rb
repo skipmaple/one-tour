@@ -1,4 +1,5 @@
 require "rails_helper"
+require "benchmark"
 
 RSpec.describe "RouteLegsBatches", type: :request do
   def login_as(user)
@@ -121,6 +122,29 @@ RSpec.describe "RouteLegsBatches", type: :request do
       body = JSON.parse(response.body)
       expect(body["cached"]).to eq(2)
       expect(body["computed"]).to eq(0)
+    end
+
+    # Regression for Copilot review comment on #23 — the old throttle slept
+    # after any Amap-hit regardless of what the next pair was. A "computed
+    # then cached" sequence would eat one wasted 0.35s sleep per such pair.
+    # Now we peek the next pair's cache state and skip the sleep if it's
+    # already cached.
+    it "does not sleep after a computed pair when the next pair is already cached" do
+      login_as(author)
+      # Pre-cache the second pair (a2→a3) so the loop sees: pair1 computed,
+      # pair2 cached.
+      RouteLeg::Upsert.new(tour: tour, from_activity_id: a2.id, to_activity_id: a3.id, mode: "driving").call
+      stub_const("RouteLegsBatchesController::INTER_CALL_DELAY", 5.0)
+
+      elapsed = Benchmark.realtime do
+        post tour_route_legs_batch_path(tour)
+      end
+      # Whole batch should be well under 5s — if peek was missing we'd sleep
+      # 5s between pair1 (computed) and pair2 (cached), blowing this assert.
+      expect(elapsed).to be < 1.0
+      body = JSON.parse(response.body)
+      expect(body["computed"]).to eq(1)
+      expect(body["cached"]).to eq(1)
     end
 
     it "non-editor is forbidden" do

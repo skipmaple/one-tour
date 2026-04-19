@@ -6,13 +6,26 @@
 #
 # Returns the persisted RouteLeg. Raises AmapDirectionService::Error on
 # upstream failure; the controller maps to 502.
+#
+# After #call, `#cache_hit?` reflects whether the call skipped Amap (true)
+# or actually hit the network (false). Callers (e.g. the batch controller)
+# use this to classify computed vs cached pairs and to decide whether to
+# rate-limit before the next iteration — avoids a duplicate find_by in the
+# caller and keeps the cache source-of-truth inside this service.
 class RouteLeg::Upsert
+  attr_reader :cache_hit
+
   def initialize(tour:, from_activity_id:, to_activity_id:, mode: :driving, service: AmapDirectionService.new)
     @tour = tour
     @from_activity_id = from_activity_id.to_i
     @to_activity_id = to_activity_id.to_i
     @mode = mode.to_sym
     @service = service
+    @cache_hit = nil
+  end
+
+  def cache_hit?
+    @cache_hit
   end
 
   def call
@@ -27,7 +40,11 @@ class RouteLeg::Upsert
     leg.from_activity = from
     leg.to_activity = to
 
-    return leg if leg.persisted? && leg.cache_valid?
+    if leg.persisted? && leg.cache_valid?
+      @cache_hit = true
+      return leg
+    end
+    @cache_hit = false
 
     result = @service.fetch(
       from_lat: from.lat.to_f, from_lng: from.lng.to_f,

@@ -25,15 +25,19 @@ class RouteLegsBatchesController < ApplicationController
 
     summary = { total: pairs.size, computed: 0, cached: 0, failed: 0, errors: [] }
     pairs.each_with_index do |(from, to), i|
-      # Space Amap-hitting calls apart to stay under ~3 QPS. Done BEFORE the
-      # call so the sleep count matches the request count (N calls → N-1 gaps).
-      # Skipped on first iteration and when the previous upsert was cached
-      # (cache hits don't load Amap's rate limiter).
-      sleep(INTER_CALL_DELAY) if i > 0 && @last_status != :cached
       result = upsert_one(from, to)
       summary[result[:status]] += 1
       summary[:errors] << result[:error] if result[:error]
-      @last_status = result[:status]
+
+      # Space Amap calls apart to stay under ~3 QPS. Sleep only when this
+      # call AND the next will both hit Amap — if either is a cache hit,
+      # no rate limiter is being loaded. The peek costs one find_by per
+      # iteration but saves a 0.35s sleep whenever a computed pair is
+      # followed by a cached one (common in partially-cached tours).
+      next_pair = pairs[i + 1]
+      if next_pair && result[:status] != :cached && !next_pair_cached?(*next_pair)
+        sleep(INTER_CALL_DELAY)
+      end
     end
 
     respond_with_success(summary)
@@ -71,20 +75,33 @@ class RouteLegsBatchesController < ApplicationController
     end
 
     # Distinguishes cached (cheap) vs computed (hit Amap) to drive an honest
-    # toast — otherwise repeat-clicks look identical to fresh work.
+    # toast — otherwise repeat-clicks look identical to fresh work. Reads
+    # RouteLeg::Upsert#cache_hit? after the call, so we avoid duplicating
+    # the cache-validity check in the controller (saves ~1 query per pair).
     def upsert_one(from, to)
-      existing = @tour.route_legs.find_by(
-        from_activity_id: from.id, to_activity_id: to.id, mode: "driving"
-      )
-      was_fresh = existing&.cache_valid?
-
-      RouteLeg::Upsert.new(
+      upsert = RouteLeg::Upsert.new(
         tour: @tour, from_activity_id: from.id, to_activity_id: to.id, mode: "driving"
-      ).call
-
-      { status: was_fresh ? :cached : :computed }
+      )
+      upsert.call
+      { status: upsert.cache_hit? ? :cached : :computed }
     rescue AmapDirectionService::Error, ActiveRecord::RecordInvalid, ActiveRecord::RecordNotFound => e
       { status: :failed, error: "#{from.name} → #{to.name}: #{e.message}" }
+    end
+
+    # Peek at the next pair's cache state without triggering an Amap call.
+    # Used by the rate-limiter loop to skip sleeps when the next iteration
+    # is a guaranteed cache hit. Returns false when no leg exists yet or
+    # the endpoint coords no longer match (endpoint_digest stale).
+    def next_pair_cached?(from, to)
+      leg = @tour.route_legs.find_by(
+        from_activity_id: from.id, to_activity_id: to.id, mode: "driving"
+      )
+      return false unless leg
+      # Attach pre-loaded activities so expected_endpoint_digest doesn't
+      # fire additional queries via the belongs_to associations.
+      leg.from_activity = from
+      leg.to_activity = to
+      leg.cache_valid?
     end
 
     def respond_with_success(summary)
