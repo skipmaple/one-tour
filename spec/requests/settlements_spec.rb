@@ -110,7 +110,7 @@ RSpec.describe "Settlements", type: :request do
       expect(response).to have_http_status(:no_content)
     end
 
-    it "forbids undo by a reader who didn't record it" do
+    it "forbids undo by a reader who is neither recorder nor party" do
       reader = create(:user, email: "reader@test.com")
       tour.tour_memberships.create!(user: reader, role: :reader)
       s = Settlement.create!(
@@ -120,6 +120,19 @@ RSpec.describe "Settlements", type: :request do
       login_as(reader)
       delete settlement_path(s)
       expect(response).to have_http_status(:forbidden)
+    end
+
+    # Even without any tour-level edit power, a user who is a PARTY to the
+    # settlement (from_user or to_user) can undo it — it's their own money.
+    it "allows a reader-party to undo their own transfer" do
+      reader = create(:user, email: "party-reader@test.com")
+      tour.tour_memberships.create!(user: reader, role: :reader)
+      s = Settlement.create!(
+        tour: tour, from_user: reader, to_user: author,
+        amount_cents: 1000, recorded_by: author
+      )
+      login_as(reader)
+      expect { delete settlement_path(s) }.to change(Settlement, :count).by(-1)
     end
   end
 end

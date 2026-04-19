@@ -4,7 +4,7 @@ import {
   SegmentedControl, Accordion, Progress,
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
-import { router } from '@inertiajs/react'
+import { router, usePage } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { IconPlus, IconFileExport, IconReceipt2, IconWallet } from '@tabler/icons-react'
@@ -46,10 +46,10 @@ export default function ExpenseDrawer({
     [editingExpenseId, expenses],
   )
 
-  const currentUser = useMemo(() => ({
-    id: author?.user_id,
-    email: author?.email,
-  }), [author])
+  // Actual logged-in user from Inertia's shared props — NOT the tour author.
+  // Used for party-based authorization on settlements (I can mark/undo
+  // transfers that involve me regardless of my tour role).
+  const currentUserId = usePage().props.current_user?.id
 
   const participantsLookup = useMemo(() => {
     const map = {}
@@ -209,7 +209,7 @@ export default function ExpenseDrawer({
             author={author}
             tour={tour}
             canEdit={canEdit}
-            currentUserId={currentUser.id}
+            currentUserId={currentUserId}
           />
         )}
       </Drawer>
@@ -576,7 +576,7 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
   )
 }
 
-function SettleTab({ summary, expenses, settlements, members, author, tour, canEdit }) {
+function SettleTab({ summary, expenses, settlements, members, author, tour, canEdit, currentUserId }) {
   if (!summary || expenses.length === 0) {
     return (
       <Card padding="xl" radius="sm" withBorder>
@@ -702,7 +702,9 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
                   </Text>
                   <Group gap="xs" wrap="nowrap">
                     <Text fw={700}>{formatCents(t.amount, tour.currency)}</Text>
-                    {canEdit && (
+                    {/* Any party to the transfer can mark it settled — this is
+                        their own money, not a coordinator-only action. */}
+                    {(currentUserId === t.from || currentUserId === t.to) && (
                       <Button size="compact-xs" variant="light" onClick={() => markPaid(t)}>
                         标记已付
                       </Button>
@@ -732,7 +734,12 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
                   </div>
                   <Group gap="xs" wrap="nowrap">
                     <Text fw={600}>{formatCents(s.amount_cents, tour.currency)}</Text>
-                    {canEdit && (
+                    {/* Undo is allowed for the recorder, either party, or any
+                        tour editor. Readers who were uninvolved just observe. */}
+                    {(canEdit
+                      || s.from_user_id === currentUserId
+                      || s.to_user_id === currentUserId
+                      || s.recorded_by_id === currentUserId) && (
                       <Button size="compact-xs" variant="subtle" color="red" onClick={() => undoSettlement(s.id)}>
                         撤销
                       </Button>

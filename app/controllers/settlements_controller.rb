@@ -14,8 +14,11 @@ class SettlementsController < ApplicationController
   end
 
   def destroy
-    # Only the person who recorded it, or an editor, can undo a settlement.
-    unless @settlement.recorded_by_id == current_user.id || @tour.editable_by?(current_user)
+    # Undo is allowed for: the person who recorded it, either party to the
+    # settlement (from_user or to_user), or a tour editor. A reader who is
+    # neither recorder nor party cannot undo — they're just observing.
+    involved = [ @settlement.recorded_by_id, @settlement.from_user_id, @settlement.to_user_id ]
+    unless involved.include?(current_user.id) || @tour.editable_by?(current_user)
       head :forbidden and return
     end
     @settlement.destroy!
