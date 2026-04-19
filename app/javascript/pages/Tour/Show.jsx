@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
 import { Button, Group, Text } from '@mantine/core'
-import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core'
+import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { IconPencil } from '@tabler/icons-react'
@@ -40,6 +40,13 @@ export default function Show({ tour, days, activities, activity_images, expenses
   const [activeId, setActiveId] = useState(null)
   const [ dragWarning, setDragWarning ] = useState(null)
 
+  // Activation constraint: 5px drag threshold lets the whole ActivityCard be
+  // draggable without swallowing plain clicks (which still fire onClick to
+  // open the drawer).
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
+
   // Optimistic drag state — overrides server activities until server confirms.
   // Shape: { [activityId]: { day_id, position } }
   const [localOverrides, setLocalOverrides] = useState({})
@@ -51,14 +58,13 @@ export default function Show({ tour, days, activities, activity_images, expenses
   }, {})
 
   // Merge server activities with local overrides and cover-thumb metadata.
-  // ActivityCard reads `_coverUrl` + `_imageCount` to render the cover thumbnail.
+  // ActivityCard reads _coverUrl to render the thumb gradient bleed.
   const displayActivities = activities.map(a => {
     const imgs = imagesByActivityId[a.id] || []
     const cover = imgs.find(i => i.is_cover) || imgs[0]
     const base = {
       ...a,
       _coverUrl: cover?.url,
-      _imageCount: imgs.length,
     }
     return localOverrides[a.id] ? { ...base, ...localOverrides[a.id] } : base
   })
@@ -137,6 +143,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
     <div>
       <Head title={tour.title} />
       <DndContext
+        sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={({ active }) => setActiveId(active.id)}
         onDragOver={({ active, over }) => updateDragWarning(active, over)}
