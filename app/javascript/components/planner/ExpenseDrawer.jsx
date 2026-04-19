@@ -30,7 +30,8 @@ export default function ExpenseDrawer({
   opened, onClose, tour, days, activities, members, author, expenses, summary, budgets, canEdit
 }) {
   const [activeTab, setActiveTab] = useState('overview')
-  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editingExpense, setEditingExpense] = useState(null)
 
   const currentUser = useMemo(() => ({
     id: author?.user_id,
@@ -107,7 +108,8 @@ export default function ExpenseDrawer({
             activities={activities}
             days={days}
             canEdit={canEdit}
-            onAddClick={() => setAddDialogOpen(true)}
+            onAddClick={() => { setEditingExpense(null); setDialogOpen(true) }}
+            onEdit={(e) => { setEditingExpense(e); setDialogOpen(true) }}
             onDelete={handleDeleteExpense}
           />
         )}
@@ -125,19 +127,20 @@ export default function ExpenseDrawer({
       </Drawer>
 
       <AddExpenseDialog
-        opened={addDialogOpen}
-        onClose={() => setAddDialogOpen(false)}
+        opened={dialogOpen}
+        onClose={() => setDialogOpen(false)}
         tour={tour}
         days={days}
         activities={activities}
         members={members}
         author={author}
+        expense={editingExpense}
       />
     </>
   )
 }
 
-function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, tour, activities, days, canEdit, onAddClick, onDelete }) {
+function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, tour, activities, days, canEdit, onAddClick, onEdit, onDelete }) {
   const [grouping, setGrouping] = useState('flat')
 
   const activityById = useMemo(() => {
@@ -230,6 +233,7 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
           participantsLookup={participantsLookup}
           tour={tour}
           canEdit={canEdit}
+          onEdit={onEdit}
           onDelete={onDelete}
         />
       ) : (
@@ -254,6 +258,7 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
                     participantsLookup={participantsLookup}
                     tour={tour}
                     canEdit={canEdit}
+                    onEdit={onEdit}
                     onDelete={onDelete}
                   />
                 </Accordion.Panel>
@@ -266,7 +271,7 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
   )
 }
 
-function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tour, canEdit, onDelete }) {
+function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tour, canEdit, onEdit, onDelete }) {
   return (
     <Table>
       <Table.Thead>
@@ -302,9 +307,14 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
               </Table.Td>
               {canEdit && (
                 <Table.Td>
-                  <Button size="compact-xs" variant="subtle" color="red" onClick={() => onDelete(e)}>
-                    删
-                  </Button>
+                  <Group gap={4} wrap="nowrap" justify="flex-end">
+                    <Button size="compact-xs" variant="subtle" onClick={() => onEdit(e)}>
+                      改
+                    </Button>
+                    <Button size="compact-xs" variant="subtle" color="red" onClick={() => onDelete(e)}>
+                      删
+                    </Button>
+                  </Group>
                 </Table.Td>
               )}
             </Table.Tr>

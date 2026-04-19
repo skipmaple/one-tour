@@ -28,7 +28,8 @@ const STRATEGY_OPTIONS = [
   { value: 'individual', label: '各付各（不分摊）' },
 ]
 
-export default function AddExpenseDialog({ opened, onClose, tour, days, activities, members, author }) {
+export default function AddExpenseDialog({ opened, onClose, tour, days, activities, members, author, expense }) {
+  const isEdit = Boolean(expense)
   const [scope, setScope] = useState('activity')
   const [activityId, setActivityId] = useState('')
   const [dayId, setDayId] = useState('')
@@ -57,7 +58,22 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   )
 
   useEffect(() => {
-    if (opened) {
+    if (!opened) return
+    if (isEdit) {
+      setScope(expense.scope)
+      setActivityId(expense.activity_id ? String(expense.activity_id) : '')
+      setDayId(expense.day_id ? String(expense.day_id) : '')
+      setPaidById(String(expense.paid_by_id))
+      setAmount(String(expense.amount_cents / 100))
+      setCategory(expense.category)
+      setStrategy(expense.split_strategy)
+      setNote(expense.note || '')
+      setParticipantIds(
+        expense.splits?.length
+          ? expense.splits.map((s) => s.user_id)
+          : allUsers.map((u) => u.user_id),
+      )
+    } else {
       setScope('activity')
       setActivityId(nonBacklogActivities[0] ? String(nonBacklogActivities[0].id) : '')
       setDayId(days[0] ? String(days[0].id) : '')
@@ -68,7 +84,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
       setNote('')
       setParticipantIds(allUsers.map((u) => u.user_id))
     }
-  }, [opened])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [opened, expense?.id])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleParticipant = (userId) => {
     setParticipantIds((prev) =>
@@ -111,10 +127,18 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     }
     if (scope === 'activity') payload.expense.activity_id = Number(activityId)
     if (scope === 'day')      payload.expense.day_id = Number(dayId)
+    // Nullify foreign keys we no longer want (scope shrank or changed) so
+    // stale activity_id/day_id don't hang around after a scope switch.
+    if (isEdit && scope !== 'activity') payload.expense.activity_id = null
+    if (isEdit && scope !== 'day')      payload.expense.day_id = null
     if (strategy === 'equal') payload.participant_ids = participantIds
 
     setSaving(true)
-    router.post(`/tours/${tour.id}/expenses`, payload, {
+    const request = isEdit
+      ? (url, body, opts) => router.patch(url, body, opts)
+      : (url, body, opts) => router.post(url, body, opts)
+    const url = isEdit ? `/expenses/${expense.id}` : `/tours/${tour.id}/expenses`
+    request(url, payload, {
       preserveScroll: true,
       only: [ 'expenses', 'expenses_summary', 'flash' ],
       onSuccess: (page) => {
@@ -123,7 +147,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
         if (alert) {
           notifications.show({ message: alert, color: 'red' })
         } else {
-          notifications.show({ message: '已记下这笔花销', color: 'green' })
+          notifications.show({ message: isEdit ? '已更新' : '已记下这笔花销', color: 'green' })
           onClose()
         }
       },
@@ -136,7 +160,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="记一笔花销" size="md" padding="md">
+    <Modal opened={opened} onClose={onClose} title={isEdit ? '改一笔花销' : '记一笔花销'} size="md" padding="md">
       <Stack gap="sm">
         <Select
           label="适用范围"
