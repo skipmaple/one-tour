@@ -32,8 +32,10 @@ class ApplicationController < ActionController::Base
   # True when the request came from Inertia's router.* (X-Inertia header
   # is set by @inertiajs/react). Mutation endpoints MUST branch on this:
   #
-  #   Inertia caller → redirect_to ..., flash[:alert/:notice] = msg
-  #                    (Inertia middleware turns 302 into a partial reload)
+  #   Inertia caller → redirect_to path, alert: msg   (error)
+  #                    redirect_to path, notice: msg  (success with message)
+  #                    redirect_to path               (success, no flash)
+  #                    Inertia middleware turns the 302 into a partial reload
   #   fetch / spec   → render json: {...}, status: ...
   #
   # Returning JSON to an Inertia caller pops up "invalid response" modal on
