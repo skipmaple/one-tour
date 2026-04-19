@@ -1,8 +1,8 @@
 import { useMemo, useState, useEffect } from 'react'
 import {
   Drawer, Tabs, Stack, Group, Text, Button, Table, Badge, Card, Divider,
-  SegmentedControl, Accordion, Progress, ActionIcon, TextInput, Popover, Chip,
-  Indicator,
+  SegmentedControl, Accordion, Progress, ActionIcon, TextInput, NumberInput,
+  Popover, Chip, Indicator, Select,
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { router, usePage } from '@inertiajs/react'
@@ -282,6 +282,10 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
   const [filterPayers, setFilterPayers] = useState([])     // array of user_id (strings)
   const [filterCategories, setFilterCategories] = useState([])  // array of category enum
   const [filterStrategy, setFilterStrategy] = useState('all')   // 'all' / 'equal' / 'individual'
+  const [filterAmountMin, setFilterAmountMin] = useState('')    // yuan (string/number), '' = no lower bound
+  const [filterAmountMax, setFilterAmountMax] = useState('')
+  const [filterReceipt, setFilterReceipt] = useState('all')     // 'all' / 'with' / 'without'
+  const [sortMode, setSortMode] = useState('recent_desc')       // 'recent_desc' / 'recent_asc' / 'amount_desc' / 'amount_asc'
 
   const activityById = useMemo(() => {
     const m = {}
@@ -323,6 +327,14 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
     if (filterStrategy !== 'all') {
       list = list.filter((e) => e.split_strategy === filterStrategy)
     }
+    // Amount range — compare against signed amount_cents (refunds are negative,
+    // so "min ¥100" correctly keeps them out unless the user enters a negative).
+    const minCents = filterAmountMin === '' || filterAmountMin == null ? null : Math.round(Number(filterAmountMin) * 100)
+    const maxCents = filterAmountMax === '' || filterAmountMax == null ? null : Math.round(Number(filterAmountMax) * 100)
+    if (minCents !== null && !Number.isNaN(minCents)) list = list.filter((e) => e.amount_cents >= minCents)
+    if (maxCents !== null && !Number.isNaN(maxCents)) list = list.filter((e) => e.amount_cents <= maxCents)
+    if (filterReceipt === 'with')    list = list.filter((e) => (e.receipts?.length || 0) > 0)
+    if (filterReceipt === 'without') list = list.filter((e) => (e.receipts?.length || 0) === 0)
     if (searchLower) {
       list = list.filter((e) => {
         const haystack = [
@@ -334,16 +346,28 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
       })
     }
     return list
-  }, [expenses, filterPayers, filterCategories, filterStrategy, searchLower, activityById, dayById])
+  }, [expenses, filterPayers, filterCategories, filterStrategy, filterAmountMin, filterAmountMax, filterReceipt, searchLower, activityById, dayById])
 
   const sorted = useMemo(() => {
-    const key = (e) => e.occurred_on || e.created_at || ''
+    const timeKey = (e) => e.occurred_on || e.created_at || ''
     if (grouping === 'flat') {
-      return [ ...filtered ].sort((a, b) => (key(a) < key(b) ? 1 : key(a) > key(b) ? -1 : b.id - a.id))
+      // User-chosen sort mode drives the flat "最近" tab.
+      if (sortMode === 'recent_asc') {
+        return [ ...filtered ].sort((a, b) => (timeKey(a) < timeKey(b) ? -1 : timeKey(a) > timeKey(b) ? 1 : a.id - b.id))
+      }
+      if (sortMode === 'amount_desc') {
+        return [ ...filtered ].sort((a, b) => b.amount_cents - a.amount_cents || b.id - a.id)
+      }
+      if (sortMode === 'amount_asc') {
+        return [ ...filtered ].sort((a, b) => a.amount_cents - b.amount_cents || a.id - b.id)
+      }
+      // Default: recent_desc (newest first).
+      return [ ...filtered ].sort((a, b) => (timeKey(a) < timeKey(b) ? 1 : timeKey(a) > timeKey(b) ? -1 : b.id - a.id))
     }
-    // Within groups we want chronological (oldest first — matches trip flow).
-    return [ ...filtered ].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : a.id - b.id))
-  }, [filtered, grouping])
+    // Within groups: always chronological (matches trip flow); the per-group
+    // sort-by-subtotal for by_payer/by_category lives in groupExpenses.
+    return [ ...filtered ].sort((a, b) => (timeKey(a) < timeKey(b) ? -1 : timeKey(a) > timeKey(b) ? 1 : a.id - b.id))
+  }, [filtered, grouping, sortMode])
 
   const groups = useMemo(
     () => groupExpenses(sorted, grouping, lookups),
@@ -367,11 +391,16 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
     (filterPayers.length > 0 ? 1 : 0)
     + (filterCategories.length > 0 ? 1 : 0)
     + (filterStrategy !== 'all' ? 1 : 0)
+    + ((filterAmountMin !== '' && filterAmountMin != null) || (filterAmountMax !== '' && filterAmountMax != null) ? 1 : 0)
+    + (filterReceipt !== 'all' ? 1 : 0)
 
   const resetFilters = () => {
     setFilterPayers([])
     setFilterCategories([])
     setFilterStrategy('all')
+    setFilterAmountMin('')
+    setFilterAmountMax('')
+    setFilterReceipt('all')
   }
 
   const clearSearch = () => {
@@ -514,6 +543,44 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
                       fullWidth
                     />
                   </Stack>
+
+                  <Stack gap={4}>
+                    <Text size="xs" c="dimmed">金额范围(元)</Text>
+                    <Group gap="xs" wrap="nowrap">
+                      <NumberInput
+                        placeholder="最小"
+                        value={filterAmountMin}
+                        onChange={setFilterAmountMin}
+                        size="xs"
+                        thousandSeparator=","
+                        style={{ flex: 1 }}
+                      />
+                      <Text size="xs" c="dimmed">—</Text>
+                      <NumberInput
+                        placeholder="最大"
+                        value={filterAmountMax}
+                        onChange={setFilterAmountMax}
+                        size="xs"
+                        thousandSeparator=","
+                        style={{ flex: 1 }}
+                      />
+                    </Group>
+                  </Stack>
+
+                  <Stack gap={4}>
+                    <Text size="xs" c="dimmed">小票</Text>
+                    <SegmentedControl
+                      value={filterReceipt}
+                      onChange={setFilterReceipt}
+                      data={[
+                        { value: 'all',     label: '全部' },
+                        { value: 'with',    label: '有小票' },
+                        { value: 'without', label: '没小票' },
+                      ]}
+                      size="xs"
+                      fullWidth
+                    />
+                  </Stack>
                 </Stack>
               </Popover.Dropdown>
             </Popover>
@@ -556,6 +623,27 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
           size="xs"
           fullWidth
         />
+      )}
+
+      {/* Sort dropdown — only meaningful in the flat "最近" view. Grouped
+          modes have their own intrinsic order (trip chronology within days,
+          subtotal-DESC for by_payer/by_category). */}
+      {grouping === 'flat' && sorted.length > 1 && (
+        <Group justify="flex-end">
+          <Select
+            size="xs"
+            data={[
+              { value: 'recent_desc', label: '时间 · 新到旧' },
+              { value: 'recent_asc',  label: '时间 · 旧到新' },
+              { value: 'amount_desc', label: '金额 · 大到小' },
+              { value: 'amount_asc',  label: '金额 · 小到大' },
+            ]}
+            value={sortMode}
+            onChange={(v) => v && setSortMode(v)}
+            allowDeselect={false}
+            w={150}
+          />
+        </Group>
       )}
 
       {expenses.length === 0 ? (
@@ -605,16 +693,33 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
         <Accordion key={grouping} multiple defaultValue={groups.map((g) => g.key)} variant="separated">
           {groups.map((g) => {
             const subtotal = g.expenses.reduce((s, e) => s + (e.amount_cents || 0), 0)
+            // For 按天 groups: surface the day's biggest expense right in the
+            // header so users can spot outliers without expanding. We skip
+            // refunds (negative) and single-entry days (biggest = only one,
+            // no value in showing it twice).
+            const bigTicket = grouping === 'by_day' && g.expenses.length >= 2
+              ? g.expenses.filter((e) => e.amount_cents > 0).reduce((max, e) => e.amount_cents > (max?.amount_cents ?? 0) ? e : max, null)
+              : null
+            const bigTicketLabel = bigTicket
+              ? (activityById[bigTicket.activity_id]?.name || bigTicket.note || CATEGORY_LABELS[bigTicket.category] || '—')
+              : null
             return (
               <Accordion.Item key={g.key} value={g.key}>
                 <Accordion.Control>
                   <Group justify="space-between" wrap="nowrap" pr="xs">
-                    {g.key.startsWith('payer-') ? (() => {
-                      const u = usersById[Number(g.key.slice(6))]
-                      return <UserLabel user={u} isAuthor={u?.isAuthor} fz="sm" />
-                    })() : (
-                      <Text fw={500} size="sm" truncate>{g.label}</Text>
-                    )}
+                    <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
+                      {g.key.startsWith('payer-') ? (() => {
+                        const u = usersById[Number(g.key.slice(6))]
+                        return <UserLabel user={u} isAuthor={u?.isAuthor} fz="sm" />
+                      })() : (
+                        <Text fw={500} size="sm" truncate>{g.label}</Text>
+                      )}
+                      {bigTicket && (
+                        <Text size="xs" c="dimmed" truncate>
+                          最大: {formatCents(bigTicket.amount_cents, tour.currency)} · {bigTicketLabel}
+                        </Text>
+                      )}
+                    </Stack>
                     <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
                       {g.expenses.length} 笔 · {formatCents(subtotal, tour.currency)}
                     </Text>
