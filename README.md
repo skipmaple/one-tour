@@ -157,6 +157,8 @@ post  "/auth/email/verify"
 
 Kamal + Docker,配置在 [config/deploy.yml](config/deploy.yml)。
 
+### 本地部署
+
 ```bash
 # 首次部署
 kamal setup
@@ -168,7 +170,42 @@ kamal deploy
 kamal app logs -f
 ```
 
-生产栈:Puma → Thruster(HTTP 加速)→ Kamal Proxy(Let's Encrypt SSL)→ 80/443。PostgreSQL 主库与 SolidCache / SolidQueue / SolidCable 分别使用独立的库。
+### GitHub Actions 一键部署
+
+工作流文件:[.github/workflows/deploy.yml](.github/workflows/deploy.yml)
+
+**首次设置**(只做一次):
+
+1. 在 GitHub repo → Settings → Environments → 新建 `production` environment
+2. 在该 environment 下添加 4 个 secrets:
+
+   | Secret | 内容 |
+   |---|---|
+   | `PROD_ENV_FILE` | 本地 `.env.production` 的**全文**(整个文件粘贴进去) |
+   | `RAILS_MASTER_KEY` | `cat config/master.key` 的输出(单行) |
+   | `DEPLOY_SSH_PRIVATE_KEY` | 有 root SSH 权限到生产机的私钥(完整带 `-----BEGIN/END-----`) |
+   | `DEPLOY_SSH_KNOWN_HOSTS` | `ssh-keyscan 45.63.23.136` 的输出 |
+
+3. (强烈推荐)在 environment settings 里勾 **Required reviewers** 把自己加进去 —— 作为人工刹车,防止手滑点按钮
+4. (推荐)勾 **Deployment branches** → Selected branches → `main` — 只允许从 main 触发
+
+**触发部署**:
+
+Actions tab → 左侧选 "Deploy" → 右上 "Run workflow" → 可选填要部署的 ref(默认 main)→ "Run workflow"
+
+工作流会:
+1. 校验目标 commit 的 CI 是否绿(红的直接拒绝部署)
+2. 把 3 个 secret 在 runner 上材化为本地文件(`.env.production` / `config/master.key` / SSH key)
+3. 校验 `.env.production` 变量数量合理(corrupt secret 提前挂)
+4. `bin/kamal deploy`(Buildx 构建 + 推 Docker Hub + SSH 到 45.63.23.136 拉 + 重启)
+
+并发保护:多次点击不会互相打断,后面的排队等前面结束。
+
+**密钥更新**:任何一个密钥变了,重新把整个 `.env.production` 粘进 `PROD_ENV_FILE` secret 即可 —— 不需要在 GH Secrets 里维护 20+ 个零散变量和本地同步。
+
+### 生产栈
+
+Puma → Thruster(HTTP 加速)→ Kamal Proxy(Let's Encrypt SSL)→ 80/443。PostgreSQL 主库与 SolidCache / SolidQueue / SolidCable 分别使用独立的库。
 
 ## 代码风格
 

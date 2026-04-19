@@ -1,0 +1,132 @@
+# 一键部署 — 在 Actions tab 里点 "Run workflow" 触发。
+#
+# 默认部署 main 最新 commit,也可以在触发时填任意 ref(分支/tag/sha)。
+# 部署前会校验该 commit 的 CI 是否通过;未跑或 failing 会拒绝部署。
+#
+# 需要的 secrets(Settings → Environments → production):
+#   - PROD_ENV_FILE            整个 .env.production 的内容
+#   - RAILS_MASTER_KEY         config/master.key 的内容
+#   - DEPLOY_SSH_PRIVATE_KEY   有 root SSH 权限到生产机的私钥(ed25519 或 RSA)
+#   - DEPLOY_SSH_KNOWN_HOSTS   `ssh-keyscan 45.63.23.136` 的输出
+#
+# 可选(在 Environment 设置里):
+#   - Required reviewers    部署前需要人工 approve(推荐勾自己当刹车)
+#   - Deployment branches   只允许从 main 触发
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "要部署的 ref(默认 main,可填分支/tag/sha)"
+        required: false
+        default: main
+
+concurrency:
+  # 多次点"Run workflow"不会互相打架:后发者排队等前者结束。
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout target ref
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Record target SHA
+        id: sha
+        run: echo "value=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # 不让一键部署推红代码上生产 —— 查目标 commit 的 CI 是否绿。
+      - name: Guard — CI must be green on target commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_SHA: ${{ steps.sha.outputs.value }}
+        run: |
+          set -euo pipefail
+          echo "Checking CI on $TARGET_SHA"
+          conclusion=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&per_page=20" \
+            --jq '[.workflow_runs[] | select(.name == "CI")] | .[0].conclusion // "missing"')
+          echo "CI conclusion: ${conclusion}"
+          if [ "$conclusion" != "success" ]; then
+            echo "::error::CI on ${TARGET_SHA} is '${conclusion}'. Deploy refuses to run."
+            echo "::error::Push the commit and wait for CI green, or re-run CI if it's flaky."
+            exit 1
+          fi
+
+      - name: Materialize .env.production
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+        run: |
+          # printf via env-var avoids the classic heredoc bug where secret
+          # content happens to contain the EOF marker.
+          printf '%s' "$PROD_ENV_FILE" > .env.production
+          chmod 600 .env.production
+          # Sanity check — all .kamal/secrets grep patterns will silently fail
+          # (producing empty env values) if this file is malformed. Count lines
+          # so a corrupt secret gets caught early instead of deploying an app
+          # with empty OAuth/R2/AMAP keys.
+          lines=$(grep -c '^[A-Z][A-Z_]*=' .env.production || true)
+          echo "Loaded .env.production with $lines env vars"
+          if [ "$lines" -lt 15 ]; then
+            echo "::error::.env.production has only $lines env vars (expected 20+). Secret corrupt?"
+            exit 1
+          fi
+
+      - name: Materialize config/master.key
+        env:
+          MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        run: |
+          printf '%s' "$MASTER_KEY" > config/master.key
+          chmod 600 config/master.key
+
+      - name: Trust production SSH host
+        env:
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # ssh-agent handles private-key newline edge-cases and cleans up on exit.
+      - name: Start ssh-agent with deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+
+      # Kamal's `deploy` does build + push + release. Needs Buildx on the runner
+      # since the Dockerfile uses BuildKit secrets (Sentry source-map upload).
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Deploy with Kamal
+        run: bin/kamal deploy
+
+      - name: Summary
+        if: always()
+        env:
+          TARGET_SHA: ${{ steps.sha.outputs.value }}
+          STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### 部署结果: \`${STATUS}\`"
+            echo ""
+            echo "- Commit: \`${TARGET_SHA}\`"
+            echo "- Ref: \`${{ inputs.ref }}\`"
+            echo "- 目标: tour.skipmaple.com"
+          } >> "$GITHUB_STEP_SUMMARY"
