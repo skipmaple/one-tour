@@ -30,10 +30,18 @@ class ApplicationController < ActionController::Base
   end
 
   # True when the request came from Inertia's router.* (X-Inertia header
-  # is set by @inertiajs/react). Used by JSON-returning mutation endpoints
-  # to distinguish Inertia callers (need a redirect so the middleware
-  # converts it into a proper Inertia partial reload) from plain JSON
-  # callers (fetch() with Accept: application/json).
+  # is set by @inertiajs/react). Mutation endpoints MUST branch on this:
+  #
+  #   Inertia caller → redirect_to path, alert: msg   (error)
+  #                    redirect_to path, notice: msg  (success with message)
+  #                    redirect_to path               (success, no flash)
+  #                    Inertia middleware turns the 302 into a partial reload
+  #   fetch / spec   → render json: {...}, status: ...
+  #
+  # Returning JSON to an Inertia caller pops up "invalid response" modal on
+  # the frontend and the user sees nothing happen — caught in production
+  # after 4 mutation endpoints got this wrong. See ExpensesController#update
+  # and SettlementsController#create for the canonical pattern.
   def inertia_request?
     request.headers["X-Inertia"].present?
   end
