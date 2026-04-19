@@ -27,12 +27,13 @@ class ExpensesController < ApplicationController
   def update
     ActiveRecord::Base.transaction do
       @expense.update!(expense_params)
-      unless @expense.split_individual?
-        Expense::ComputeSplits.new(@expense,
-          participant_ids: params[:participant_ids],
-          splits: Array(params[:splits]).map(&:to_unsafe_h)
-        ).call
-      end
+      # Always recompute — the service destroy_all's existing splits first,
+      # and the individual case is a clean no-op (just clears old rows). Without
+      # this the guard would leak stale splits after an equal→individual switch.
+      Expense::ComputeSplits.new(@expense,
+        participant_ids: params[:participant_ids],
+        splits: Array(params[:splits]).map(&:to_unsafe_h)
+      ).call
     end
 
     respond_with_success(expense_json(@expense))

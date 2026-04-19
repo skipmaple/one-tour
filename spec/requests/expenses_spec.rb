@@ -94,6 +94,43 @@ RSpec.describe "Expenses", type: :request do
       expect(e.reload.amount_cents).to eq(12_000)
       expect(e.splits.pluck(:amount_cents).sum).to eq(12_000)
     end
+
+    # Regression: equal→individual used to leave stale splits behind because
+    # the controller skipped ComputeSplits when the new strategy was individual,
+    # leaking pre-switch split rows into the settle algorithm.
+    it "clears splits when switching equal → individual" do
+      e = Expense.create!(
+        tour: tour, activity: activity, scope: :activity,
+        paid_by: author, created_by: author,
+        amount_cents: 6_000, category: :food, split_strategy: :equal
+      )
+      Expense::ComputeSplits.new(e, participant_ids: [ author.id, u2.id ]).call
+      expect(e.splits.count).to eq(2)
+
+      login_as(author)
+      patch expense_path(e), params: { expense: { split_strategy: "individual" } }
+      expect(response).to have_http_status(:ok)
+      expect(e.reload.split_strategy).to eq("individual")
+      expect(e.splits.count).to eq(0)
+    end
+
+    it "creates splits when switching individual → equal" do
+      e = Expense.create!(
+        tour: tour, activity: activity, scope: :activity,
+        paid_by: author, created_by: author,
+        amount_cents: 9_000, category: :food, split_strategy: :individual
+      )
+      expect(e.splits.count).to eq(0)
+
+      login_as(author)
+      patch expense_path(e), params: {
+        expense: { split_strategy: "equal" },
+        participant_ids: [ author.id, u2.id ]
+      }
+      expect(response).to have_http_status(:ok)
+      expect(e.reload.splits.count).to eq(2)
+      expect(e.splits.pluck(:amount_cents).sum).to eq(9_000)
+    end
   end
 
   describe "DELETE /expenses/:id" do
