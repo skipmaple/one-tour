@@ -223,6 +223,24 @@ describe('buildPolylineConfigs', () => {
     expect(configs[0].strokeOpacity).toBe(0.7)
   })
 
+  test('tags each config with extData { fromId, toId, isStraight } — used by hover/click handlers', () => {
+    const days = [{ id: 10, day_index: 1, buffer_day: false }]
+    const grouped = {
+      10: [
+        { id: 1, lat: 44.6, lng: 81.3, position: 1 },
+        { id: 2, lat: 43.3, lng: 82.1, position: 2 },
+      ]
+    }
+    // No matching routeLeg → isStraight should be true
+    const configs = buildPolylineConfigs(grouped, days, theme, {})
+    expect(configs[0].extData).toEqual({ fromId: 1, toId: 2, isStraight: true })
+
+    // Cached real route → isStraight false
+    const routeLegsByPair = { 1: { 2: { driving: { polyline: { coords: [[81, 44], [82, 43]] } } } } }
+    const cachedConfigs = buildPolylineConfigs(grouped, days, theme, routeLegsByPair)
+    expect(cachedConfigs[0].extData).toEqual({ fromId: 1, toId: 2, isStraight: false })
+  })
+
   test('cross-day uses RouteLeg when cached, dashed fallback otherwise', () => {
     const days = [
       { id: 10, day_index: 1, buffer_day: false },
@@ -240,5 +258,50 @@ describe('buildPolylineConfigs', () => {
     // Cross-day cached route renders as solid (same as same-day real routes).
     expect(configs[0].strokeStyle).toBe('solid')
     expect(configs[0].path).toHaveLength(3)
+  })
+})
+
+import { countMissingLegs } from '../PlannerMap'
+
+describe('countMissingLegs', () => {
+  const theme = {
+    colors: {
+      red: [, , , , , , '#fa5252'], pink: [, , , , , , '#e64980'], grape: [, , , , , , '#be4bdb'],
+      violet: [, , , , , , '#7950f2'], indigo: [, , , , , , '#4c6ef5'], blue: [, , , , , , '#228be6'],
+      cyan: [, , , , , , '#15aabf'], teal: [, , , , , , '#12b886'], green: [, , , , , , '#40c057'],
+      yellow: [, , , , , , '#fab005'],
+    }
+  }
+
+  test('counts uncached same-day + cross-day pairs together', () => {
+    const days = [
+      { id: 10, day_index: 1, buffer_day: false },
+      { id: 20, day_index: 2, buffer_day: false },
+    ]
+    // day 1: 1→2 (same-day), day 1 last → day 2 first (cross-day) = 2 pairs
+    const grouped = {
+      10: [
+        { id: 1, lat: 44, lng: 81, position: 1 },
+        { id: 2, lat: 43, lng: 82, position: 2 },
+      ],
+      20: [{ id: 3, lat: 42, lng: 83, position: 1 }],
+    }
+    expect(countMissingLegs(grouped, days, theme, {})).toBe(2)
+  })
+
+  test('drops to zero when every pair has a cached leg', () => {
+    const days = [{ id: 10, day_index: 1, buffer_day: false }]
+    const grouped = {
+      10: [
+        { id: 1, lat: 44, lng: 81, position: 1 },
+        { id: 2, lat: 43, lng: 82, position: 2 },
+      ],
+    }
+    const routeLegsByPair = { 1: { 2: { driving: { polyline: { coords: [[81, 44], [82, 43]] } } } } }
+    expect(countMissingLegs(grouped, days, theme, routeLegsByPair)).toBe(0)
+  })
+
+  test('returns 0 for an empty tour', () => {
+    expect(countMissingLegs({}, [], theme, {})).toBe(0)
   })
 })

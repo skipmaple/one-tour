@@ -32,6 +32,7 @@ Rails.application.routes.draw do
     resources :budgets, only: [ :create ], controller: :tour_budgets
     resources :settlements, only: [ :create ]
     resources :route_legs, only: [ :create ]
+    resource  :route_legs_batch, only: [ :create ], controller: "route_legs_batches"
     resource  :conversation, only: [ :show, :destroy ] do
       resources :messages, only: [ :create ], controller: "conversations/messages"
     end

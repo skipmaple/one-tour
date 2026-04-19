@@ -9,7 +9,7 @@ import { router, usePage } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import {
-  IconPlus, IconFileExport, IconReceipt2, IconWallet, IconCircleCheck,
+  IconPlus, IconReceipt2, IconWallet, IconCircleCheck,
   IconSearch, IconFilter, IconX,
 } from '@tabler/icons-react'
 import AddExpenseDialog from './AddExpenseDialog'

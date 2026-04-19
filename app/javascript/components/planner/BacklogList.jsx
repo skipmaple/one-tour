@@ -1,8 +1,23 @@
 import { useState, useMemo } from 'react'
-import { Stack, Text, Button, Group, Select } from '@mantine/core'
+import { Text, Button, Group, Select, Stack } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
+import { IconInbox } from '@tabler/icons-react'
 import ActivityCard from './ActivityCard'
 import PanelShell from './PanelLayout/PanelShell'
+
+// Container-query styles for the 2-button footer. At narrow widths the
+// buttons stack vertically (Chinese labels stay readable). When the panel
+// is resized wider (≥ 200px inside content area), they flip to side-by-side
+// for a more compact footer. Container queries are used over media queries
+// because this panel can be dragged to any width independent of viewport.
+const footerStyleRules = `
+  .backlog-footer-container { container-type: inline-size; width: 100%; }
+  .backlog-footer-buttons   { display: flex; flex-direction: column; gap: 4px; }
+  @container (min-width: 200px) {
+    .backlog-footer-buttons   { flex-direction: row; }
+    .backlog-footer-buttons > button { flex: 1 1 0; min-width: 0; }
+  }
+`
 
 const KIND_FILTER_OPTIONS = [
   { value: '',       label: '所有类型' },
@@ -61,7 +76,7 @@ export default function BacklogList({
   return (
     <PanelShell
       title="候选池"
-      icon="📋"
+      icon={<IconInbox size={14} stroke={1.5} />}
       open={open}
       onToggle={onToggle}
       canToggle={canToggle}
@@ -72,6 +87,7 @@ export default function BacklogList({
         </Text>
       )}
     >
+      <style>{footerStyleRules}</style>
       <div
         ref={setNodeRef}
         style={{
@@ -108,18 +124,24 @@ export default function BacklogList({
             >
               <Text size="xs" c="gray.7" ta="center">先把想去的点塞进这里，再拖到右侧日。</Text>
             </Stack>
-            <Group gap={4} grow mt="xs">
-              {onAddActivity && (
-                <Button size="sm" variant="default" fw={500} onClick={() => onAddActivity(null)}>
-                  加候选
-                </Button>
-              )}
-              {onAskAI && (
-                <Button size="sm" variant="default" fw={700} onClick={onAskAI}>
-                  AI 帮选
-                </Button>
-              )}
-            </Group>
+            {/* Responsive footer: stacks vertically when narrow, flips to
+                side-by-side at ≥ 200px via CSS container query. Container
+                queries beat media queries here because the backlog panel
+                can be resized to any width independent of viewport. */}
+            <div className="backlog-footer-container" style={{ marginTop: 8 }}>
+              <div className="backlog-footer-buttons">
+                {onAddActivity && (
+                  <Button size="sm" variant="default" fw={500} onClick={() => onAddActivity(null)}>
+                    加候选
+                  </Button>
+                )}
+                {onAskAI && (
+                  <Button size="sm" variant="default" fw={700} onClick={onAskAI}>
+                    AI 帮选
+                  </Button>
+                )}
+              </div>
+            </div>
           </>
         )}
 
@@ -156,18 +178,20 @@ export default function BacklogList({
             </Stack>
 
             {!readOnly && (onAddActivity || onAskAI) && (
-              <Group gap={4} mt="auto" grow>
-                {onAddActivity && (
-                  <Button size="compact-xs" variant="default" fw={500} onClick={() => onAddActivity(null)}>
-                    加候选
-                  </Button>
-                )}
-                {onAskAI && (
-                  <Button size="compact-xs" variant="default" fw={700} onClick={onAskAI}>
-                    AI 帮选
-                  </Button>
-                )}
-              </Group>
+              <div className="backlog-footer-container" style={{ marginTop: 'auto' }}>
+                <div className="backlog-footer-buttons">
+                  {onAddActivity && (
+                    <Button size="compact-xs" variant="default" fw={500} onClick={() => onAddActivity(null)}>
+                      加候选
+                    </Button>
+                  )}
+                  {onAskAI && (
+                    <Button size="compact-xs" variant="default" fw={700} onClick={onAskAI}>
+                      AI 帮选
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
           </>
         )}

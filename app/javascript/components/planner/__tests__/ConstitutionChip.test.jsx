@@ -25,11 +25,14 @@ describe('ConstitutionChip · render', () => {
     expect(screen.queryByTestId('constitution-chip')).not.toBeInTheDocument()
   })
 
-  test('soft-only: yellow chip with ⚠ {count}', () => {
+  test('soft-only: yellow chip with warning icon + count', () => {
     renderChip({ violations: [softV, softV2] })
     const chip = screen.getByTestId('constitution-chip')
     expect(chip).toBeInTheDocument()
-    expect(chip).toHaveTextContent('⚠ 2')
+    // Count renders as just the number — icon is the separate severity cue.
+    expect(chip).toHaveTextContent('2')
+    // Icon presence via aria-label (the severity badge is an inline Tabler icon)
+    expect(chip.querySelector('[aria-label="硬违反"]')).not.toBeInTheDocument()
     // Mantine v9 Badge expresses color via a CSS custom property in inline style:
     // --badge-bg: var(--mantine-color-yellow-filled). Assert via the style attribute
     // so a single targeted check fails with a useful diff if the mechanism changes.
@@ -39,13 +42,13 @@ describe('ConstitutionChip · render', () => {
   test('any hard violation makes the chip red, count is total', () => {
     renderChip({ violations: [softV, hardV, softV2] })
     const chip = screen.getByTestId('constitution-chip')
-    expect(chip).toHaveTextContent('⛔ 3')
+    expect(chip).toHaveTextContent('3')
     expect(chip.getAttribute('style')).toMatch(/red/)
   })
 
   test('all hard: still red with count', () => {
     renderChip({ violations: [hardV, hardV2] })
-    expect(screen.getByTestId('constitution-chip')).toHaveTextContent('⛔ 2')
+    expect(screen.getByTestId('constitution-chip')).toHaveTextContent('2')
   })
 })
 
@@ -127,7 +130,7 @@ describe('ConstitutionChip · action buttons', () => {
     fireEvent.click(dismissButtons[0])
     expect(onDismiss).toHaveBeenCalledWith(softV)
     // Chip count went from 2 to 1
-    expect(screen.getByTestId('constitution-chip')).toHaveTextContent('⚠ 1')
+    expect(screen.getByTestId('constitution-chip')).toHaveTextContent('1')
     // Popover still open showing the remaining soft
     expect(screen.getByText(/一等景超 3/)).toBeInTheDocument()
   })

@@ -22,20 +22,45 @@ class AmapDirectionService
     walking: "https://restapi.amap.com/v5/direction/walking"
   }.freeze
 
+  # Amap free tier allows ~3 QPS per key. A burst (e.g. batch compute for a
+  # 20+ activity tour) can trip this even when our own code calls sequentially,
+  # because each call takes ~150ms < 333ms. Amap fast-rejects with info:
+  # "CUQPS_HAS_EXCEEDED_THE_LIMIT". Back off briefly and retry — by the time
+  # we wake up the burst window has slid. Linear backoff (not exponential) is
+  # fine since Amap's limiter is sub-second.
+  RATE_LIMIT_INFO = "CUQPS_HAS_EXCEEDED_THE_LIMIT".freeze
+  DEFAULT_MAX_RETRIES = 2
+  DEFAULT_RETRY_DELAY = 0.5  # seconds; attempt 1 waits 0.5s, attempt 2 waits 1.0s
+
+  def initialize(max_retries: DEFAULT_MAX_RETRIES, retry_delay: DEFAULT_RETRY_DELAY, sleep_fn: method(:sleep))
+    @max_retries = max_retries
+    @retry_delay = retry_delay
+    @sleep_fn    = sleep_fn
+  end
+
   def fetch(from_lat:, from_lng:, to_lat:, to_lng:, mode: :driving)
     mode = mode.to_sym
     endpoint = ENDPOINTS[mode]
     raise UnsupportedModeError, "暂不支持该出行方式（#{mode}）" unless endpoint
 
-    data = request(endpoint, {
-      "key"         => ENV.fetch("AMAP_API_KEY"),
-      "origin"      => "#{from_lng},#{from_lat}",
-      "destination" => "#{to_lng},#{to_lat}",
-      "output"      => "JSON",
-      "show_fields" => "polyline"
-    })
-
-    parse_route(data)
+    attempt = 0
+    begin
+      attempt += 1
+      data = request(endpoint, {
+        "key"         => ENV.fetch("AMAP_API_KEY"),
+        "origin"      => "#{from_lng},#{from_lat}",
+        "destination" => "#{to_lng},#{to_lat}",
+        "output"      => "JSON",
+        "show_fields" => "polyline"
+      })
+      parse_route(data)
+    rescue Error => e
+      if rate_limited?(e) && attempt <= @max_retries
+        @sleep_fn.call(@retry_delay * attempt)
+        retry
+      end
+      raise
+    end
   end
 
   private
@@ -46,6 +71,10 @@ class AmapDirectionService
         raise Error, "AMAP 错误：#{data['info']}"
       end
       data
+    end
+
+    def rate_limited?(error)
+      error.message.include?(RATE_LIMIT_INFO)
     end
 
     def parse_route(data)

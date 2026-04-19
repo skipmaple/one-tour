@@ -60,6 +60,30 @@ RSpec.describe RouteLeg::Upsert do
     end
   end
 
+  describe "#cache_hit?" do
+    it "is false on a fresh call that fetched from Amap" do
+      allow(fake_service).to receive(:fetch).and_return(fake_result)
+      upsert = described_class.new(tour: tour, from_activity_id: from_act.id, to_activity_id: to_act.id, mode: :driving, service: fake_service)
+      upsert.call
+      expect(upsert.cache_hit?).to be(false)
+    end
+
+    it "is true on a second call that short-circuited" do
+      allow(fake_service).to receive(:fetch).and_return(fake_result)
+      # Prime cache
+      described_class.new(tour: tour, from_activity_id: from_act.id, to_activity_id: to_act.id, mode: :driving, service: fake_service).call
+
+      upsert = described_class.new(tour: tour, from_activity_id: from_act.id, to_activity_id: to_act.id, mode: :driving, service: fake_service)
+      upsert.call
+      expect(upsert.cache_hit?).to be(true)
+    end
+
+    it "is nil before #call" do
+      upsert = described_class.new(tour: tour, from_activity_id: from_act.id, to_activity_id: to_act.id, mode: :driving, service: fake_service)
+      expect(upsert.cache_hit?).to be_nil
+    end
+  end
+
   describe "per-mode legs coexist" do
     it "creates separate rows for driving and walking" do
       allow(fake_service).to receive(:fetch).and_return(fake_result)

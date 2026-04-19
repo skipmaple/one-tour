@@ -23,9 +23,18 @@ test('renders all 5 summary cells', () => {
   expect(screen.getByText('1 重 · 2 轻')).toBeInTheDocument()
 })
 
-test('shows ✅ when buffer count meets minimum', () => {
-  render(<MantineProvider><TourSummaryBar summary={{ ...summary, buffer_count: 2 }} /></MantineProvider>)
-  expect(screen.getByText(/✅/)).toBeInTheDocument()
+test('shows "达标" icon when buffer count meets minimum', () => {
+  const { container } = render(
+    <MantineProvider><TourSummaryBar summary={{ ...summary, buffer_count: 2 }} /></MantineProvider>
+  )
+  expect(container.querySelector('[aria-label="达标"]')).toBeInTheDocument()
+})
+
+test('does NOT show "达标" icon when buffer is below minimum', () => {
+  const { container } = render(
+    <MantineProvider><TourSummaryBar summary={{ ...summary, buffer_count: 0 }} /></MantineProvider>
+  )
+  expect(container.querySelector('[aria-label="达标"]')).not.toBeInTheDocument()
 })
 
 test('shows 0 for violations when none', () => {

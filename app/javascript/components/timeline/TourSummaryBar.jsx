@@ -1,4 +1,5 @@
 import { Group, Paper, Text } from '@mantine/core'
+import { IconCircleCheckFilled } from '@tabler/icons-react'
 
 export default function TourSummaryBar({ summary }) {
   const hasViolations = summary.hard_count > 0 || summary.soft_count > 0
@@ -16,7 +17,7 @@ export default function TourSummaryBar({ summary }) {
         <SummaryCell
           value={summary.buffer_count}
           label={`个机动日 · ≥ ${summary.buffer_min}/程`}
-          suffix={bufferOk ? '✅' : ''}
+          suffix={bufferOk ? <IconCircleCheckFilled size={12} color="var(--mantine-color-green-6)" aria-label="达标" /> : null}
         />
         <SummaryCell
           value={
@@ -36,9 +37,10 @@ function SummaryCell({ value, label, suffix, color }) {
   return (
     <Group gap={4} wrap="nowrap">
       <Text fw={700} size="md" c={color}>{value}</Text>
-      <Text size="xs" c="dimmed">
-        {label}{suffix && ` ${suffix}`}
-      </Text>
+      <Group gap={4} wrap="nowrap" align="center">
+        <Text size="xs" c="dimmed">{label}</Text>
+        {suffix}
+      </Group>
     </Group>
   )
 }

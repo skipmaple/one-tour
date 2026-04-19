@@ -1,4 +1,5 @@
 import { Paper, Text, Title, Group } from '@mantine/core'
+import { IconCheck, IconAlertOctagonFilled } from '@tabler/icons-react'
 
 export default function DayDetailPanel({ day, activities, constitution }) {
   if (!day) return null
@@ -54,11 +55,24 @@ export default function DayDetailPanel({ day, activities, constitution }) {
 
       <div style={{ borderTop: '1px solid #eee', paddingTop: 8, fontSize: 13 }}>
         <Group gap="xl">
-          <Text>驾驶 {driveMin}/{maxDriveMin} min {driveOk ? '✓' : '⛔'}</Text>
-          <Text>一等 {tierOneCount}/{maxTier1} {tierOneOk ? '✓' : '⛔'}</Text>
+          <StatCell label={`驾驶 ${driveMin}/${maxDriveMin} min`} ok={driveOk} />
+          <StatCell label={`一等 ${tierOneCount}/${maxTier1}`} ok={tierOneOk} />
         </Group>
       </div>
     </Paper>
+  )
+}
+
+// Tiny "label + pass/fail" row. Green check for pass, red octagon for fail.
+// Used only for the day-summary row at the bottom of the panel.
+function StatCell({ label, ok }) {
+  return (
+    <Group gap={4} wrap="nowrap" align="center">
+      <Text>{label}</Text>
+      {ok
+        ? <IconCheck size={14} color="var(--mantine-color-green-7)" aria-label="达标" />
+        : <IconAlertOctagonFilled size={14} color="var(--mantine-color-red-6)" aria-label="超限" />}
+    </Group>
   )
 }
 

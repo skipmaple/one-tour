@@ -1,5 +1,6 @@
 import { Paper, Stack, Text, Button, UnstyledButton } from '@mantine/core'
 import { router } from '@inertiajs/react'
+import { IconCalendarEvent, IconArrowAutofitWidth } from '@tabler/icons-react'
 import PanelShell from './PanelLayout/PanelShell'
 import DayColumn from './DayColumn'
 
@@ -40,16 +41,20 @@ export default function DayPanel({
         padding: '2px 7px',
         borderRadius: 3,
         cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
       }}
     >
-      📐 {autoFit ? 'auto' : '恢复'}
+      <IconArrowAutofitWidth size={12} stroke={1.75} />
+      {autoFit ? '自适应' : '恢复'}
     </UnstyledButton>
   )
 
   return (
     <PanelShell
       title="日程"
-      icon="📅"
+      icon={<IconCalendarEvent size={14} stroke={1.5} />}
       open={open}
       onToggle={onToggle}
       canToggle={canToggle}
