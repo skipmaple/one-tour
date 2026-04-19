@@ -41,7 +41,7 @@
 .ac-body {
   flex: 1;
   min-width: 0;
-  padding: 8px 8px 8px 4px;
+  padding: 6px 8px 10px 4px;
   display: flex;
   flex-direction: column;
   position: relative;
