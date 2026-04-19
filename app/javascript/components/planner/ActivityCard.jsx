@@ -1,6 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import {
-  IconGripVertical,
   IconMountain,
   IconCar,
   IconToolsKitchen2,
@@ -152,7 +151,7 @@ function ThumbAndBadge({ activity }) {
 }
 
 export default function ActivityCard({ activity, onClick, readOnly }) {
-  const { attributes, listeners, setNodeRef: setDragRef, setActivatorNodeRef, isDragging } =
+  const { attributes, listeners, setNodeRef: setDragRef, isDragging } =
     useDraggable({ id: `activity-${activity.id}` })
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `activity-drop-${activity.id}`,
@@ -162,33 +161,27 @@ export default function ActivityCard({ activity, onClick, readOnly }) {
     setDragRef(el)
     setDropRef(el)
   }
-  // When readOnly, suppress drag affordances entirely: skip {...attributes} (drops
-  // aria-roledescription="draggable" and tabindex) and don't render the grip so
-  // listeners never attach.
   const dragAttributes = readOnly ? {} : attributes
+  const dragListeners = readOnly ? {} : listeners
 
   const handleBodyClick = () => {
     if (!readOnly && onClick) onClick(activity.id)
   }
 
+  const extra = [
+    isDragging ? 'ac-dragging' : '',
+    readOnly && onClick ? 'ac-readonly' : '',
+  ].filter(Boolean).join(' ')
+
   return (
     <div
       ref={setRef}
-      className={cardClasses(activity, isDragging ? 'ac-dragging' : '')}
+      className={cardClasses(activity, extra)}
       {...dragAttributes}
+      {...dragListeners}
     >
       {isOver && <div data-testid="drop-indicator" className="ac-drop-indicator" />}
       <ThumbAndBadge activity={activity} />
-      {!readOnly && (
-        <span
-          ref={setActivatorNodeRef}
-          {...listeners}
-          data-testid="grab-handle"
-          className="ac-grip"
-        >
-          <IconGripVertical size={12} stroke={2} />
-        </span>
-      )}
       <div
         className="ac-body"
         onClick={handleBodyClick}
@@ -208,9 +201,6 @@ export function ActivityCardOverlay({ activity }) {
   return (
     <div className={cardClasses(activity, 'ac-overlay')}>
       <ThumbAndBadge activity={activity} />
-      <span className="ac-grip" aria-hidden="true">
-        <IconGripVertical size={12} stroke={2} />
-      </span>
       <div className="ac-body">
         <div className="ac-name-row">
           <KindIcon kind={activity.kind} />

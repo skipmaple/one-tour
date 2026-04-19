@@ -106,11 +106,6 @@ test('hides meta cell (not removes) when its data is missing', () => {
   expect(container.querySelector('.ac-meta-cell.ac-meta-cell--empty')).toBeInTheDocument()
 })
 
-test('renders a grab handle element', () => {
-  renderInDnd(<ActivityCard activity={baseActivity} />)
-  expect(screen.getByTestId('grab-handle')).toBeInTheDocument()
-})
-
 test('fires onClick when card body is clicked', () => {
   const onClick = vi.fn()
   renderInDnd(<ActivityCard activity={baseActivity} onClick={onClick} />)
@@ -125,16 +120,30 @@ test('does not fire onClick when readOnly', () => {
   expect(onClick).not.toHaveBeenCalled()
 })
 
-test('does not render grab handle when readOnly', () => {
-  renderInDnd(<ActivityCard activity={baseActivity} readOnly />)
-  expect(screen.queryByTestId('grab-handle')).not.toBeInTheDocument()
-})
-
 test('does not expose draggable aria role when readOnly', () => {
   renderInDnd(<ActivityCard activity={baseActivity} readOnly />)
   expect(
     screen.queryByText('喀纳斯湖').closest('[aria-roledescription="draggable"]')
   ).toBeNull()
+})
+
+test('outer card exposes draggable aria role when not readOnly', () => {
+  renderInDnd(<ActivityCard activity={baseActivity} />)
+  expect(
+    screen.getByText('喀纳斯湖').closest('[aria-roledescription="draggable"]')
+  ).not.toBeNull()
+})
+
+test('applies ac-readonly class when readOnly and onClick are both set', () => {
+  const { container } = renderInDnd(
+    <ActivityCard activity={baseActivity} onClick={() => {}} readOnly />
+  )
+  expect(container.querySelector('.ac-card.ac-readonly')).toBeInTheDocument()
+})
+
+test('does not apply ac-readonly class without onClick', () => {
+  const { container } = renderInDnd(<ActivityCard activity={baseActivity} readOnly />)
+  expect(container.querySelector('.ac-card.ac-readonly')).not.toBeInTheDocument()
 })
 
 test('shows drop indicator when isOver=true', () => {
@@ -152,5 +161,4 @@ test('hides drop indicator when isOver=false', () => {
 test('ActivityCardOverlay renders name without drag handlers', () => {
   render(<ActivityCardOverlay activity={baseActivity} />)
   expect(screen.getByText('喀纳斯湖')).toBeInTheDocument()
-  expect(screen.queryByTestId('grab-handle')).not.toBeInTheDocument()
 })

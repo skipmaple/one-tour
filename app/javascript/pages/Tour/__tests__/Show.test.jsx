@@ -27,7 +27,10 @@ vi.mock('@dnd-kit/core', () => ({
   DragOverlay: ({ children }) => <div data-testid="drag-overlay">{children}</div>,
   closestCenter: null,
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
-  useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, setActivatorNodeRef: () => {}, isDragging: false }),
+  useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, isDragging: false }),
+  PointerSensor: class PointerSensor {},
+  useSensor: () => ({}),
+  useSensors: (...args) => args,
 }))
 
 vi.mock('@mantine/notifications', () => ({
