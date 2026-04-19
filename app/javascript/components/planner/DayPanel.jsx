@@ -47,7 +47,7 @@ export default function DayPanel({
       }}
     >
       <IconArrowAutofitWidth size={12} stroke={1.75} />
-      {autoFit ? 'auto' : '恢复'}
+      {autoFit ? '自适应' : '恢复'}
     </UnstyledButton>
   )
 
