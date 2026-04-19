@@ -22,6 +22,13 @@ on:
         required: false
         default: main
 
+# Least-privilege token scopes. `actions: read` 是 `gh api` 查 CI 状态要的;
+# `contents: read` 是 actions/checkout 要的。显式声明一个 scope 会把未声明
+# 的 scope 置为 none,所以两个都必须写上,不能只写一个。
+permissions:
+  actions: read
+  contents: read
+
 concurrency:
   # 多次点"Run workflow"不会互相打架:后发者排队等前者结束。
   group: deploy-production
@@ -43,6 +50,27 @@ jobs:
       - name: Record target SHA
         id: sha
         run: echo "value=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Without this fail-fast,空的 secret 会被写成空文件,kamal 会在后面
+      # 用 "Rails can't decrypt credentials" 之类的神秘错误挂掉,排查困难。
+      - name: Validate required secrets are present
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+          MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          missing=()
+          [ -z "$PROD_ENV_FILE" ] && missing+=("PROD_ENV_FILE")
+          [ -z "$MASTER_KEY" ]    && missing+=("RAILS_MASTER_KEY")
+          [ -z "$SSH_KEY" ]       && missing+=("DEPLOY_SSH_PRIVATE_KEY")
+          [ -z "$KNOWN_HOSTS" ]   && missing+=("DEPLOY_SSH_KNOWN_HOSTS")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            echo "::error::Add them in Settings → Environments → production."
+            exit 1
+          fi
+          echo "All 4 required secrets present."
 
       # 不让一键部署推红代码上生产 —— 查目标 commit 的 CI 是否绿。
       - name: Guard — CI must be green on target commit
@@ -73,8 +101,9 @@ jobs:
           # Sanity check — all .kamal/secrets grep patterns will silently fail
           # (producing empty env values) if this file is malformed. Count lines
           # so a corrupt secret gets caught early instead of deploying an app
-          # with empty OAuth/R2/AMAP keys.
-          lines=$(grep -c '^[A-Z][A-Z_]*=' .env.production || true)
+          # with empty OAuth/R2/AMAP keys. Digits must be allowed after the
+          # first char — otherwise keys like R2_ACCESS_KEY_ID go uncounted.
+          lines=$(grep -c '^[A-Z][A-Z0-9_]*=' .env.production || true)
           echo "Loaded .env.production with $lines env vars"
           if [ "$lines" -lt 15 ]; then
             echo "::error::.env.production has only $lines env vars (expected 20+). Secret corrupt?"

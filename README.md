@@ -194,10 +194,11 @@ kamal app logs -f
 Actions tab → 左侧选 "Deploy" → 右上 "Run workflow" → 可选填要部署的 ref(默认 main)→ "Run workflow"
 
 工作流会:
-1. 校验目标 commit 的 CI 是否绿(红的直接拒绝部署)
-2. 把 3 个 secret 在 runner 上材化为本地文件(`.env.production` / `config/master.key` / SSH key)
-3. 校验 `.env.production` 变量数量合理(corrupt secret 提前挂)
-4. `bin/kamal deploy`(Buildx 构建 + 推 Docker Hub + SSH 到 45.63.23.136 拉 + 重启)
+1. 校验 4 个 secret 都非空(空的直接 fail-fast)
+2. 校验目标 commit 的 CI 是否绿(红的直接拒绝部署)
+3. 把 3 个 secret 材化为文件(`.env.production` / `config/master.key` / `~/.ssh/known_hosts`),私钥注入 `ssh-agent`
+4. 校验 `.env.production` 变量数量合理(corrupt secret 提前挂)
+5. `bin/kamal deploy`(Buildx 构建 + 推 Docker Hub + SSH 到 45.63.23.136 拉 + 重启)
 
 并发保护:多次点击不会互相打断,后面的排队等前面结束。
 
