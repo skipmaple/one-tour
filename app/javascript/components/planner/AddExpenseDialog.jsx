@@ -52,6 +52,8 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   const [strategy, setStrategy] = useState('equal')
   const [note, setNote] = useState('')
   const [participantIds, setParticipantIds] = useState([])
+  const [externalCount, setExternalCount] = useState(0)
+  const [externalAttributedToId, setExternalAttributedToId] = useState('')
   const [saving, setSaving] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(null)
   const [uploading, setUploading] = useState(false)
@@ -66,6 +68,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   const currentSnapshot = () => JSON.stringify({
     scope, activityId, dayId, paidById, amount, category, strategy, note,
     participantIds: [ ...participantIds ].sort(),
+    externalCount, externalAttributedToId,
   })
 
   const confirmClose = () => {
@@ -112,6 +115,10 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           participantIds: expense.splits?.length
             ? expense.splits.map((s) => s.user_id)
             : allUsers.map((u) => u.user_id),
+          externalCount: expense.external_count || 0,
+          externalAttributedToId: expense.external_attributed_to_id
+            ? String(expense.external_attributed_to_id)
+            : String(expense.paid_by_id),
         }
       : {
           scope: 'activity',
@@ -123,6 +130,8 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           strategy: 'equal',
           note: '',
           participantIds: allUsers.map((u) => u.user_id),
+          externalCount: 0,
+          externalAttributedToId: String(author.user_id),
         }
 
     setScope(v.scope)
@@ -134,6 +143,8 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     setStrategy(v.strategy)
     setNote(v.note)
     setParticipantIds(v.participantIds)
+    setExternalCount(v.externalCount)
+    setExternalAttributedToId(v.externalAttributedToId)
     setAmountError(null)
     // Clean up any stale pending previews from a previous open and reset.
     setPendingFiles((prev) => {
@@ -280,6 +291,15 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     if (isEdit && scope !== 'activity') payload.expense.activity_id = null
     if (isEdit && scope !== 'day')      payload.expense.day_id = null
     if (strategy === 'equal') payload.participant_ids = participantIds
+    if (strategy === 'equal' && externalCount > 0) {
+      payload.expense.external_count = Number(externalCount)
+      payload.expense.external_attributed_to_id = Number(externalAttributedToId) || Number(paidById)
+    } else if (isEdit) {
+      // Scrub old values when switching away from 'equal' or clearing externals,
+      // otherwise stale external_count / external_attributed_to_id would linger.
+      payload.expense.external_count = 0
+      payload.expense.external_attributed_to_id = null
+    }
 
     setSaving(true)
 
@@ -455,6 +475,36 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
                 onChange={() => toggleParticipant(u.user_id)}
               />
             ))}
+            <Group gap="xs" mt={6} align="flex-end" wrap="wrap">
+              <NumberInput
+                label="带了几个非成员"
+                description="朋友搭车 / 蹭饭算一份"
+                min={0}
+                max={20}
+                value={externalCount}
+                onChange={(v) => setExternalCount(v === '' || v == null ? 0 : Number(v))}
+                style={{ minWidth: 160 }}
+              />
+              {externalCount > 0 && (
+                <Select
+                  label="谁负担他们的份"
+                  data={allUsers.map((u) => ({
+                    value: String(u.user_id),
+                    label: u.email + (u.user_id === author.user_id ? '（作者）' : ''),
+                  }))}
+                  value={externalAttributedToId}
+                  onChange={(v) => v && setExternalAttributedToId(v)}
+                  allowDeselect={false}
+                  style={{ minWidth: 180, flex: 1 }}
+                />
+              )}
+            </Group>
+            {externalCount > 0 && (
+              <Text size="xs" c="dimmed">
+                这笔按 {participantIds.length + Number(externalCount)} 份均分，
+                其中 {allUsers.find((u) => String(u.user_id) === externalAttributedToId)?.email || '?'} 承担 {1 + Number(externalCount)} 份
+              </Text>
+            )}
           </Stack>
         )}
 

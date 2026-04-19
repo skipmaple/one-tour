@@ -5,7 +5,9 @@ class TourBudgetsController < ApplicationController
   before_action :require_editor
 
   def create
-    budget = @tour.tour_budgets.build(budget_params)
+    # user_id is derived from current_user — budgets are always "my budget".
+    # Clients shouldn't set this; the permit list enforces that too.
+    budget = @tour.tour_budgets.build(budget_params.merge(user_id: current_user.id))
     if budget.save
       respond_with_success(budget_json(budget))
     else
@@ -50,7 +52,9 @@ class TourBudgetsController < ApplicationController
     end
 
     def budget_params
-      params.require(:tour_budget).permit(:user_id, :day_id, :activity_id, :amount_cents)
+      # user_id is intentionally not permitted — create() overrides it with
+      # current_user.id so clients can only manage their own budgets.
+      params.require(:tour_budget).permit(:day_id, :activity_id, :amount_cents)
     end
 
     def respond_with_success(json_body)

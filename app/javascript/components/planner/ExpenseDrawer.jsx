@@ -1,14 +1,15 @@
 import { useMemo, useState, useEffect } from 'react'
 import {
   Drawer, Tabs, Stack, Group, Text, Button, Table, Badge, Card, Divider,
-  SegmentedControl, Accordion,
+  SegmentedControl, Accordion, Progress,
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
-import { IconPlus, IconFileExport, IconReceipt2 } from '@tabler/icons-react'
+import { IconPlus, IconFileExport, IconReceipt2, IconWallet } from '@tabler/icons-react'
 import AddExpenseDialog from './AddExpenseDialog'
+import BudgetModal from './BudgetModal'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import { groupExpenses } from './expenseGrouping'
 
@@ -35,6 +36,7 @@ export default function ExpenseDrawer({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState(null)
   const [rowLightbox, setRowLightbox] = useState({ receipts: [], index: null })
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false)
   const isMobile = useMediaQuery('(max-width: 640px)')
 
   // Derive the editing expense from fresh props so receipt uploads/deletes
@@ -62,6 +64,23 @@ export default function ExpenseDrawer({
       labels: { confirm: '删除', cancel: '取消' },
       confirmProps: { color: 'red' },
       onConfirm: () => {
+        // Capture full shape BEFORE delete so we can rebuild it if user hits 撤销.
+        // Receipts are cascaded + their blobs are gone; can't undo those.
+        const snapshot = {
+          scope: expense.scope,
+          activity_id: expense.activity_id,
+          day_id: expense.day_id,
+          paid_by_id: expense.paid_by_id,
+          amount_cents: expense.amount_cents,
+          category: expense.category,
+          note: expense.note,
+          split_strategy: expense.split_strategy,
+          external_count: expense.external_count || 0,
+          external_attributed_to_id: expense.external_attributed_to_id,
+          participant_ids: expense.splits?.map((s) => s.user_id) || [],
+          had_receipts: (expense.receipts?.length || 0) > 0,
+        }
+
         router.delete(`/expenses/${expense.id}`, {
           preserveScroll: true,
           only: [ 'expenses', 'expenses_summary', 'flash' ],
@@ -70,12 +89,64 @@ export default function ExpenseDrawer({
             if (alert) {
               notifications.show({ message: alert, color: 'red' })
             } else {
-              notifications.show({ message: '已删除', color: 'green' })
+              showUndoToast(snapshot)
             }
           },
           onError: () => notifications.show({ message: '删除失败', color: 'red' }),
         })
       },
+    })
+  }
+
+  const showUndoToast = (snapshot) => {
+    const notifId = `undo-${Date.now()}`
+    notifications.show({
+      id: notifId,
+      color: 'green',
+      autoClose: 8000,
+      withCloseButton: true,
+      message: (
+        <Group justify="space-between" gap="xs" wrap="nowrap">
+          <Text size="sm">已删除</Text>
+          <Button
+            size="compact-xs"
+            variant="subtle"
+            onClick={() => undoDelete(snapshot, notifId)}
+          >
+            撤销
+          </Button>
+        </Group>
+      ),
+    })
+  }
+
+  const undoDelete = (snapshot, notifId) => {
+    notifications.hide(notifId)
+    const payload = {
+      expense: {
+        scope: snapshot.scope,
+        activity_id: snapshot.activity_id,
+        day_id: snapshot.day_id,
+        paid_by_id: snapshot.paid_by_id,
+        amount_cents: snapshot.amount_cents,
+        category: snapshot.category,
+        note: snapshot.note,
+        split_strategy: snapshot.split_strategy,
+        external_count: snapshot.external_count,
+        external_attributed_to_id: snapshot.external_attributed_to_id,
+      },
+    }
+    if (snapshot.split_strategy === 'equal' && snapshot.participant_ids.length > 0) {
+      payload.participant_ids = snapshot.participant_ids
+    }
+    router.post(`/tours/${tour.id}/expenses`, payload, {
+      preserveScroll: true,
+      only: [ 'expenses', 'expenses_summary', 'flash' ],
+      onSuccess: () => notifications.show({
+        message: snapshot.had_receipts ? '已恢复（小票已丢失，需重新上传）' : '已恢复',
+        color: 'green',
+      }),
+      onError: () => notifications.show({ message: '恢复失败', color: 'red' }),
     })
   }
 
@@ -118,12 +189,14 @@ export default function ExpenseDrawer({
             tour={tour}
             activities={activities}
             days={days}
+            budgets={budgets || []}
             canEdit={canEdit}
             isMobile={isMobile}
             onAddClick={() => { setEditingExpenseId(null); setDialogOpen(true) }}
             onEdit={(e) => { setEditingExpenseId(e.id); setDialogOpen(true) }}
             onDelete={handleDeleteExpense}
             onReceiptClick={(e) => setRowLightbox({ receipts: e.receipts || [], index: 0 })}
+            onEditBudget={() => setBudgetModalOpen(true)}
           />
         )}
 
@@ -155,11 +228,19 @@ export default function ExpenseDrawer({
         initialIndex={rowLightbox.index}
         onClose={() => setRowLightbox({ receipts: [], index: null })}
       />
+
+      <BudgetModal
+        opened={budgetModalOpen}
+        onClose={() => setBudgetModalOpen(false)}
+        tour={tour}
+        days={days}
+        budgets={budgets || []}
+      />
     </>
   )
 }
 
-function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, tour, activities, days, canEdit, isMobile, onAddClick, onEdit, onDelete, onReceiptClick }) {
+function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, tour, activities, days, budgets, canEdit, isMobile, onAddClick, onEdit, onDelete, onReceiptClick, onEditBudget }) {
   const [grouping, setGrouping] = useState('flat')
 
   const activityById = useMemo(() => {
@@ -210,6 +291,8 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
           </Text>
         </Card>
       )}
+
+      {canEdit && <BudgetCard balance={balance} tour={tour} onEditBudget={onEditBudget} />}
 
       {summary && (
         <Group grow>
@@ -309,6 +392,57 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
         </Accordion>
       )}
     </Stack>
+  )
+}
+
+function BudgetCard({ balance, tour, onEditBudget }) {
+  const budgetCents = balance?.tour_budget_cents
+  const owed = balance?.owed_cents || 0
+  const overCents = balance?.over_tour_budget_cents || 0
+
+  if (!budgetCents) {
+    return (
+      <Card padding="sm" radius="sm" withBorder>
+        <Group justify="space-between" gap="xs">
+          <Group gap="xs">
+            <IconWallet size={16} stroke={1.5} color="#868e96" />
+            <Text size="sm" c="dimmed">还没设我的预算</Text>
+          </Group>
+          <Button size="compact-xs" variant="light" onClick={onEditBudget}>设预算</Button>
+        </Group>
+      </Card>
+    )
+  }
+
+  const percent = Math.min(owed / budgetCents, 1) * 100
+  const overSpent = overCents > 0
+
+  return (
+    <Card
+      padding="md"
+      radius="sm"
+      withBorder
+      style={overSpent ? { borderLeft: '4px solid #fa5252', background: '#fff5f5' } : {}}
+    >
+      <Group justify="space-between" mb={6}>
+        <Group gap="xs">
+          <IconWallet size={16} stroke={1.5} color={overSpent ? '#c92a2a' : '#868e96'} />
+          <Text size="sm" fw={500}>我的预算</Text>
+        </Group>
+        <Button size="compact-xs" variant="subtle" onClick={onEditBudget}>编辑</Button>
+      </Group>
+      <Progress value={percent} color={overSpent ? 'red' : 'blue'} size="sm" />
+      <Group justify="space-between" mt={6}>
+        <Text size="xs" c="dimmed">
+          已承担 {formatCents(owed, tour.currency)} / 预算 {formatCents(budgetCents, tour.currency)}
+        </Text>
+        {overSpent && (
+          <Text size="xs" c="red" fw={500}>
+            超出 {formatCents(overCents, tour.currency)}
+          </Text>
+        )}
+      </Group>
+    </Card>
   )
 }
 

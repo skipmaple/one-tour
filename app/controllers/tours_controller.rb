@@ -25,7 +25,7 @@ class ToursController < ApplicationController
       activity_images: activity_images_for(@tour),
       expenses: expenses_for(@tour),
       expenses_summary: Expense::Summarize.new(@tour, current_user).call,
-      tour_budgets: @tour.tour_budgets.as_json,
+      tour_budgets: @tour.tour_budgets.where(user_id: current_user.id).as_json,
       route_legs: route_legs_for(@tour),
       violations: tour_violations,
       members: @tour.tour_memberships.includes(:user).filter_map { |m|
