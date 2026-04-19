@@ -1,159 +1,222 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { IconPhoto } from '@tabler/icons-react'
+import {
+  IconGripVertical,
+  IconMountain,
+  IconCar,
+  IconToolsKitchen2,
+  IconBed,
+  IconGasStation,
+  IconCategory,
+  IconHourglass,
+  IconMapPin,
+  IconClock,
+} from '@tabler/icons-react'
+import '../../styles/activity-card.css'
+
+const KIND_ICONS = {
+  scenic: IconMountain,
+  food: IconToolsKitchen2,
+  road: IconCar,
+  stay: IconBed,
+  fuel: IconGasStation,
+  other: IconCategory,
+}
+
+const KIND_CLASS = {
+  scenic: 'ac-kind-scenic',
+  food: 'ac-kind-food',
+  road: 'ac-kind-road',
+  stay: 'ac-kind-stay',
+  fuel: 'ac-kind-fuel',
+  other: 'ac-kind-other',
+}
+
+const SIGNAL_OPACITIES = {
+  tier_one: [1, 1, 1, 1],
+  tier_two: [1, 1, 1, 0.22],
+  tier_three: [1, 1, 0.22, 0.22],
+  infrastructure: [1, 0.22, 0.22, 0.22],
+}
+
+// planned_duration_min → short string.
+//   60  → '1h'      (≥60 and divisible by 30)
+//   90  → '1.5h'
+//   150 → '2.5h'
+//   45  → '45分'
+//   null/undef/0 → ''
+function formatDuration(min) {
+  if (!min) return ''
+  if (min >= 60 && min % 30 === 0) return `${min / 60}h`
+  return `${min}分`
+}
+
+// activity.address often stores a long multi-segment string. Take the last
+// whitespace/punctuation-delimited chunk and cap at 6 chars so the meta cell
+// stays one line.
+function formatAddress(addr) {
+  if (!addr) return ''
+  const segments = String(addr).split(/[\s、，,]+/).filter(Boolean)
+  const last = segments[segments.length - 1] || ''
+  return last.length > 6 ? last.slice(-6) : last
+}
+
+function KindIcon({ kind }) {
+  const Icon = KIND_ICONS[kind] || IconCategory
+  return (
+    <span className="ac-kind-icon">
+      <Icon size={13} stroke={2.2} />
+    </span>
+  )
+}
+
+// iPhone-signal-style 4-bar indicator for citizen_level. Bars are bottom-aligned
+// ascending (heights 3,5,7,9) in a 14×10 viewBox. Bright bars at opacity 1,
+// dim bars at 0.22. Lower tiers dim more bars.
+function CitizenSignal({ level }) {
+  const ops = SIGNAL_OPACITIES[level] || SIGNAL_OPACITIES.infrastructure
+  return (
+    <span className="ac-ci" data-testid="citizen-signal" data-level={level}>
+      <svg viewBox="0 0 14 10" aria-hidden="true">
+        {[0, 1, 2, 3].map((i) => {
+          const h = 3 + i * 2
+          return (
+            <rect
+              key={i}
+              x={i * 3.5}
+              y={10 - h}
+              width="2.2"
+              height={h}
+              rx="0.4"
+              fill="currentColor"
+              opacity={ops[i]}
+            />
+          )
+        })}
+      </svg>
+    </span>
+  )
+}
+
+function MetaGrid({ activity }) {
+  const duration = formatDuration(activity.planned_duration_min)
+  const address = formatAddress(activity.address)
+  const time = activity.planned_start_at || ''
+  const cellClass = (v) => `ac-meta-cell${v ? '' : ' ac-meta-cell--empty'}`
+  return (
+    <div className="ac-meta">
+      <div className="ac-meta-cell">
+        <CitizenSignal level={activity.citizen_level} />
+      </div>
+      <div className={cellClass(duration)}>
+        <IconHourglass size={9} stroke={2} aria-hidden="true" />
+        <span>{duration || '-'}</span>
+      </div>
+      <div className={cellClass(address)}>
+        <IconMapPin size={9} stroke={2} aria-hidden="true" />
+        <span>{address || '-'}</span>
+      </div>
+      <div className={cellClass(time)}>
+        <IconClock size={9} stroke={2} aria-hidden="true" />
+        <span>{time || '-'}</span>
+      </div>
+    </div>
+  )
+}
+
+function cardClasses(activity, extra = '') {
+  const kindClass = KIND_CLASS[activity.kind] || KIND_CLASS.other
+  const tierClass = activity.citizen_level === 'tier_one' ? 'ac-tier1' : ''
+  const thumbClass = activity._coverUrl ? 'ac-has-thumb' : ''
+  return `ac-card ${kindClass} ${tierClass} ${thumbClass} ${extra}`
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+function ThumbAndBadge({ activity }) {
+  return (
+    <>
+      {activity._coverUrl && (
+        <div
+          className="ac-thumb-gradient"
+          data-testid="thumb-gradient"
+          style={{ backgroundImage: `url(${activity._coverUrl})` }}
+        />
+      )}
+      {activity.citizen_level === 'tier_one' && (
+        <span className="ac-tier-badge" data-testid="tier-badge" aria-label="一等公民">
+          ★
+        </span>
+      )}
+    </>
+  )
+}
 
 export default function ActivityCard({ activity, onClick, readOnly }) {
-  const isRoadInfra = activity.kind === 'road' && activity.citizen_level === 'infrastructure'
-  const isTierOne = activity.citizen_level === 'tier_one'
-
-  const { attributes, listeners, setNodeRef: setDragRef, setActivatorNodeRef, isDragging } = useDraggable({
-    id: `activity-${activity.id}`
-  })
+  const { attributes, listeners, setNodeRef: setDragRef, setActivatorNodeRef, isDragging } =
+    useDraggable({ id: `activity-${activity.id}` })
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `activity-drop-${activity.id}`,
-    data: { dayId: activity.day_id, position: activity.position }
+    data: { dayId: activity.day_id, position: activity.position },
   })
+  const setRef = (el) => {
+    setDragRef(el)
+    setDropRef(el)
+  }
+  // When readOnly, suppress drag affordances entirely: skip {...attributes} (drops
+  // aria-roledescription="draggable" and tabindex) and don't render the grip so
+  // listeners never attach.
+  const dragAttributes = readOnly ? {} : attributes
 
-  const setRef = (el) => { setDragRef(el); setDropRef(el) }
-
-  const handleClick = () => {
+  const handleBodyClick = () => {
     if (!readOnly && onClick) onClick(activity.id)
   }
 
-  const style = {
-    display: 'flex',
-    alignItems: 'stretch',
-    border: isTierOne ? '1px solid #c80' : (isRoadInfra ? '1px dashed #bbb' : '1px solid #bbb'),
-    background: isTierOne ? '#fffaf0' : (isRoadInfra ? '#f5f5f5' : '#fafafa'),
-    fontStyle: isRoadInfra ? 'italic' : 'normal',
-    marginBottom: 4,
-    fontSize: 12,
-    opacity: isDragging ? 0.4 : 1,
-    position: 'relative'
-  }
-
-  // When readOnly, suppress the drag affordances entirely:
-  //   - skip the {...attributes} spread (drops `aria-roledescription="draggable"` and tabindex)
-  //   - don't render the grab handle, so listeners are never attached to the DOM
-  // Server-side ActivityPositionsController gates the actual mutation, but
-  // showing a grab handle that always fails is bad UX.
-  const dragAttributes = readOnly ? {} : attributes
-
   return (
-    <div ref={setRef} style={style} {...dragAttributes}>
-      {isOver && (
-        <div
-          data-testid="drop-indicator"
-          style={{
-            position: 'absolute',
-            top: -3,
-            left: 0,
-            right: 0,
-            height: 3,
-            background: '#1677ff',
-            borderRadius: 2,
-            boxShadow: '0 0 6px rgba(22, 119, 255, 0.4)',
-            pointerEvents: 'none',
-            zIndex: 1
-          }}
-        />
-      )}
+    <div
+      ref={setRef}
+      className={cardClasses(activity, isDragging ? 'ac-dragging' : '')}
+      {...dragAttributes}
+    >
+      {isOver && <div data-testid="drop-indicator" className="ac-drop-indicator" />}
+      <ThumbAndBadge activity={activity} />
       {!readOnly && (
-        <div
+        <span
           ref={setActivatorNodeRef}
           {...listeners}
           data-testid="grab-handle"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 2px',
-            cursor: 'grab',
-            color: '#999',
-            fontSize: 10,
-            userSelect: 'none'
-          }}
+          className="ac-grip"
         >
-          ⋮⋮
-        </div>
+          <IconGripVertical size={12} stroke={2} />
+        </span>
       )}
       <div
-        onClick={handleClick}
-        style={{
-          flex: 1, padding: '4px 6px', cursor: readOnly ? 'default' : 'pointer',
-          display: 'flex', gap: 6, alignItems: 'flex-start', minWidth: 0
-        }}
+        className="ac-body"
+        onClick={handleBodyClick}
+        role={onClick && !readOnly ? 'button' : undefined}
       >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <strong>{levelLabel(activity.citizen_level)} · {kindLabel(activity.kind)}</strong> {activity.name}
-          {activity.planned_start_at && (
-            <div style={{ fontSize: 10, color: '#888' }}>
-              {activity.planned_start_at}
-              {activity.planned_duration_min ? ` · ${activity.planned_duration_min} 分` : ''}
-            </div>
-          )}
+        <div className="ac-name-row">
+          <KindIcon kind={activity.kind} />
+          <span className="ac-name">{activity.name}</span>
         </div>
-        {activity._imageCount > 0 && <CoverThumb url={activity._coverUrl} count={activity._imageCount} />}
+        <MetaGrid activity={activity} />
       </div>
     </div>
   )
 }
 
-function CoverThumb({ url, count }) {
-  return (
-    <div style={{ flexShrink: 0, position: 'relative', marginTop: 1 }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 4,
-        backgroundImage: url ? `url(${url})` : 'none',
-        backgroundColor: '#e9ecef',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#adb5bd',
-      }}>
-        {!url && <IconPhoto size={18} stroke={1.5} />}
-      </div>
-      <div style={{
-        position: 'absolute', bottom: -3, right: -3,
-        background: '#1677ff', color: '#fff', fontSize: 9, fontWeight: 600,
-        padding: '0 4px', borderRadius: 7, lineHeight: '14px', minWidth: 14, textAlign: 'center',
-      }}>
-        {count}
-      </div>
-    </div>
-  )
-}
-
-function levelLabel(l) { return { tier_one: '一等', tier_two: '二等', tier_three: '三等', infrastructure: '基础' }[l] || l }
-function kindLabel(k) { return { scenic: '景', road: '路', food: '食', stay: '住', fuel: '油', other: '其他' }[k] || k }
-
-// Ghost card rendered by DndContext's <DragOverlay> while dragging.
-// No dnd-kit hooks (not interactive), no click handlers.
 export function ActivityCardOverlay({ activity }) {
-  const isRoadInfra = activity.kind === 'road' && activity.citizen_level === 'infrastructure'
-  const isTierOne = activity.citizen_level === 'tier_one'
-
-  const style = {
-    display: 'flex',
-    alignItems: 'stretch',
-    border: isTierOne ? '1px solid #c80' : (isRoadInfra ? '1px dashed #bbb' : '1px solid #bbb'),
-    background: isTierOne ? '#fffaf0' : (isRoadInfra ? '#f5f5f5' : '#fafafa'),
-    fontStyle: isRoadInfra ? 'italic' : 'normal',
-    fontSize: 12,
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    transform: 'rotate(2deg)',
-    cursor: 'grabbing'
-  }
-
   return (
-    <div style={style}>
-      <div style={{ padding: '4px 2px', color: '#999', fontSize: 10, userSelect: 'none' }}>⋮⋮</div>
-      <div style={{ flex: 1, padding: '4px 6px' }}>
-        <strong>{levelLabel(activity.citizen_level)} · {kindLabel(activity.kind)}</strong> {activity.name}
-        {activity.planned_start_at && (
-          <div style={{ fontSize: 10, color: '#888' }}>
-            {activity.planned_start_at}
-            {activity.planned_duration_min ? ` · ${activity.planned_duration_min} 分` : ''}
-          </div>
-        )}
+    <div className={cardClasses(activity, 'ac-overlay')}>
+      <ThumbAndBadge activity={activity} />
+      <span className="ac-grip" aria-hidden="true">
+        <IconGripVertical size={12} stroke={2} />
+      </span>
+      <div className="ac-body">
+        <div className="ac-name-row">
+          <KindIcon kind={activity.kind} />
+          <span className="ac-name">{activity.name}</span>
+        </div>
+        <MetaGrid activity={activity} />
       </div>
     </div>
   )
