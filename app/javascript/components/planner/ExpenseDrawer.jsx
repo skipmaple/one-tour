@@ -15,6 +15,7 @@ import {
 import AddExpenseDialog from './AddExpenseDialog'
 import BudgetModal from './BudgetModal'
 import ManualSettlementDialog from './ManualSettlementDialog'
+import UserLabel from './UserLabel'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import { groupExpenses } from './expenseGrouping'
 
@@ -59,10 +60,21 @@ export default function ExpenseDrawer({
   // transfers that involve me regardless of my tour role).
   const currentUserId = usePage().props.current_user?.id
 
+  // String lookup — used by groupExpenses for the by_payer group label.
+  // Keeps the falsy fallback ("（作者）" for author) for backward compat.
   const participantsLookup = useMemo(() => {
     const map = {}
-    map[author.user_id] = '（作者）'
-    members.forEach((m) => { map[m.user_id] = m.email })
+    map[author.user_id] = author.name || '（作者）'
+    members.forEach((m) => { map[m.user_id] = m.name || m.email })
+    return map
+  }, [members, author])
+
+  // Full user objects keyed by id — for rendering <UserLabel> (avatar + name).
+  // Components that need richer display use this instead of the plain lookup.
+  const usersById = useMemo(() => {
+    const map = {}
+    map[author.user_id] = { ...author, isAuthor: true }
+    members.forEach((m) => { map[m.user_id] = { ...m, isAuthor: false } })
     return map
   }, [members, author])
 
@@ -194,6 +206,7 @@ export default function ExpenseDrawer({
             balanceLabel={balanceLabel}
             expenses={expenses}
             participantsLookup={participantsLookup}
+            usersById={usersById}
             tour={tour}
             activities={activities}
             days={days}
@@ -215,6 +228,7 @@ export default function ExpenseDrawer({
             settlements={settlements || []}
             members={members}
             author={author}
+            usersById={usersById}
             tour={tour}
             canEdit={canEdit}
             currentUserId={currentUserId}
@@ -261,7 +275,7 @@ export default function ExpenseDrawer({
   )
 }
 
-function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, tour, activities, days, budgets, canEdit, isMobile, onAddClick, onEdit, onDelete, onReceiptClick, onEditBudget }) {
+function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, usersById, tour, activities, days, budgets, canEdit, isMobile, onAddClick, onEdit, onDelete, onReceiptClick, onEditBudget }) {
   const [grouping, setGrouping] = useState('flat')
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -579,6 +593,7 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
           activityById={activityById}
           dayById={dayById}
           participantsLookup={participantsLookup}
+          usersById={usersById}
           tour={tour}
           canEdit={canEdit}
           onEdit={onEdit}
@@ -594,7 +609,12 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
               <Accordion.Item key={g.key} value={g.key}>
                 <Accordion.Control>
                   <Group justify="space-between" wrap="nowrap" pr="xs">
-                    <Text fw={500} size="sm" truncate>{g.label}</Text>
+                    {g.key.startsWith('payer-') ? (() => {
+                      const u = usersById[Number(g.key.slice(6))]
+                      return <UserLabel user={u} isAuthor={u?.isAuthor} fz="sm" />
+                    })() : (
+                      <Text fw={500} size="sm" truncate>{g.label}</Text>
+                    )}
                     <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
                       {g.expenses.length} 笔 · {formatCents(subtotal, tour.currency)}
                     </Text>
@@ -606,6 +626,7 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
                     activityById={activityById}
                     dayById={dayById}
                     participantsLookup={participantsLookup}
+                    usersById={usersById}
                     tour={tour}
                     canEdit={canEdit}
                     onEdit={onEdit}
@@ -676,7 +697,7 @@ function BudgetCard({ balance, tour, onEditBudget }) {
   )
 }
 
-function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tour, canEdit, onEdit, onDelete, onReceiptClick, isMobile }) {
+function ExpenseTable({ expenses, activityById, dayById, participantsLookup, usersById, tour, canEdit, onEdit, onDelete, onReceiptClick, isMobile }) {
   if (isMobile) {
     return (
       <Stack gap="xs">
@@ -692,8 +713,8 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
                 <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
                   <Text fw={500} size="sm" truncate>{where}</Text>
                   {e.note && <Text size="xs" c="dimmed" truncate>{e.note}</Text>}
-                  <Group gap="xs" wrap="wrap">
-                    <Text size="xs" c="dimmed">{participantsLookup[e.paid_by_id] || '?'}</Text>
+                  <Group gap="xs" wrap="wrap" align="center">
+                    <UserLabel user={usersById?.[e.paid_by_id]} isAuthor={usersById?.[e.paid_by_id]?.isAuthor} size={16} fz="xs" />
                     <Text size="xs" c="dimmed">·</Text>
                     <Text size="xs" c="dimmed">{CATEGORY_LABELS[e.category] || e.category}</Text>
                     <Badge size="xs" variant="light">{STRATEGY_LABELS[e.split_strategy] || e.split_strategy}</Badge>
@@ -770,7 +791,9 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
                   </Group>
                 )}
               </Table.Td>
-              <Table.Td>{participantsLookup[e.paid_by_id] || '?'}</Table.Td>
+              <Table.Td>
+                <UserLabel user={usersById?.[e.paid_by_id]} isAuthor={usersById?.[e.paid_by_id]?.isAuthor} size={18} fz="sm" />
+              </Table.Td>
               <Table.Td>{CATEGORY_LABELS[e.category] || e.category}</Table.Td>
               <Table.Td style={{ textAlign: 'right', fontWeight: 600 }}>
                 {formatCents(e.amount_cents, tour.currency)}
@@ -798,7 +821,7 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
   )
 }
 
-function SettleTab({ summary, expenses, settlements, members, author, tour, canEdit, currentUserId, onManualRecord }) {
+function SettleTab({ summary, expenses, settlements, members, author, usersById, tour, canEdit, currentUserId, onManualRecord }) {
   // True empty state: no expenses AND no settlements. Pre-trip loans are a
   // legitimate "0 expenses + N settlements" flow, so we only early-return
   // when there's literally nothing to show — and even then we keep the
@@ -831,7 +854,7 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
     const settledIn  = summary.per_member_settled_in?.[uid]  || 0
     acc.push({
       user_id: uid,
-      email: m.email,
+      name: m.name || m.email,
       paid, owed, settledOut, settledIn,
       net: paid - owed + settledOut - settledIn,
     })
@@ -839,14 +862,16 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
   }, [])
 
   const transfers = computeTransfers(userRows.map((r) => [ r.user_id, r.net ]))
-  const userLookup = Object.fromEntries(userRows.map((r) => [ r.user_id, r.email ]))
+  // Small inline renderer used for confirm-modal body + notification text
+  // where a full React tree is overkill — shows "name" with "(已离开)" fallback.
+  const nameOf = (uid) => usersById?.[uid]?.name || '（已离开）'
 
   const markPaid = (transfer) => {
     modals.openConfirmModal({
       title: '这笔转账已完成？',
       children: (
         <Text size="sm">
-          {userLookup[transfer.from]} → {userLookup[transfer.to]}{' '}
+          {nameOf(transfer.from)} → {nameOf(transfer.to)}{' '}
           <Text component="span" fw={700}>{formatCents(transfer.amount, tour.currency)}</Text>
           ，登记为已结清。
         </Text>
@@ -904,16 +929,16 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
         {userRows.map((r) => (
           <Card key={r.user_id} padding="sm" radius="sm" withBorder
                 style={{ borderLeft: `3px solid ${r.net > 0 ? '#2b8a3e' : r.net < 0 ? '#c92a2a' : '#888'}` }}>
-            <Group justify="space-between">
-              <div>
-                <Text size="sm" fw={500}>{r.email}</Text>
+            <Group justify="space-between" wrap="nowrap">
+              <Stack gap={2} style={{ minWidth: 0 }}>
+                <UserLabel user={usersById?.[r.user_id]} isAuthor={usersById?.[r.user_id]?.isAuthor} size={22} fz="sm" />
                 <Text size="xs" c="dimmed">
                   垫了 {formatCents(r.paid, tour.currency)} · 该承担 {formatCents(r.owed, tour.currency)}
                   {(r.settledOut > 0 || r.settledIn > 0) && (
                     <> · 已结 +{formatCents(r.settledOut, tour.currency)} / -{formatCents(r.settledIn, tour.currency)}</>
                   )}
                 </Text>
-              </div>
+              </Stack>
               <Text fw={600} c={r.net > 0 ? '#2b8a3e' : r.net < 0 ? '#c92a2a' : undefined}>
                 {r.net > 0 ? `应收 ${formatCents(r.net, tour.currency)}` :
                  r.net < 0 ? `应付 ${formatCents(Math.abs(r.net), tour.currency)}` : '持平'}
@@ -952,11 +977,11 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
             {transfers.map((t, i) => (
               <Card key={i} padding="sm" radius="sm" withBorder>
                 <Group justify="space-between" wrap="nowrap">
-                  <Text size="sm" style={{ flex: 1, minWidth: 0 }} truncate>
-                    <span>{userLookup[t.from] || '（已离开）'}</span>
-                    <Text component="span" c="#1677ff" mx="xs" fw={700}>→</Text>
-                    <span>{userLookup[t.to] || '（已离开）'}</span>
-                  </Text>
+                  <Group gap={6} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                    <UserLabel user={usersById?.[t.from]} isAuthor={usersById?.[t.from]?.isAuthor} size={18} fz="sm" />
+                    <Text component="span" c="#1677ff" fw={700}>→</Text>
+                    <UserLabel user={usersById?.[t.to]} isAuthor={usersById?.[t.to]?.isAuthor} size={18} fz="sm" />
+                  </Group>
                   <Group gap="xs" wrap="nowrap">
                     <Text fw={700}>{formatCents(t.amount, tour.currency)}</Text>
                     {/* Any party to the transfer can mark it settled — this is
@@ -984,15 +1009,15 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
             {settlements.map((s) => (
               <Card key={s.id} padding="sm" radius="sm" withBorder style={{ background: '#f8f9fa' }}>
                 <Group justify="space-between" wrap="nowrap">
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <Text size="sm" truncate>
-                      <span>{userLookup[s.from_user_id] || '（已离开）'}</span>
-                      <Text component="span" c="dimmed" mx="xs">→</Text>
-                      <span>{userLookup[s.to_user_id] || '（已离开）'}</span>
-                    </Text>
+                  <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+                    <Group gap={6} wrap="nowrap">
+                      <UserLabel user={usersById?.[s.from_user_id]} isAuthor={usersById?.[s.from_user_id]?.isAuthor} size={18} fz="sm" />
+                      <Text component="span" c="dimmed">→</Text>
+                      <UserLabel user={usersById?.[s.to_user_id]} isAuthor={usersById?.[s.to_user_id]?.isAuthor} size={18} fz="sm" />
+                    </Group>
                     {s.note && <Text size="xs" c="dimmed" truncate>{s.note}</Text>}
                     <Text size="xs" c="dimmed">{new Date(s.settled_at).toLocaleString('zh-CN')}</Text>
-                  </div>
+                  </Stack>
                   <Group gap="xs" wrap="nowrap">
                     <Text fw={600}>{formatCents(s.amount_cents, tour.currency)}</Text>
                     {/* Undo is allowed for the recorder, either party, or any

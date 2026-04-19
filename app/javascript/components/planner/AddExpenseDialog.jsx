@@ -9,6 +9,7 @@ import { modals } from '@mantine/modals'
 import { IconPlus, IconX, IconReceipt2 } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
+import UserLabel from './UserLabel'
 
 const MAX_RECEIPTS = 3
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024
@@ -87,10 +88,10 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
 
   // Users that can participate: author + all members.
   const allUsers = useMemo(() => {
-    const list = [ { user_id: author.user_id, email: author.email } ]
+    const list = [ { user_id: author.user_id, email: author.email, name: author.name, avatar_url: author.avatar_url, isAuthor: true } ]
     members.forEach((m) => {
       if (!list.find((u) => u.user_id === m.user_id)) {
-        list.push({ user_id: m.user_id, email: m.email })
+        list.push({ user_id: m.user_id, email: m.email, name: m.name, avatar_url: m.avatar_url, isAuthor: false })
       }
     })
     return list
@@ -424,7 +425,11 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
 
         <Select
           label="谁付的"
-          data={allUsers.map((u) => ({ value: String(u.user_id), label: u.email + (u.user_id === author.user_id ? '（作者）' : '') }))}
+          data={allUsers.map((u) => ({ value: String(u.user_id), label: (u.name || u.email) + (u.isAuthor ? '（作者）' : '') }))}
+          renderOption={({ option }) => {
+            const u = allUsers.find((x) => String(x.user_id) === option.value)
+            return <UserLabel user={u} isAuthor={u?.isAuthor} size={18} fz="sm" />
+          }}
           value={paidById}
           onChange={(v) => v && setPaidById(v)}
           allowDeselect={false}
@@ -477,7 +482,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
             {allUsers.map((u) => (
               <Checkbox
                 key={u.user_id}
-                label={u.email + (u.user_id === author.user_id ? '（作者）' : '')}
+                label={<UserLabel user={u} isAuthor={u.isAuthor} size={18} fz="sm" />}
                 checked={participantIds.includes(u.user_id)}
                 onChange={() => toggleParticipant(u.user_id)}
                 disabled={readOnly}
@@ -499,8 +504,12 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
                   label="谁负担他们的份"
                   data={allUsers.map((u) => ({
                     value: String(u.user_id),
-                    label: u.email + (u.user_id === author.user_id ? '（作者）' : ''),
+                    label: (u.name || u.email) + (u.isAuthor ? '（作者）' : ''),
                   }))}
+                  renderOption={({ option }) => {
+                    const u = allUsers.find((x) => String(x.user_id) === option.value)
+                    return <UserLabel user={u} isAuthor={u?.isAuthor} size={18} fz="sm" />
+                  }}
                   value={externalAttributedToId}
                   onChange={(v) => v && setExternalAttributedToId(v)}
                   allowDeselect={false}
@@ -511,7 +520,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
             {externalCount > 0 && (
               <Text size="xs" c="dimmed">
                 这笔按 {participantIds.length + Number(externalCount)} 份均分，
-                其中 {allUsers.find((u) => String(u.user_id) === externalAttributedToId)?.email || '?'} 承担 {1 + Number(externalCount)} 份
+                其中 {allUsers.find((u) => String(u.user_id) === externalAttributedToId)?.name || '?'} 承担 {1 + Number(externalCount)} 份
               </Text>
             )}
           </Stack>

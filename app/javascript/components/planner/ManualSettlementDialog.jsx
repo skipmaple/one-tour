@@ -5,6 +5,7 @@ import {
 import { useMediaQuery } from '@mantine/hooks'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
+import UserLabel from './UserLabel'
 
 // Records a settlement the Settle algorithm didn't suggest — pre-trip loans,
 // extra gifts, off-ledger repayments. Does NOT support partial payments of
@@ -18,10 +19,10 @@ export default function ManualSettlementDialog({ opened, onClose, tour, members,
   const isMobile = useMediaQuery('(max-width: 640px)')
 
   const allUsers = useMemo(() => {
-    const list = [ { user_id: author.user_id, email: author.email } ]
+    const list = [ { user_id: author.user_id, email: author.email, name: author.name, avatar_url: author.avatar_url, isAuthor: true } ]
     members.forEach((m) => {
       if (!list.find((u) => u.user_id === m.user_id)) {
-        list.push({ user_id: m.user_id, email: m.email })
+        list.push({ user_id: m.user_id, email: m.email, name: m.name, avatar_url: m.avatar_url, isAuthor: false })
       }
     })
     return list
@@ -104,8 +105,12 @@ export default function ManualSettlementDialog({ opened, onClose, tour, members,
           label="付款方"
           data={allUsers.map((u) => ({
             value: String(u.user_id),
-            label: u.email + (u.user_id === author.user_id ? '（作者）' : ''),
+            label: (u.name || u.email) + (u.isAuthor ? '（作者）' : ''),
           }))}
+          renderOption={({ option }) => {
+            const u = allUsers.find((x) => String(x.user_id) === option.value)
+            return <UserLabel user={u} isAuthor={u?.isAuthor} size={18} fz="sm" />
+          }}
           value={fromId}
           onChange={(v) => v && setFromId(v)}
           allowDeselect={false}
@@ -118,8 +123,12 @@ export default function ManualSettlementDialog({ opened, onClose, tour, members,
             .filter((u) => String(u.user_id) !== fromId)
             .map((u) => ({
               value: String(u.user_id),
-              label: u.email + (u.user_id === author.user_id ? '（作者）' : ''),
+              label: (u.name || u.email) + (u.isAuthor ? '（作者）' : ''),
             }))}
+          renderOption={({ option }) => {
+            const u = allUsers.find((x) => String(x.user_id) === option.value)
+            return <UserLabel user={u} isAuthor={u?.isAuthor} size={18} fz="sm" />
+          }}
           value={toId}
           onChange={(v) => v && setToId(v)}
           allowDeselect={false}

@@ -29,14 +29,24 @@ class ToursController < ApplicationController
       settlements: settlements_for(@tour),
       route_legs: route_legs_for(@tour),
       violations: tour_violations,
-      members: @tour.tour_memberships.includes(:user).filter_map { |m|
+      members: @tour.tour_memberships.includes(user: { avatar_attachment: :blob }).filter_map { |m|
         next unless m.user
         {
-          id: m.id, user_id: m.user_id, email: m.user.email, role: m.role,
+          id: m.id,
+          user_id: m.user_id,
+          email: m.user.email,
+          name: m.user.name,
+          avatar_url: m.user.display_avatar_url,
+          role: m.role,
           participating_day_ids: m.participating_day_ids
         }
       },
-      author: { user_id: @tour.author_id, email: @tour.author.email },
+      author: {
+        user_id: @tour.author_id,
+        email: @tour.author.email,
+        name: @tour.author.name,
+        avatar_url: @tour.author.display_avatar_url
+      },
       conversation_empty: !conv || !conv.messages.exists?
     }
   end
