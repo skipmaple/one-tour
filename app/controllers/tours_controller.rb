@@ -26,6 +26,7 @@ class ToursController < ApplicationController
       expenses: expenses_for(@tour),
       expenses_summary: Expense::Summarize.new(@tour, current_user).call,
       tour_budgets: @tour.tour_budgets.where(user_id: current_user.id).as_json,
+      settlements: settlements_for(@tour),
       route_legs: route_legs_for(@tour),
       violations: tour_violations,
       members: @tour.tour_memberships.includes(:user).filter_map { |m|
@@ -121,6 +122,21 @@ class ToursController < ApplicationController
           duration_s: leg.duration_s,
           polyline: leg.polyline,
           fetched_at: leg.fetched_at
+        }
+      }
+    end
+
+    def settlements_for(tour)
+      tour.settlements.order(settled_at: :desc).map { |s|
+        {
+          id: s.id,
+          tour_id: s.tour_id,
+          from_user_id: s.from_user_id,
+          to_user_id: s.to_user_id,
+          amount_cents: s.amount_cents,
+          settled_at: s.settled_at,
+          note: s.note,
+          recorded_by_id: s.recorded_by_id
         }
       }
     end

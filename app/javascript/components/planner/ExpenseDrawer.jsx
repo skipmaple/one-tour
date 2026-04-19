@@ -30,7 +30,7 @@ function formatCents(cents, currency = 'CNY') {
 }
 
 export default function ExpenseDrawer({
-  opened, onClose, tour, days, activities, members, author, expenses, summary, budgets, canEdit
+  opened, onClose, tour, days, activities, members, author, expenses, summary, budgets, settlements, canEdit
 }) {
   const [activeTab, setActiveTab] = useState('overview')
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -204,9 +204,11 @@ export default function ExpenseDrawer({
           <SettleTab
             summary={summary}
             expenses={expenses}
+            settlements={settlements || []}
             members={members}
             author={author}
             tour={tour}
+            canEdit={canEdit}
             currentUserId={currentUser.id}
           />
         )}
@@ -574,7 +576,7 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
   )
 }
 
-function SettleTab({ summary, expenses, members, author, tour }) {
+function SettleTab({ summary, expenses, settlements, members, author, tour, canEdit }) {
   if (!summary || expenses.length === 0) {
     return (
       <Card padding="xl" radius="sm" withBorder>
@@ -583,24 +585,78 @@ function SettleTab({ summary, expenses, members, author, tour }) {
     )
   }
 
-  // Compute net per member: paid - owed.
+  // Compute net per member: paid - owed + settled_out - settled_in. Matches
+  // the server's Expense::Summarize outstanding_net formula so the greedy
+  // transfer algorithm only suggests transfers for the REMAINING debt.
   const userRows = [ author, ...members ].reduce((acc, m) => {
     const uid = m.user_id
     if (acc.find((r) => r.user_id === uid)) return acc
     const paid = summary.per_member_paid?.[uid] || 0
     const owed = summary.per_member_owed?.[uid] || 0
+    const settledOut = summary.per_member_settled_out?.[uid] || 0
+    const settledIn  = summary.per_member_settled_in?.[uid]  || 0
     acc.push({
       user_id: uid,
       email: m.email,
-      paid, owed,
-      net: paid - owed,
+      paid, owed, settledOut, settledIn,
+      net: paid - owed + settledOut - settledIn,
     })
     return acc
   }, [])
 
-  // Greedy N-1 settlement mirroring the server-side Expense::Settle logic.
   const transfers = computeTransfers(userRows.map((r) => [ r.user_id, r.net ]))
   const userLookup = Object.fromEntries(userRows.map((r) => [ r.user_id, r.email ]))
+
+  const markPaid = (transfer) => {
+    modals.openConfirmModal({
+      title: '确认这笔转账已完成？',
+      children: (
+        <Text size="sm">
+          {userLookup[transfer.from]} 已付给 {userLookup[transfer.to]}{' '}
+          <Text component="span" fw={700}>{formatCents(transfer.amount, tour.currency)}</Text>
+          ，登记一条结算记录。
+        </Text>
+      ),
+      labels: { confirm: '已付', cancel: '取消' },
+      onConfirm: () => postSettlement(transfer),
+    })
+  }
+
+  const postSettlement = (transfer) => {
+    router.post(`/tours/${tour.id}/settlements`, {
+      settlement: {
+        from_user_id: transfer.from,
+        to_user_id: transfer.to,
+        amount_cents: transfer.amount,
+      },
+    }, {
+      preserveScroll: true,
+      only: [ 'expenses_summary', 'settlements', 'flash' ],
+      onSuccess: (page) => {
+        const alert = page?.props?.flash?.alert
+        if (alert) notifications.show({ message: alert, color: 'red' })
+        else notifications.show({ message: '已登记转账', color: 'green' })
+      },
+      onError: () => notifications.show({ message: '登记失败', color: 'red' }),
+    })
+  }
+
+  const undoSettlement = (settlementId) => {
+    modals.openConfirmModal({
+      title: '撤销这笔结算？',
+      children: <Text size="sm">撤销后这笔转账会回到"待结算"列表。</Text>,
+      labels: { confirm: '撤销', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
+        router.delete(`/settlements/${settlementId}`, {
+          preserveScroll: true,
+          only: [ 'expenses_summary', 'settlements', 'flash' ],
+          onSuccess: () => notifications.show({ message: '已撤销', color: 'green' }),
+          onError: () => notifications.show({ message: '撤销失败', color: 'red' }),
+        })
+      },
+    })
+  }
 
   return (
     <Stack gap="md">
@@ -614,6 +670,9 @@ function SettleTab({ summary, expenses, members, author, tour }) {
                 <Text size="sm" fw={500}>{r.email}</Text>
                 <Text size="xs" c="dimmed">
                   垫了 {formatCents(r.paid, tour.currency)} · 该承担 {formatCents(r.owed, tour.currency)}
+                  {(r.settledOut > 0 || r.settledIn > 0) && (
+                    <> · 已结 +{formatCents(r.settledOut, tour.currency)} / -{formatCents(r.settledIn, tour.currency)}</>
+                  )}
                 </Text>
               </div>
               <Text fw={600} c={r.net > 0 ? '#2b8a3e' : r.net < 0 ? '#c92a2a' : undefined}>
@@ -635,13 +694,50 @@ function SettleTab({ summary, expenses, members, author, tour }) {
           <Stack gap="xs">
             {transfers.map((t, i) => (
               <Card key={i} padding="sm" radius="sm" withBorder>
-                <Group justify="space-between">
-                  <Text size="sm">
+                <Group justify="space-between" wrap="nowrap">
+                  <Text size="sm" style={{ flex: 1, minWidth: 0 }} truncate>
                     <span>{userLookup[t.from] || '?'}</span>
                     <Text component="span" c="#1677ff" mx="xs" fw={700}>→</Text>
                     <span>{userLookup[t.to] || '?'}</span>
                   </Text>
-                  <Text fw={700}>{formatCents(t.amount, tour.currency)}</Text>
+                  <Group gap="xs" wrap="nowrap">
+                    <Text fw={700}>{formatCents(t.amount, tour.currency)}</Text>
+                    {canEdit && (
+                      <Button size="compact-xs" variant="light" onClick={() => markPaid(t)}>
+                        标记已付
+                      </Button>
+                    )}
+                  </Group>
+                </Group>
+              </Card>
+            ))}
+          </Stack>
+        </>
+      )}
+
+      {settlements.length > 0 && (
+        <>
+          <Divider my="sm" label="已登记的转账" labelPosition="left" />
+          <Stack gap="xs">
+            {settlements.map((s) => (
+              <Card key={s.id} padding="sm" radius="sm" withBorder style={{ background: '#f8f9fa' }}>
+                <Group justify="space-between" wrap="nowrap">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text size="sm" truncate>
+                      <span>{userLookup[s.from_user_id] || '?'}</span>
+                      <Text component="span" c="dimmed" mx="xs">→</Text>
+                      <span>{userLookup[s.to_user_id] || '?'}</span>
+                    </Text>
+                    <Text size="xs" c="dimmed">{new Date(s.settled_at).toLocaleString('zh-CN')}</Text>
+                  </div>
+                  <Group gap="xs" wrap="nowrap">
+                    <Text fw={600}>{formatCents(s.amount_cents, tour.currency)}</Text>
+                    {canEdit && (
+                      <Button size="compact-xs" variant="subtle" color="red" onClick={() => undoSettlement(s.id)}>
+                        撤销
+                      </Button>
+                    )}
+                  </Group>
                 </Group>
               </Card>
             ))}

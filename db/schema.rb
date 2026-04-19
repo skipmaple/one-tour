@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_18_120007) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_19_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -207,6 +207,24 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_120007) do
     t.index ["tour_id"], name: "index_route_legs_on_tour_id"
   end
 
+  create_table "settlements", force: :cascade do |t|
+    t.bigint "tour_id", null: false
+    t.bigint "from_user_id", null: false
+    t.bigint "to_user_id", null: false
+    t.bigint "recorded_by_id", null: false
+    t.integer "amount_cents", null: false
+    t.datetime "settled_at", null: false
+    t.string "note", limit: 140
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["from_user_id"], name: "index_settlements_on_from_user_id"
+    t.index ["recorded_by_id"], name: "index_settlements_on_recorded_by_id"
+    t.index ["to_user_id"], name: "index_settlements_on_to_user_id"
+    t.index ["tour_id", "from_user_id"], name: "index_settlements_on_tour_id_and_from_user_id"
+    t.index ["tour_id", "to_user_id"], name: "index_settlements_on_tour_id_and_to_user_id"
+    t.index ["tour_id"], name: "index_settlements_on_tour_id"
+  end
+
   create_table "tour_budgets", force: :cascade do |t|
     t.bigint "tour_id", null: false
     t.bigint "day_id"
@@ -288,6 +306,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_18_120007) do
   add_foreign_key "route_legs", "activities", column: "from_activity_id", on_delete: :cascade
   add_foreign_key "route_legs", "activities", column: "to_activity_id", on_delete: :cascade
   add_foreign_key "route_legs", "tours", on_delete: :cascade
+  add_foreign_key "settlements", "tours"
+  add_foreign_key "settlements", "users", column: "from_user_id"
+  add_foreign_key "settlements", "users", column: "recorded_by_id"
+  add_foreign_key "settlements", "users", column: "to_user_id"
   add_foreign_key "tour_budgets", "activities", on_delete: :cascade
   add_foreign_key "tour_budgets", "days", on_delete: :cascade
   add_foreign_key "tour_budgets", "tours", on_delete: :cascade
