@@ -70,9 +70,11 @@ RSpec.describe "POI Search", type: :request do
 
       it "returns 429 after exceeding 60 requests per minute" do
         login_as(user)
-        60.times { get "/poi_search", params: { q: "ok" } }
-        get "/poi_search", params: { q: "one more" }
-        expect(response).to have_http_status(:too_many_requests)
+        freeze_time do
+          60.times { get "/poi_search", params: { q: "ok" } }
+          get "/poi_search", params: { q: "one more" }
+          expect(response).to have_http_status(:too_many_requests)
+        end
       end
     end
   end
