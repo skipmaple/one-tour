@@ -1,5 +1,6 @@
 import { Stack, Paper, Group, Text, Button } from '@mantine/core'
 import { useState } from 'react'
+import { IconAlertOctagonFilled, IconAlertTriangleFilled } from '@tabler/icons-react'
 
 const noop = () => {}
 
@@ -42,9 +43,12 @@ export default function ConstitutionBanner({
             }}
           >
             <Group justify="space-between" wrap="nowrap">
-              <Text size="sm">
-                {v.level === 'hard' ? '⛔ ' : '⚠ '}{v.message}
-              </Text>
+              <Group gap={6} wrap="nowrap" align="center" style={{ flex: 1, minWidth: 0 }}>
+                {v.level === 'hard'
+                  ? <IconAlertOctagonFilled size={16} style={{ flexShrink: 0 }} />
+                  : <IconAlertTriangleFilled size={16} style={{ flexShrink: 0 }} />}
+                <Text size="sm">{v.message}</Text>
+              </Group>
               <Group gap="xs">
                 {!readOnly && v.level === 'hard' && (
                   <Button size="compact-xs" color="red" onClick={() => onFix(v)}>

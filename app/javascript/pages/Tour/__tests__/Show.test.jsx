@@ -67,9 +67,9 @@ const props = {
 
 test('renders planner four-panel layout', () => {
   render(<MantineProvider><Show {...props} /></MantineProvider>)
-  // PanelShell renders title with icon prefix ("📋 候选池"), so use regex
-  expect(screen.getByText(/候选池/)).toBeInTheDocument()
-  expect(screen.getByText(/日程/)).toBeInTheDocument()
+  // PanelShell renders title + separate Tabler icon (svg sibling).
+  expect(screen.getByText('候选池')).toBeInTheDocument()
+  expect(screen.getByText('日程')).toBeInTheDocument()
   expect(screen.getByText('D1')).toBeInTheDocument()
   expect(screen.getByText('D2')).toBeInTheDocument()
   expect(screen.getByText('AI 对话')).toBeInTheDocument()

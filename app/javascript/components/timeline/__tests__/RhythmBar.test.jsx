@@ -22,11 +22,11 @@ test('marks buffer_day slot with 机动 / 适应日 label', () => {
   expect(slot1).toHaveTextContent('适应日')
 })
 
-test('shows ⛔ when a day has a hard violation', () => {
+test('renders "硬违反" icon when a day has a hard violation', () => {
   const violations = [{ level: 'hard', rule: 'max_daily_driving_minutes', scope: { day_index: 3 } }]
   render(<MantineProvider><RhythmBar days={days} violations={violations} /></MantineProvider>)
   const slot3 = screen.getByTestId('rhythm-slot-3')
-  expect(slot3).toHaveTextContent('⛔')
+  expect(slot3.querySelector('[aria-label="硬违反"]')).toBeInTheDocument()
 })
 
 test('calls onSlotClick with day.id when slot clicked', () => {

@@ -1,4 +1,5 @@
 import { Paper, Text } from '@mantine/core'
+import { IconAlertOctagonFilled } from '@tabler/icons-react'
 
 const INTENSITY_BG = {
   green:  '#e8f5e9',
@@ -14,12 +15,12 @@ export default function RhythmBar({ days, violations, selectedDayId, onSlotClick
     return level === 'hard' && Number(idx) === day.day_index
   })
 
+  // Returns either a plain string ("适应日" / "机动") or a React node (hard-
+  // violation icon). Consumer renders via conditional.
   const slotMeta = (day) => {
     if (day.buffer_day) return day.day_index === 1 ? '适应日' : '机动'
-    if (hasHardViolation(day)) return '⛔'
-    // Approximate driving hours using activities would require passing activities.
-    // Show just day number's meta here; full drive time shown in day columns.
-    return ''
+    if (hasHardViolation(day)) return <IconAlertOctagonFilled size={12} color="#e53935" aria-label="硬违反" />
+    return null
   }
 
   return (

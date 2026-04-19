@@ -1,6 +1,8 @@
 import yaml from 'js-yaml'
 
-const INTENSITY_EMOJI = { green: '🟢', yellow: '🟡', red: '🔴' }
+// Text labels for intensity — the rendered markdown is shown to users, and
+// emoji-free keeps the doc consistent with the rest of the UI.
+const INTENSITY_LABEL = { green: '轻', yellow: '中', red: '重' }
 
 /**
  * Generate a human-readable markdown body from frontmatter data.
@@ -36,8 +38,8 @@ export function generateMarkdownBody(frontmatter) {
   lines.push('| 天 | 行程 | 里程 | 驾驶 | 强度 |')
   lines.push('|:--:|------|-----:|-----:|:----:|')
   for (const day of days) {
-    const emoji = INTENSITY_EMOJI[day.intensity] || ''
-    lines.push(`| D${day.day} | ${day.title || ''} | ${day.km || '—'} | ${day.drive || '—'} | ${emoji} |`)
+    const intensity = INTENSITY_LABEL[day.intensity] || ''
+    lines.push(`| D${day.day} | ${day.title || ''} | ${day.km || '—'} | ${day.drive || '—'} | ${intensity} |`)
   }
   lines.push('')
   lines.push('---')
@@ -45,9 +47,10 @@ export function generateMarkdownBody(frontmatter) {
 
   // Day details
   for (const day of days) {
-    const emoji = INTENSITY_EMOJI[day.intensity] || ''
+    const intensity = INTENSITY_LABEL[day.intensity] || ''
+    const intensityTag = intensity ? ` [${intensity}]` : ''
     const dateStr = day.date ? ` · ${day.date}` : ''
-    lines.push(`### D${day.day}${dateStr} ${emoji} ${day.title || ''}`)
+    lines.push(`### D${day.day}${dateStr}${intensityTag} ${day.title || ''}`)
     lines.push('')
 
     if (day.desc) {
@@ -68,10 +71,10 @@ export function generateMarkdownBody(frontmatter) {
       lines.push('')
     }
 
-    if (day.food) lines.push(`🍽️ **美食推荐**：${day.food}`)
-    if (day.stay) lines.push(`🏨 **住宿**：${day.stay}`)
-    if (day.ticket) lines.push(`🎫 **门票**：${day.ticket}`)
-    if (day.tips) lines.push(`📝 **提醒**：${day.tips}`)
+    if (day.food) lines.push(`**美食推荐**：${day.food}`)
+    if (day.stay) lines.push(`**住宿**：${day.stay}`)
+    if (day.ticket) lines.push(`**门票**：${day.ticket}`)
+    if (day.tips) lines.push(`**提醒**：${day.tips}`)
 
     if (day.food || day.stay || day.ticket || day.tips) lines.push('')
     lines.push('---')

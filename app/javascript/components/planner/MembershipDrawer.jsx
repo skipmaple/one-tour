@@ -3,7 +3,13 @@ import { Drawer, Stack, Text, Group, TextInput, Select, Button, Badge, Accordion
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { router, usePage } from '@inertiajs/react'
+import { IconCheck, IconMinus } from '@tabler/icons-react'
 import UserLabel from './UserLabel'
+
+// Tiny pass/deny markers for the permission-matrix table. Reuses two Tabler
+// icons at a fixed size so table cells stay narrow and centered.
+const Y = <IconCheck size={14} color="var(--mantine-color-green-7)" aria-label="允许" style={{ verticalAlign: 'middle' }} />
+const N = <IconMinus size={14} color="var(--mantine-color-gray-5)" aria-label="不允许" style={{ verticalAlign: 'middle' }} />
 
 const ROLE_OPTIONS = [
   { value: 'editor', label: '编辑者' },
@@ -222,10 +228,10 @@ function PermissionMatrix() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              <Table.Tr><Table.Td>查看行程</Table.Td><Table.Td>✓</Table.Td><Table.Td>✓</Table.Td><Table.Td>✓</Table.Td></Table.Tr>
-              <Table.Tr><Table.Td>编辑 Activity/Day</Table.Td><Table.Td>✓</Table.Td><Table.Td>✓</Table.Td><Table.Td>✗</Table.Td></Table.Tr>
-              <Table.Tr><Table.Td>管理成员</Table.Td><Table.Td>✓</Table.Td><Table.Td>✗</Table.Td><Table.Td>✗</Table.Td></Table.Tr>
-              <Table.Tr><Table.Td>删除行程</Table.Td><Table.Td>✓</Table.Td><Table.Td>✗</Table.Td><Table.Td>✗</Table.Td></Table.Tr>
+              <Table.Tr><Table.Td>查看行程</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{Y}</Table.Td></Table.Tr>
+              <Table.Tr><Table.Td>编辑 Activity/Day</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{N}</Table.Td></Table.Tr>
+              <Table.Tr><Table.Td>管理成员</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{N}</Table.Td><Table.Td>{N}</Table.Td></Table.Tr>
+              <Table.Tr><Table.Td>删除行程</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{N}</Table.Td><Table.Td>{N}</Table.Td></Table.Tr>
             </Table.Tbody>
           </Table>
         </Accordion.Panel>

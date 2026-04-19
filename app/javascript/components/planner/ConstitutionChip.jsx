@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Badge, Popover, Stack, Paper, Group, Text, Button } from '@mantine/core'
+import { IconAlertOctagonFilled, IconAlertTriangleFilled } from '@tabler/icons-react'
 
 const noop = () => {}
 
@@ -21,7 +22,7 @@ export default function ConstitutionChip({
 
   const hasHard = visible.some(({ v }) => v.level === 'hard')
   const color = hasHard ? 'red' : 'yellow'
-  const icon = hasHard ? '⛔' : '⚠'
+  const BadgeIcon = hasHard ? IconAlertOctagonFilled : IconAlertTriangleFilled
 
   const closePopover = () => setOpened(false)
 
@@ -54,9 +55,10 @@ export default function ConstitutionChip({
           size="sm"
           data-testid="constitution-chip"
           style={{ cursor: 'pointer', userSelect: 'none' }}
+          leftSection={<BadgeIcon size={12} />}
           onClick={() => setOpened(o => !o)}
         >
-          {icon} {visible.length}
+          {visible.length}
         </Badge>
       </Popover.Target>
 
@@ -77,9 +79,12 @@ export default function ConstitutionChip({
                 }}
               >
                 <Group justify="space-between" wrap="nowrap" gap="xs">
-                  <Text size="sm">
-                    {isHard ? '⛔ ' : '⚠ '}{v.message}
-                  </Text>
+                  <Group gap={6} wrap="nowrap" align="center" style={{ flex: 1, minWidth: 0 }}>
+                    {isHard
+                      ? <IconAlertOctagonFilled size={14} style={{ flexShrink: 0 }} />
+                      : <IconAlertTriangleFilled size={14} style={{ flexShrink: 0 }} />}
+                    <Text size="sm">{v.message}</Text>
+                  </Group>
                   <Group gap="xs" wrap="nowrap">
                     {showHardActions && (
                       <Button size="compact-xs" color="red" onClick={() => handleFix(v)}>

@@ -57,15 +57,17 @@ test('shows driving summary and tier_one summary with checkmark when within limi
   expect(screen.getByText(/1\/3/)).toBeInTheDocument()
 })
 
-test('shows ⛔ when driving exceeds limit', () => {
+test('shows "超限" icon when driving exceeds limit', () => {
   const day = { id: 1, day_index: 2 }
   const activities = [
     { id: 1, name: 'drive', kind: 'road', citizen_level: 'tier_three', planned_start_at: '10:00', details: { drive_min: 500 } },
   ]
-  render(
+  const { container } = render(
     <MantineProvider>
       <DayDetailPanel day={day} activities={activities} constitution={constitution} />
     </MantineProvider>
   )
-  expect(screen.getByText(/500\/420.*⛔/)).toBeInTheDocument()
+  expect(screen.getByText(/500\/420/)).toBeInTheDocument()
+  // "达标" check icon should NOT render on the drive cell; "超限" icon should.
+  expect(container.querySelector('[aria-label="超限"]')).toBeInTheDocument()
 })

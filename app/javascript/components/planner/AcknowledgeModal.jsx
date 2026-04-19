@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Modal, Textarea, Button, Group, Text, Alert, Stack } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
 import { router } from '@inertiajs/react'
+import { IconCheck, IconX } from '@tabler/icons-react'
 
 const MIN_REASON_LENGTH = 10
 
@@ -55,9 +56,14 @@ export default function AcknowledgeModal({ violation, tourId, onClose }) {
           onChange={e => setReason(e.currentTarget.value)}
           minRows={2}
         />
-        <Text size="xs" c={valid ? 'green' : 'red'}>
-          {reason.trim().length} / {MIN_REASON_LENGTH} 字 {valid ? '✓' : '×'}
-        </Text>
+        <Group gap={4} align="center" wrap="nowrap">
+          <Text size="xs" c={valid ? 'green' : 'red'}>
+            {reason.trim().length} / {MIN_REASON_LENGTH} 字
+          </Text>
+          {valid
+            ? <IconCheck size={12} color="var(--mantine-color-green-7)" aria-label="已达标" />
+            : <IconX size={12} color="var(--mantine-color-red-6)" aria-label="未达标" />}
+        </Group>
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>取消</Button>
           <Button

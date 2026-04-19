@@ -8,7 +8,7 @@ function renderShell(props = {}) {
     <MantineProvider>
       <PanelShell
         title="候选"
-        icon="📋"
+        icon={<span data-testid="panel-icon">I</span>}
         open={true}
         onToggle={() => {}}
         canToggle={true}
@@ -25,7 +25,7 @@ describe('PanelShell · open state', () => {
   test('renders header with title + icon', () => {
     renderShell()
     expect(screen.getByText(/候选/)).toBeInTheDocument()
-    expect(screen.getByText(/📋/)).toBeInTheDocument()
+    expect(screen.getByTestId('panel-icon')).toBeInTheDocument()
   })
 
   test('renders children inside the body', () => {
@@ -41,7 +41,7 @@ describe('PanelShell · open state', () => {
   })
 
   test('renders headerExtra slot when provided', () => {
-    renderShell({ headerExtra: <span data-testid="extra-slot">📐</span> })
+    renderShell({ headerExtra: <span data-testid="extra-slot">extra</span> })
     expect(screen.getByTestId('extra-slot')).toBeInTheDocument()
   })
 })
@@ -49,7 +49,7 @@ describe('PanelShell · open state', () => {
 describe('PanelShell · collapsed rail', () => {
   test('renders rail with icon + vertical label when open=false', () => {
     renderShell({ open: false })
-    expect(screen.getByText('📋')).toBeInTheDocument()
+    expect(screen.getByTestId('panel-icon')).toBeInTheDocument()
     expect(screen.getByText('候选')).toBeInTheDocument()
     expect(screen.getByLabelText('展开 候选')).toBeInTheDocument()
   })
@@ -64,6 +64,27 @@ describe('PanelShell · collapsed rail', () => {
   test('rail does NOT render children', () => {
     renderShell({ open: false })
     expect(screen.queryByText('panel content')).not.toBeInTheDocument()
+  })
+})
+
+// Accept ReactNode for `icon` (we render Tabler icons, not emoji strings)
+describe('PanelShell · icon as ReactNode', () => {
+  test('renders an arbitrary React element in the icon slot', () => {
+    render(
+      <MantineProvider>
+        <PanelShell
+          title="地图"
+          icon={<svg data-testid="svg-icon" />}
+          open={true}
+          onToggle={() => {}}
+          canToggle={true}
+          flexStyle={{}}
+        >
+          <div>body</div>
+        </PanelShell>
+      </MantineProvider>
+    )
+    expect(screen.getByTestId('svg-icon')).toBeInTheDocument()
   })
 })
 

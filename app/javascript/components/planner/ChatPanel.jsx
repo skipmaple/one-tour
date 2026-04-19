@@ -1,5 +1,6 @@
 import { Paper, Text, Button, Textarea, Stack, Group, Badge, Code } from '@mantine/core'
 import { useEffect, useRef, useState } from 'react'
+import { IconMessage2 } from '@tabler/icons-react'
 import useChat from '../../hooks/useChat'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import PanelShell from './PanelLayout/PanelShell'
@@ -23,7 +24,7 @@ export default function ChatPanel({
   return (
     <PanelShell
       title="AI 对话"
-      icon="💬"
+      icon={<IconMessage2 size={14} stroke={1.5} />}
       open={open}
       onToggle={onToggle}
       canToggle={canToggle}

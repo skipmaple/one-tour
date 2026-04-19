@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Stack, Text, Button, Group, Select } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
+import { IconInbox } from '@tabler/icons-react'
 import ActivityCard from './ActivityCard'
 import PanelShell from './PanelLayout/PanelShell'
 
@@ -61,7 +62,7 @@ export default function BacklogList({
   return (
     <PanelShell
       title="候选池"
-      icon="📋"
+      icon={<IconInbox size={14} stroke={1.5} />}
       open={open}
       onToggle={onToggle}
       canToggle={canToggle}

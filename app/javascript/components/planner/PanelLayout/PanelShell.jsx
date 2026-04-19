@@ -7,7 +7,9 @@ import { Paper, Group, Text, UnstyledButton, Tooltip } from '@mantine/core'
  *
  * Props:
  *   title            string  — header title
- *   icon             string  — emoji or short string shown in header + rail
+ *   icon             ReactNode — icon element (Tabler icon component) shown in
+ *                                header and collapsed rail. Accepts any node for
+ *                                flexibility (small badge, svg, etc.)
  *   open             bool    — whether to render full panel or rail
  *   onToggle         fn      — called on collapse/expand button click
  *   canToggle        bool    — false → collapse button disabled with tooltip
@@ -45,7 +47,9 @@ export default function PanelShell({
         }}
       >
         <Text size="sm">›</Text>
-        <Text size="sm">{icon}</Text>
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--mantine-color-gray-7)' }}>
+          {icon}
+        </span>
         <Text size="xs" c="gray.7" style={{ writingMode: 'vertical-rl', marginTop: 4 }}>
           {title}
         </Text>
@@ -73,7 +77,10 @@ export default function PanelShell({
   return (
     <Paper withBorder style={{ ...flexStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <Group justify="space-between" px="xs" py={6} bg="gray.1" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
-        <Text size="xs" fw={600} c="dimmed">{icon} {title}</Text>
+        <Group gap={6} wrap="nowrap" align="center" style={{ color: 'var(--mantine-color-dimmed)' }}>
+          {icon}
+          <Text size="xs" fw={600} c="dimmed">{title}</Text>
+        </Group>
         <Group gap={6}>
           {headerExtra}
           {canToggle ? collapseButton : (

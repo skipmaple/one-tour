@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo, useState } from 'react'
 import { router, usePage } from '@inertiajs/react'
 import { Paper, Text, SegmentedControl, Button, useMantineTheme } from '@mantine/core'
 import { notifications } from '@mantine/notifications'
-import { IconRoute } from '@tabler/icons-react'
+import { IconRoute, IconMap2 } from '@tabler/icons-react'
 import useAmap from '../../hooks/useAmap'
 import PanelShell from './PanelLayout/PanelShell'
 
@@ -533,7 +533,7 @@ export default function PlannerMap({
   return (
     <PanelShell
       title="地图"
-      icon="🗺"
+      icon={<IconMap2 size={14} stroke={1.5} />}
       open={open}
       onToggle={onToggle}
       canToggle={canToggle}

@@ -4,6 +4,7 @@ import { Button, Group, Text } from '@mantine/core'
 import { DndContext, DragOverlay, closestCenter } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
+import { IconPencil } from '@tabler/icons-react'
 import { ActivityCardOverlay } from '../../components/planner/ActivityCard'
 import BacklogList from '../../components/planner/BacklogList'
 import PlannerMap from '../../components/planner/PlannerMap'
@@ -153,11 +154,16 @@ export default function Show({ tour, days, activities, activity_images, expenses
                 className={canEdit ? 'tour-title-editable' : undefined}
               >
                 <Text fw={700} size="lg" className="tour-title-text">{tour.title}</Text>
-                {canEdit && <Text fw={700} size="lg" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none' }}>✎ 编辑</Text>}
+                {canEdit && (
+                  <Text fw={700} size="lg" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none', alignItems: 'center', gap: 4 }}>
+                    <IconPencil size={16} stroke={2} />
+                    编辑
+                  </Text>
+                )}
                 {canEdit && (
                   <style>{`
                     .tour-title-editable:hover .tour-title-text { display: none; }
-                    .tour-title-editable:hover .tour-title-edit-hint { display: inline !important; }
+                    .tour-title-editable:hover .tour-title-edit-hint { display: inline-flex !important; }
                   `}</style>
                 )}
               </div>

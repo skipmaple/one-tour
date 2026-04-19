@@ -1,5 +1,6 @@
 import { Paper, Text, Stack, Group, Button } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
+import { IconAlertTriangleFilled } from '@tabler/icons-react'
 import ActivityCard from './ActivityCard'
 import DayMetricBar from '../DayMetricBar'
 
@@ -74,9 +75,13 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
           background: '#fef0f0',
           border: '1px solid #c33',
           color: '#c33',
-          fontSize: 11
+          fontSize: 11,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
         }}>
-          ⚠ 加入后驾驶 {Math.round(dragWarning.total)}/{dragWarning.limit} min
+          <IconAlertTriangleFilled size={12} />
+          加入后驾驶 {Math.round(dragWarning.total)}/{dragWarning.limit} min
         </div>
       )}
       <Stack gap={4} p="xs" ref={setNodeRef} style={{

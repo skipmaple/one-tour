@@ -119,7 +119,7 @@ describe('ChatPanel', () => {
   test('does not render a user message whose content is the onboarding sentinel', () => {
     mockState.messages = [
       { role: 'user', content: '__onboarding_start__' },
-      { role: 'assistant', content: '欢迎 👋 这次想去哪？' }
+      { role: 'assistant', content: '欢迎，这次想去哪？' }
     ]
     renderPanel()
     expect(screen.queryByText('__onboarding_start__')).not.toBeInTheDocument()
