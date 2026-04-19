@@ -7,7 +7,7 @@ import { useMediaQuery } from '@mantine/hooks'
 import { router, usePage } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
-import { IconPlus, IconFileExport, IconReceipt2, IconWallet } from '@tabler/icons-react'
+import { IconPlus, IconFileExport, IconReceipt2, IconWallet, IconCircleCheck } from '@tabler/icons-react'
 import AddExpenseDialog from './AddExpenseDialog'
 import BudgetModal from './BudgetModal'
 import ManualSettlementDialog from './ManualSettlementDialog'
@@ -307,10 +307,17 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
         </Card>
       )}
 
-      {/* Budget is personal — show when the current user is participating
-          (paid or owed anything) or already has a budget set. A pure observer
-          with no stake has no reason to see the card. */}
-      {balance && (balance.paid_cents !== 0 || balance.owed_cents !== 0 || balance.tour_budget_cents != null) && (
+      {/* Budget is personal — show when the current user has any stake:
+          paid an expense, owed on a split, ever transferred money via a
+          settlement, or already set a budget. A pure observer with no
+          stake has no reason to see the card. */}
+      {balance && (
+        balance.paid_cents !== 0
+        || balance.owed_cents !== 0
+        || (balance.settled_out_cents ?? 0) !== 0
+        || (balance.settled_in_cents ?? 0) !== 0
+        || balance.tour_budget_cents != null
+      ) && (
         <BudgetCard balance={balance} tour={tour} onEditBudget={onEditBudget} />
       )}
 
@@ -589,10 +596,22 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
 }
 
 function SettleTab({ summary, expenses, settlements, members, author, tour, canEdit, currentUserId, onManualRecord }) {
-  if (!summary || expenses.length === 0) {
+  // True empty state: no expenses AND no settlements. Pre-trip loans are a
+  // legitimate "0 expenses + N settlements" flow, so we only early-return
+  // when there's literally nothing to show — and even then we keep the
+  // entry point for recording a manual settlement.
+  if (!summary || (expenses.length === 0 && settlements.length === 0)) {
     return (
       <Card padding="xl" radius="sm" withBorder>
-        <Text size="sm" ta="center" c="dimmed">还没有花销，无需结算</Text>
+        <Stack align="center" gap="xs">
+          <Text size="sm" c="dimmed">还没有花销，也没有登记过结算</Text>
+          <Text size="xs" c="dimmed" ta="center">
+            出发前有借钱？点下面登记一笔<br />等出行中记账时系统会自动算出谁该付谁。
+          </Text>
+          <Button size="sm" variant="light" leftSection={<IconPlus size={14} />} onClick={onManualRecord} mt="xs">
+            记一笔结算
+          </Button>
+        </Stack>
       </Card>
     )
   }
@@ -704,7 +723,25 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
       <Divider my="sm" label="转账方案" labelPosition="left" />
 
       {transfers.length === 0 ? (
-        <Text size="sm" c="dimmed">所有人持平，无需转账</Text>
+        // Fully-settled celebration: expenses recorded AND active
+        // reconciliation happened (≥1 settlement). Distinguishes from the
+        // dull "nobody ever owed anyone" case where we just say "无需转账".
+        settlements.length > 0 && expenses.length > 0 ? (
+          <Card padding="md" radius="md"
+                style={{ background: 'linear-gradient(135deg, #e6fcf5, #c3fae8)', borderLeft: '4px solid #2b8a3e' }}>
+            <Group gap="xs" wrap="nowrap">
+              <IconCircleCheck size={28} stroke={1.5} color="#2b8a3e" />
+              <Stack gap={2}>
+                <Text fw={600} size="sm" c="#2b8a3e">本次旅行账单全部结清</Text>
+                <Text size="xs" c="dimmed">
+                  共 {expenses.length} 笔花销 · {settlements.length} 笔转账完成
+                </Text>
+              </Stack>
+            </Group>
+          </Card>
+        ) : (
+          <Text size="sm" c="dimmed">所有人持平，无需转账</Text>
+        )
       ) : (
         <>
           <Text size="xs" c="dimmed">{transfers.length} 笔转账就能全部理清</Text>
@@ -713,9 +750,9 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
               <Card key={i} padding="sm" radius="sm" withBorder>
                 <Group justify="space-between" wrap="nowrap">
                   <Text size="sm" style={{ flex: 1, minWidth: 0 }} truncate>
-                    <span>{userLookup[t.from] || '?'}</span>
+                    <span>{userLookup[t.from] || '（已离开）'}</span>
                     <Text component="span" c="#1677ff" mx="xs" fw={700}>→</Text>
-                    <span>{userLookup[t.to] || '?'}</span>
+                    <span>{userLookup[t.to] || '（已离开）'}</span>
                   </Text>
                   <Group gap="xs" wrap="nowrap">
                     <Text fw={700}>{formatCents(t.amount, tour.currency)}</Text>
@@ -746,10 +783,11 @@ function SettleTab({ summary, expenses, settlements, members, author, tour, canE
                 <Group justify="space-between" wrap="nowrap">
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <Text size="sm" truncate>
-                      <span>{userLookup[s.from_user_id] || '?'}</span>
+                      <span>{userLookup[s.from_user_id] || '（已离开）'}</span>
                       <Text component="span" c="dimmed" mx="xs">→</Text>
-                      <span>{userLookup[s.to_user_id] || '?'}</span>
+                      <span>{userLookup[s.to_user_id] || '（已离开）'}</span>
                     </Text>
+                    {s.note && <Text size="xs" c="dimmed" truncate>{s.note}</Text>}
                     <Text size="xs" c="dimmed">{new Date(s.settled_at).toLocaleString('zh-CN')}</Text>
                   </div>
                   <Group gap="xs" wrap="nowrap">
