@@ -236,6 +236,8 @@ export default function Show({ tour, days, activities, activity_images, expenses
             activities={activities}
             days={days}
             routeLegs={route_legs || []}
+            tourId={tour.id}
+            canEdit={canEdit}
             open={layout.panels.map.open}
             onToggle={() => layout.togglePanel('map')}
             canToggle={layout.openCount > 1 || !layout.panels.map.open}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useMemo, useState } from 'react'
-import { usePage } from '@inertiajs/react'
-import { Paper, Text, SegmentedControl, useMantineTheme } from '@mantine/core'
+import { router, usePage } from '@inertiajs/react'
+import { Paper, Text, SegmentedControl, Button, useMantineTheme } from '@mantine/core'
+import { notifications } from '@mantine/notifications'
+import { IconRoute } from '@tabler/icons-react'
 import useAmap from '../../hooks/useAmap'
 import PanelShell from './PanelLayout/PanelShell'
 
@@ -102,21 +104,24 @@ export function buildPolylineConfigs(activitiesGroupedByDay, days, theme, routeL
   const coordsOf = (act) => [ parseFloat(act.lng), parseFloat(act.lat) ]
 
   // Same-day segments: one polyline per adjacent pair.
+  // extData is used downstream by mouseover/click handlers to recognize
+  // uncached (straight) segments and POST a single-leg compute.
   dayActs.forEach(({ day, acts }) => {
     const color = theme.colors[DAY_COLOR(day.day_index)][6]
     for (let i = 0; i < acts.length - 1; i++) {
       const a = acts[i]
       const b = acts[i + 1]
       const leg = lookupLeg(a.id, b.id)
+      const extData = { fromId: a.id, toId: b.id, isStraight: !leg?.polyline?.coords?.length }
       if (leg?.polyline?.coords?.length) {
         configs.push({
           path: leg.polyline.coords, strokeColor: color,
-          strokeWeight: 3, strokeOpacity: 0.85, strokeStyle: 'solid', showDir: false,
+          strokeWeight: 3, strokeOpacity: 0.85, strokeStyle: 'solid', showDir: false, extData,
         })
       } else {
         configs.push({
           path: [ coordsOf(a), coordsOf(b) ], strokeColor: color,
-          strokeWeight: 3, strokeOpacity: 0.7, strokeStyle: 'solid', showDir: false,
+          strokeWeight: 3, strokeOpacity: 0.7, strokeStyle: 'solid', showDir: false, extData,
         })
       }
     }
@@ -131,15 +136,16 @@ export function buildPolylineConfigs(activitiesGroupedByDay, days, theme, routeL
     const firstAct = to.acts[0]
     const color = theme.colors[DAY_COLOR(from.day.day_index)][6]
     const leg = lookupLeg(lastAct.id, firstAct.id)
+    const extData = { fromId: lastAct.id, toId: firstAct.id, isStraight: !leg?.polyline?.coords?.length }
     if (leg?.polyline?.coords?.length) {
       configs.push({
         path: leg.polyline.coords, strokeColor: color,
-        strokeWeight: 3, strokeOpacity: 0.85, strokeStyle: 'solid', showDir: false,
+        strokeWeight: 3, strokeOpacity: 0.85, strokeStyle: 'solid', showDir: false, extData,
       })
     } else {
       configs.push({
         path: [ coordsOf(lastAct), coordsOf(firstAct) ], strokeColor: color,
-        strokeWeight: 2, strokeOpacity: 0.5, strokeStyle: 'dashed', showDir: false,
+        strokeWeight: 2, strokeOpacity: 0.5, strokeStyle: 'dashed', showDir: false, extData,
       })
     }
   }
@@ -147,11 +153,19 @@ export function buildPolylineConfigs(activitiesGroupedByDay, days, theme, routeL
   return configs
 }
 
+// Count adjacent pairs whose RouteLeg is missing/uncached. Used by the
+// "算全部路线" button to show a hint like "算全部路线 (5)" when there's
+// work to do, and hide itself when everything is cached.
+export function countMissingLegs(activitiesGroupedByDay, days, theme, routeLegsByPair) {
+  const configs = buildPolylineConfigs(activitiesGroupedByDay, days, theme, routeLegsByPair)
+  return configs.filter(c => c.extData?.isStraight).length
+}
+
 // AMAP-backed planner map. Plots every activity that has lat/lng as a marker.
 // Backlog activities get a grey default-style marker; day-assigned activities
 // get a blue numbered label marker so you can tell at a glance which day they
 // belong to.
-function PlannerMapInner({ activities, days = [], routeLegs = [] }) {
+function PlannerMapInner({ activities, days = [], routeLegs = [], tourId, canEdit = false }) {
   const { amap_js_api_key, amap_js_security_code } = usePage().props
   const sdkState = useAmap(amap_js_api_key, amap_js_security_code)
 
@@ -159,6 +173,11 @@ function PlannerMapInner({ activities, days = [], routeLegs = [] }) {
   const mapRef = useRef(null)
   const markersRef = useRef([])
   const polylinesRef = useRef([])
+  // One-at-a-time tooltip for straight-polyline hover — keep a ref so we can
+  // close the previous one when the cursor moves between segments.
+  const tooltipRef = useRef(null)
+
+  const [ batchSaving, setBatchSaving ] = useState(false)
 
   // Stable lookup: day.id → day_index (for marker labels like "D2")
   const dayIndexById = useMemo(
@@ -201,6 +220,56 @@ function PlannerMapInner({ activities, days = [], routeLegs = [] }) {
   // Not persisted (resets on refresh, like Backlog filter).
   const [ viewMode, setViewMode ] = useState('all')
   const theme = useMantineTheme()
+
+  // How many adjacent-pair polylines are fallback straight lines (i.e. their
+  // RouteLeg hasn't been cached yet). Drives both the batch button label and
+  // its visibility — zero = hide entirely.
+  const missingLegCount = useMemo(
+    () => countMissingLegs(activitiesByDay, days, theme, routeLegsByPair),
+    [ activitiesByDay, days, theme, routeLegsByPair ]
+  )
+
+  // Batch compute — fans out to MAX_PAIRS Amap calls on the server, cached
+  // pairs short-circuit. Uses Inertia partial reload so route_legs prop
+  // refreshes and buildPolylineConfigs re-renders real polylines.
+  const handleBatchCompute = () => {
+    if (!tourId) return
+    setBatchSaving(true)
+    router.post(`/tours/${tourId}/route_legs_batch`, {}, {
+      preserveScroll: true,
+      only: [ 'route_legs', 'flash' ],
+      onFinish: () => setBatchSaving(false),
+      onError: () => notifications.show({ message: '批量计算失败', color: 'red' }),
+    })
+  }
+
+  // Click-to-compute a single uncached segment. Uses a notification id so
+  // mid-request state can update in place rather than stacking toasts.
+  const handleSingleLegCompute = (fromId, toId) => {
+    if (!tourId) return
+    const nid = `leg-${fromId}-${toId}`
+    notifications.show({
+      id: nid, message: '正在计算路线…', loading: true, autoClose: false, withCloseButton: false,
+    })
+    router.post(`/tours/${tourId}/route_legs`,
+      { from_activity_id: fromId, to_activity_id: toId, mode: 'driving' },
+      {
+        preserveScroll: true,
+        only: [ 'route_legs', 'flash' ],
+        onSuccess: (page) => {
+          const alert = page?.props?.flash?.alert
+          if (alert) {
+            notifications.update({ id: nid, message: alert, color: 'red', loading: false, autoClose: 3000 })
+          } else {
+            notifications.update({ id: nid, message: '路线已算好', color: 'green', loading: false, autoClose: 2000 })
+          }
+        },
+        onError: () => notifications.update({
+          id: nid, message: '计算失败', color: 'red', loading: false, autoClose: 3000,
+        }),
+      }
+    )
+  }
 
   // Create the map once the SDK is ready and the container is mounted.
   // AMAP 2.0 has no reliable JS event for auth failures — the error fires
@@ -279,10 +348,16 @@ function PlannerMapInner({ activities, days = [], routeLegs = [] }) {
 
   // Sync polylines with activities + days + viewMode + theme.
   // 'backlog' mode hides polylines entirely.
+  // Straight (uncached) polylines get hover + click handlers so editors can
+  // compute a single leg without leaving the map. Real-route polylines are
+  // non-interactive — nothing to do there.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !window.AMap) return
 
+    // Close any stray hover tooltip before ripping old polylines out.
+    tooltipRef.current?.close?.()
+    tooltipRef.current = null
     polylinesRef.current.forEach(p => p.setMap(null))
     polylinesRef.current = []
 
@@ -290,11 +365,39 @@ function PlannerMapInner({ activities, days = [], routeLegs = [] }) {
 
     const configs = buildPolylineConfigs(activitiesByDay, days, theme, routeLegsByPair)
     configs.forEach(cfg => {
-      const polyline = new window.AMap.Polyline(cfg)
+      const interactive = canEdit && cfg.extData?.isStraight
+      const polyline = new window.AMap.Polyline({
+        ...cfg,
+        cursor: interactive ? 'pointer' : 'default',
+        extData: cfg.extData,
+      })
+
+      if (interactive) {
+        polyline.on('mouseover', (e) => {
+          tooltipRef.current?.close?.()
+          tooltipRef.current = new window.AMap.InfoWindow({
+            content: `<div style="font-size:12px;padding:4px 10px;background:rgba(0,0,0,0.78);color:#fff;border-radius:3px;white-space:nowrap">未计算真实路线 · 点此计算</div>`,
+            isCustom: true,
+            offset: new window.AMap.Pixel(0, -12),
+          })
+          tooltipRef.current.open(map, e.lnglat)
+        })
+        polyline.on('mouseout', () => {
+          tooltipRef.current?.close?.()
+          tooltipRef.current = null
+        })
+        polyline.on('click', () => {
+          tooltipRef.current?.close?.()
+          tooltipRef.current = null
+          const { fromId, toId } = cfg.extData
+          handleSingleLegCompute(fromId, toId)
+        })
+      }
+
       polyline.setMap(map)
       polylinesRef.current.push(polyline)
     })
-  }, [ activitiesByDay, days, viewMode, theme, sdkState, routeLegsByPair ])
+  }, [ activitiesByDay, days, viewMode, theme, sdkState, routeLegsByPair, canEdit ])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Defensive: AMAP claims resizeEnable: true auto-detects container size changes,
   // but in flex layouts this is unreliable. Explicitly call map.resize() via
@@ -318,7 +421,20 @@ function PlannerMapInner({ activities, days = [], routeLegs = [] }) {
     >
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       {sdkState === 'ready' && !authFailed && (
-        <ViewModeRadio value={viewMode} onChange={setViewMode} />
+        <MapToolbar>
+          <ViewModeRadio value={viewMode} onChange={setViewMode} />
+          {canEdit && missingLegCount > 0 && (
+            <Button
+              size="compact-xs"
+              variant="light"
+              leftSection={<IconRoute size={14} />}
+              loading={batchSaving}
+              onClick={handleBatchCompute}
+            >
+              算全部路线 ({missingLegCount})
+            </Button>
+          )}
+        </MapToolbar>
       )}
       {sdkState === 'loading' && (
         <Overlay>地图加载中…</Overlay>
@@ -365,22 +481,29 @@ function escapeHtml(str) {
     .replace(/'/g, '&#39;')
 }
 
-// Floating SegmentedControl in the top-right corner of the map.
-// Three modes:
+// Floating container in the top-right corner of the map. Stacks any number
+// of children (ViewModeRadio, batch button, etc.) with small gaps. White
+// card look matches AMAP's own built-in UI panels.
+function MapToolbar({ children }) {
+  return (
+    <div style={{
+      position: 'absolute', top: 8, right: 8, zIndex: 2,
+      display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6,
+    }}>
+      {children}
+    </div>
+  )
+}
+
+// SegmentedControl for view mode. Three modes:
 //   all     — every marker + polylines
 //   colored — only day-assigned markers + polylines
 //   backlog — only backlog markers, no polylines
 function ViewModeRadio({ value, onChange }) {
   return (
     <div style={{
-      position: 'absolute',
-      top: 8,
-      right: 8,
-      zIndex: 2,
-      background: 'white',
-      borderRadius: 4,
-      padding: 2,
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      background: 'white', borderRadius: 4, padding: 2,
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     }}>
       <SegmentedControl
         value={value}
@@ -400,6 +523,8 @@ export default function PlannerMap({
   activities,
   days = [],
   routeLegs = [],
+  tourId,
+  canEdit = false,
   open = true,
   onToggle,
   canToggle = true,
@@ -414,7 +539,13 @@ export default function PlannerMap({
       canToggle={canToggle}
       flexStyle={flexStyle}
     >
-      <PlannerMapInner activities={activities} days={days} routeLegs={routeLegs} />
+      <PlannerMapInner
+        activities={activities}
+        days={days}
+        routeLegs={routeLegs}
+        tourId={tourId}
+        canEdit={canEdit}
+      />
     </PanelShell>
   )
 }
