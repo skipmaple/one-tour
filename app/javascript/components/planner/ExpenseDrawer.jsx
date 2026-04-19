@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   Drawer, Tabs, Stack, Group, Text, Button, Table, Badge, Card, Divider,
   SegmentedControl, Accordion,
 } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { IconPlus, IconFileExport, IconReceipt2 } from '@tabler/icons-react'
 import AddExpenseDialog from './AddExpenseDialog'
+import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import { groupExpenses } from './expenseGrouping'
 
 const CATEGORY_LABELS = {
@@ -32,6 +34,8 @@ export default function ExpenseDrawer({
   const [activeTab, setActiveTab] = useState('overview')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState(null)
+  const [rowLightbox, setRowLightbox] = useState({ receipts: [], index: null })
+  const isMobile = useMediaQuery('(max-width: 640px)')
 
   // Derive the editing expense from fresh props so receipt uploads/deletes
   // (which trigger router.reload) surface without closing the dialog.
@@ -88,7 +92,7 @@ export default function ExpenseDrawer({
         opened={opened}
         onClose={onClose}
         position="right"
-        size={720}
+        size={isMobile ? '100%' : 720}
         title={
           <Group gap="xs">
             <Text fw={600}>账单</Text>
@@ -115,9 +119,11 @@ export default function ExpenseDrawer({
             activities={activities}
             days={days}
             canEdit={canEdit}
+            isMobile={isMobile}
             onAddClick={() => { setEditingExpenseId(null); setDialogOpen(true) }}
             onEdit={(e) => { setEditingExpenseId(e.id); setDialogOpen(true) }}
             onDelete={handleDeleteExpense}
+            onReceiptClick={(e) => setRowLightbox({ receipts: e.receipts || [], index: 0 })}
           />
         )}
 
@@ -143,11 +149,17 @@ export default function ExpenseDrawer({
         author={author}
         expense={editingExpense}
       />
+
+      <ActivityGalleryLightbox
+        images={rowLightbox.receipts}
+        initialIndex={rowLightbox.index}
+        onClose={() => setRowLightbox({ receipts: [], index: null })}
+      />
     </>
   )
 }
 
-function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, tour, activities, days, canEdit, onAddClick, onEdit, onDelete }) {
+function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, tour, activities, days, canEdit, isMobile, onAddClick, onEdit, onDelete, onReceiptClick }) {
   const [grouping, setGrouping] = useState('flat')
 
   const activityById = useMemo(() => {
@@ -167,9 +179,25 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
     [expenses, grouping, activityById, dayById],
   )
 
+  // Show the grouping toggle only when it adds value: at least 5 entries AND
+  // some grouping mode would actually produce >1 bucket. On a 1-day trip with
+  // 3 expenses any "group by" is a single wrapper — pure overhead.
+  const groupingToggleUseful = useMemo(() => {
+    if (expenses.length < 5) return false
+    if (days.length > 1) return true
+    const distinctActIds = new Set(expenses.map((e) => e.activity_id).filter(Boolean))
+    return distinctActIds.size > 1
+  }, [expenses, days])
+
+  // If the toggle becomes unavailable while user is in a grouped mode, snap
+  // back to flat so they don't get stuck.
+  useEffect(() => {
+    if (!groupingToggleUseful && grouping !== 'flat') setGrouping('flat')
+  }, [groupingToggleUseful, grouping])
+
   return (
     <Stack gap="md">
-      {balance && (
+      {balance && (balance.paid_cents !== 0 || balance.owed_cents !== 0) && (
         <Card padding="md" radius="md" style={{ background: 'linear-gradient(135deg, #e7f5ff, #d0ebff)', borderLeft: '4px solid #1677ff' }}>
           <Text size="xs" c="#1864ab" fw={500}>你这次旅行</Text>
           <Text fz={28} fw={700} c={balance.net_cents >= 0 ? '#1677ff' : '#c92a2a'} mt={4}>
@@ -203,7 +231,7 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
         )}
       </Group>
 
-      {expenses.length > 1 && (
+      {groupingToggleUseful && (
         <SegmentedControl
           value={grouping}
           onChange={setGrouping}
@@ -242,6 +270,8 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
           canEdit={canEdit}
           onEdit={onEdit}
           onDelete={onDelete}
+          onReceiptClick={onReceiptClick}
+          isMobile={isMobile}
         />
       ) : (
         <Accordion key={grouping} multiple defaultValue={groups.map((g) => g.key)} variant="separated">
@@ -267,6 +297,8 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
                     canEdit={canEdit}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onReceiptClick={onReceiptClick}
+                    isMobile={isMobile}
                   />
                 </Accordion.Panel>
               </Accordion.Item>
@@ -278,7 +310,58 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
   )
 }
 
-function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tour, canEdit, onEdit, onDelete }) {
+function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tour, canEdit, onEdit, onDelete, onReceiptClick, isMobile }) {
+  if (isMobile) {
+    return (
+      <Stack gap="xs">
+        {expenses.map((e) => {
+          const where = e.activity_id
+            ? (activityById[e.activity_id]?.name || '（已删除站点）')
+            : e.day_id
+            ? `${dayById[e.day_id]?.day_index ? 'D' + dayById[e.day_id].day_index : '某天'} · 全天`
+            : '出发前'
+          return (
+            <Card key={e.id} padding="sm" radius="sm" withBorder>
+              <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
+                <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+                  <Text fw={500} size="sm" truncate>{where}</Text>
+                  {e.note && <Text size="xs" c="dimmed" truncate>{e.note}</Text>}
+                  <Group gap="xs" wrap="wrap">
+                    <Text size="xs" c="dimmed">{participantsLookup[e.paid_by_id] || '?'}</Text>
+                    <Text size="xs" c="dimmed">·</Text>
+                    <Text size="xs" c="dimmed">{CATEGORY_LABELS[e.category] || e.category}</Text>
+                    <Badge size="xs" variant="light">{STRATEGY_LABELS[e.split_strategy] || e.split_strategy}</Badge>
+                  </Group>
+                  {e.receipts?.length > 0 && (
+                    <Group
+                      gap={4}
+                      mt={2}
+                      onClick={(ev) => { ev.stopPropagation(); onReceiptClick?.(e) }}
+                      style={{ cursor: onReceiptClick ? 'pointer' : 'default', width: 'fit-content' }}
+                      role={onReceiptClick ? 'button' : undefined}
+                      aria-label={onReceiptClick ? '查看小票' : undefined}
+                    >
+                      <IconReceipt2 size={12} stroke={1.5} style={{ color: '#1677ff' }} />
+                      <Text size="xs" c="#1677ff">{e.receipts.length}</Text>
+                    </Group>
+                  )}
+                </Stack>
+                <Stack gap={4} align="flex-end" style={{ flexShrink: 0 }}>
+                  <Text fw={700} size="md">{formatCents(e.amount_cents, tour.currency)}</Text>
+                  {canEdit && (
+                    <Group gap={6} wrap="nowrap">
+                      <Button size="compact-xs" variant="subtle" onClick={() => onEdit(e)}>改</Button>
+                      <Button size="compact-xs" variant="subtle" color="red" onClick={() => onDelete(e)}>删</Button>
+                    </Group>
+                  )}
+                </Stack>
+              </Group>
+            </Card>
+          )
+        })}
+      </Stack>
+    )
+  }
   return (
     <Table>
       <Table.Thead>
@@ -304,9 +387,16 @@ function ExpenseTable({ expenses, activityById, dayById, participantsLookup, tou
                 <Text size="sm">{where}</Text>
                 {e.note && <Text size="xs" c="dimmed">{e.note}</Text>}
                 {e.receipts?.length > 0 && (
-                  <Group gap={4} mt={2}>
-                    <IconReceipt2 size={12} stroke={1.5} style={{ color: '#868e96' }} />
-                    <Text size="xs" c="dimmed">{e.receipts.length}</Text>
+                  <Group
+                    gap={4}
+                    mt={2}
+                    onClick={(ev) => { ev.stopPropagation(); onReceiptClick?.(e) }}
+                    style={{ cursor: onReceiptClick ? 'pointer' : 'default', width: 'fit-content' }}
+                    role={onReceiptClick ? 'button' : undefined}
+                    aria-label={onReceiptClick ? '查看小票' : undefined}
+                  >
+                    <IconReceipt2 size={12} stroke={1.5} style={{ color: '#1677ff' }} />
+                    <Text size="xs" c="#1677ff">{e.receipts.length}</Text>
                   </Group>
                 )}
               </Table.Td>
