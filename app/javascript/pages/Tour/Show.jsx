@@ -51,14 +51,13 @@ export default function Show({ tour, days, activities, activity_images, expenses
   }, {})
 
   // Merge server activities with local overrides and cover-thumb metadata.
-  // ActivityCard reads `_coverUrl` + `_imageCount` to render the cover thumbnail.
+  // ActivityCard reads _coverUrl to render the thumb gradient bleed.
   const displayActivities = activities.map(a => {
     const imgs = imagesByActivityId[a.id] || []
     const cover = imgs.find(i => i.is_cover) || imgs[0]
     const base = {
       ...a,
       _coverUrl: cover?.url,
-      _imageCount: imgs.length,
     }
     return localOverrides[a.id] ? { ...base, ...localOverrides[a.id] } : base
   })
