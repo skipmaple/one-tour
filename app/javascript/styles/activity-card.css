@@ -113,6 +113,11 @@
   min-width: 0;
   color: rgba(0, 0, 0, 0.68);
 }
+/* Left cells (1 = top-left, 3 = bottom-left): align the leading icon with
+   the kind icon above by removing the cell's left padding. */
+.ac-meta-cell:nth-child(odd) {
+  padding-left: 0;
+}
 .ac-meta-cell svg {
   width: 9px;
   height: 9px;
