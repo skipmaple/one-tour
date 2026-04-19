@@ -1,13 +1,17 @@
 import { useMemo, useState, useEffect } from 'react'
 import {
   Drawer, Tabs, Stack, Group, Text, Button, Table, Badge, Card, Divider,
-  SegmentedControl, Accordion, Progress,
+  SegmentedControl, Accordion, Progress, ActionIcon, TextInput, Popover, Chip,
+  Indicator,
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { router, usePage } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
-import { IconPlus, IconFileExport, IconReceipt2, IconWallet, IconCircleCheck } from '@tabler/icons-react'
+import {
+  IconPlus, IconFileExport, IconReceipt2, IconWallet, IconCircleCheck,
+  IconSearch, IconFilter, IconX,
+} from '@tabler/icons-react'
 import AddExpenseDialog from './AddExpenseDialog'
 import BudgetModal from './BudgetModal'
 import ManualSettlementDialog from './ManualSettlementDialog'
@@ -259,6 +263,11 @@ export default function ExpenseDrawer({
 
 function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLookup, tour, activities, days, budgets, canEdit, isMobile, onAddClick, onEdit, onDelete, onReceiptClick, onEditBudget }) {
   const [grouping, setGrouping] = useState('flat')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterPayers, setFilterPayers] = useState([])     // array of user_id (strings)
+  const [filterCategories, setFilterCategories] = useState([])  // array of category enum
+  const [filterStrategy, setFilterStrategy] = useState('all')   // 'all' / 'equal' / 'individual'
 
   const activityById = useMemo(() => {
     const m = {}
@@ -272,28 +281,96 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
     return m
   }, [days])
 
-  const groups = useMemo(
-    () => groupExpenses(expenses, grouping, activityById, dayById),
-    [expenses, grouping, activityById, dayById],
+  // `participantsLookup` maps id → display label (with "（作者）" suffix).
+  // For grouping.by_payer we pass it as usersById so labels stay consistent.
+  const lookups = useMemo(
+    () => ({ activityById, dayById, usersById: participantsLookup, categoryLabels: CATEGORY_LABELS }),
+    [activityById, dayById, participantsLookup],
   )
 
-  // Show the grouping toggle only when it adds value — i.e. some grouping
-  // mode would actually split into ≥2 buckets. 1-day tours with every
-  // expense in the same bucket would produce a single Accordion wrapper,
-  // which is pure overhead. An arbitrary minimum-entries threshold is
-  // unreliable: 3 expenses across 2 days is already useful to group.
+  // Sort then filter pipeline:
+  //   1. Sort: flat mode → occurred_on DESC (newest first, matches every
+  //      mobile-banking app's transaction list). Grouped modes → the group
+  //      order is the group function's concern; within each group we then
+  //      sort by occurred_on ASC (chronological within-a-day feel).
+  //   2. Filter: payer / category / strategy / search query.
+  // We keep these as separate memos so each stage is independently cacheable.
+  const searchLower = searchQuery.trim().toLowerCase()
+  const filtered = useMemo(() => {
+    let list = expenses
+    if (filterPayers.length > 0) {
+      const set = new Set(filterPayers.map(Number))
+      list = list.filter((e) => set.has(e.paid_by_id))
+    }
+    if (filterCategories.length > 0) {
+      const set = new Set(filterCategories)
+      list = list.filter((e) => set.has(e.category))
+    }
+    if (filterStrategy !== 'all') {
+      list = list.filter((e) => e.split_strategy === filterStrategy)
+    }
+    if (searchLower) {
+      list = list.filter((e) => {
+        const haystack = [
+          e.note || '',
+          activityById[e.activity_id]?.name || '',
+          dayById[e.day_id]?.title || '',
+        ].join(' ').toLowerCase()
+        return haystack.includes(searchLower)
+      })
+    }
+    return list
+  }, [expenses, filterPayers, filterCategories, filterStrategy, searchLower, activityById, dayById])
+
+  const sorted = useMemo(() => {
+    const key = (e) => e.occurred_on || e.created_at || ''
+    if (grouping === 'flat') {
+      return [ ...filtered ].sort((a, b) => (key(a) < key(b) ? 1 : key(a) > key(b) ? -1 : b.id - a.id))
+    }
+    // Within groups we want chronological (oldest first — matches trip flow).
+    return [ ...filtered ].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : a.id - b.id))
+  }, [filtered, grouping])
+
+  const groups = useMemo(
+    () => groupExpenses(sorted, grouping, lookups),
+    [sorted, grouping, lookups],
+  )
+
+  // Toggle useful if ANY grouping mode splits into ≥2 buckets. by_payer /
+  // by_category also count — 3 entries by 3 different people still benefits
+  // from the "按人" lens.
   const groupingToggleUseful = useMemo(() => {
     if (expenses.length === 0) return false
-    const byDay = groupExpenses(expenses, 'by_day', activityById, dayById)
-    const byAct = groupExpenses(expenses, 'by_activity', activityById, dayById)
-    return (byDay?.length ?? 0) > 1 || (byAct?.length ?? 0) > 1
-  }, [expenses, activityById, dayById])
+    const modes = [ 'by_day', 'by_activity', 'by_payer', 'by_category' ]
+    return modes.some((m) => (groupExpenses(expenses, m, lookups)?.length ?? 0) > 1)
+  }, [expenses, lookups])
 
-  // If the toggle becomes unavailable while user is in a grouped mode, snap
-  // back to flat so they don't get stuck.
   useEffect(() => {
     if (!groupingToggleUseful && grouping !== 'flat') setGrouping('flat')
   }, [groupingToggleUseful, grouping])
+
+  const activeFilterCount =
+    (filterPayers.length > 0 ? 1 : 0)
+    + (filterCategories.length > 0 ? 1 : 0)
+    + (filterStrategy !== 'all' ? 1 : 0)
+
+  const resetFilters = () => {
+    setFilterPayers([])
+    setFilterCategories([])
+    setFilterStrategy('all')
+  }
+
+  const clearSearch = () => {
+    setSearchQuery('')
+    setSearchOpen(false)
+  }
+
+  // Build payer filter options from actual expense payers (vs everyone in
+  // the tour — people who never paid shouldn't clutter the chip list).
+  const payerOptions = useMemo(() => {
+    const ids = Array.from(new Set(expenses.map((e) => e.paid_by_id)))
+    return ids.map((id) => ({ value: String(id), label: participantsLookup[id] || `用户 ${id}` }))
+  }, [expenses, participantsLookup])
 
   return (
     <Stack gap="md">
@@ -337,22 +414,130 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
       )}
 
       <Group justify="space-between">
-        <Text fw={600} size="sm">最近的花销</Text>
-        {canEdit && (
-          <Button size="xs" leftSection={<IconPlus size={14} />} onClick={onAddClick}>
-            记一笔
-          </Button>
-        )}
+        <Group gap="xs">
+          <Text fw={600} size="sm">最近的花销</Text>
+          {(searchLower || activeFilterCount > 0) && expenses.length > 0 && (
+            <Text size="xs" c="dimmed">
+              筛选后 {filtered.length} / {expenses.length} 笔
+            </Text>
+          )}
+        </Group>
+        <Group gap={4}>
+          {expenses.length >= 5 && (
+            <ActionIcon
+              variant={searchOpen || searchLower ? 'filled' : 'subtle'}
+              size="md"
+              onClick={() => setSearchOpen((v) => !v)}
+              aria-label="搜索花销"
+            >
+              <IconSearch size={16} />
+            </ActionIcon>
+          )}
+          {expenses.length >= 3 && (
+            <Popover position="bottom-end" withArrow shadow="md" width={isMobile ? 300 : 340}>
+              <Popover.Target>
+                <Indicator
+                  inline
+                  size={14}
+                  offset={2}
+                  label={activeFilterCount || null}
+                  disabled={activeFilterCount === 0}
+                  color="#1677ff"
+                >
+                  <ActionIcon
+                    variant={activeFilterCount > 0 ? 'filled' : 'subtle'}
+                    size="md"
+                    aria-label="筛选花销"
+                  >
+                    <IconFilter size={16} />
+                  </ActionIcon>
+                </Indicator>
+              </Popover.Target>
+              <Popover.Dropdown>
+                <Stack gap="sm">
+                  <Group justify="space-between">
+                    <Text size="sm" fw={600}>筛选</Text>
+                    {activeFilterCount > 0 && (
+                      <Button size="compact-xs" variant="subtle" onClick={resetFilters}>重置</Button>
+                    )}
+                  </Group>
+
+                  {payerOptions.length > 1 && (
+                    <Stack gap={4}>
+                      <Text size="xs" c="dimmed">付款人</Text>
+                      <Chip.Group multiple value={filterPayers} onChange={setFilterPayers}>
+                        <Group gap="xs">
+                          {payerOptions.map((o) => (
+                            <Chip key={o.value} value={o.value} size="xs">{o.label}</Chip>
+                          ))}
+                        </Group>
+                      </Chip.Group>
+                    </Stack>
+                  )}
+
+                  <Stack gap={4}>
+                    <Text size="xs" c="dimmed">类别</Text>
+                    <Chip.Group multiple value={filterCategories} onChange={setFilterCategories}>
+                      <Group gap="xs">
+                        {Object.entries(CATEGORY_LABELS).map(([ value, label ]) => (
+                          <Chip key={value} value={value} size="xs">{label}</Chip>
+                        ))}
+                      </Group>
+                    </Chip.Group>
+                  </Stack>
+
+                  <Stack gap={4}>
+                    <Text size="xs" c="dimmed">分摊方式</Text>
+                    <SegmentedControl
+                      value={filterStrategy}
+                      onChange={setFilterStrategy}
+                      data={[
+                        { value: 'all',        label: '全部' },
+                        { value: 'equal',      label: 'AA 平分' },
+                        { value: 'individual', label: '各付各' },
+                      ]}
+                      size="xs"
+                      fullWidth
+                    />
+                  </Stack>
+                </Stack>
+              </Popover.Dropdown>
+            </Popover>
+          )}
+          {canEdit && (
+            <Button size="xs" leftSection={<IconPlus size={14} />} onClick={onAddClick}>
+              记一笔
+            </Button>
+          )}
+        </Group>
       </Group>
+
+      {searchOpen && (
+        <TextInput
+          placeholder="搜地点、备注、那天的主题"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.currentTarget.value)}
+          leftSection={<IconSearch size={14} />}
+          rightSection={searchQuery && (
+            <ActionIcon variant="subtle" size="sm" onClick={clearSearch} aria-label="清空搜索">
+              <IconX size={14} />
+            </ActionIcon>
+          )}
+          size="xs"
+          autoFocus
+        />
+      )}
 
       {groupingToggleUseful && (
         <SegmentedControl
           value={grouping}
           onChange={setGrouping}
           data={[
-            { value: 'flat',        label: '时间顺序' },
-            { value: 'by_day',      label: '按天' },
-            { value: 'by_activity', label: '按行' },
+            { value: 'flat',         label: '最近' },
+            { value: 'by_day',       label: '按天' },
+            { value: 'by_activity',  label: '按行' },
+            { value: 'by_payer',     label: '按人' },
+            { value: 'by_category',  label: '按类别' },
           ]}
           size="xs"
           fullWidth
@@ -374,9 +559,23 @@ function OverviewTab({ summary, balance, balanceLabel, expenses, participantsLoo
             )}
           </Stack>
         </Card>
+      ) : sorted.length === 0 ? (
+        <Card padding="lg" radius="sm" withBorder>
+          <Stack align="center" gap="xs">
+            <Text size="sm" c="dimmed">没有匹配的花销</Text>
+            <Group gap="xs">
+              {searchLower && (
+                <Button size="compact-xs" variant="subtle" onClick={clearSearch}>清空搜索</Button>
+              )}
+              {activeFilterCount > 0 && (
+                <Button size="compact-xs" variant="subtle" onClick={resetFilters}>重置筛选</Button>
+              )}
+            </Group>
+          </Stack>
+        </Card>
       ) : grouping === 'flat' || !groups ? (
         <ExpenseTable
-          expenses={expenses}
+          expenses={sorted}
           activityById={activityById}
           dayById={dayById}
           participantsLookup={participantsLookup}

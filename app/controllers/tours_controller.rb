@@ -156,6 +156,7 @@ class ToursController < ApplicationController
           external_attributed_to_id: e.external_attributed_to_id,
           note: e.note,
           occurred_on: e.occurred_on,
+          created_at: e.created_at,
           splits: e.splits.map { |s| { user_id: s.user_id, shares: s.shares, amount_cents: s.amount_cents } },
           receipts: e.receipts.map { |r|
             { id: r.id, url: r.file.attached? ? rails_blob_path(r.file, only_path: true) : nil }

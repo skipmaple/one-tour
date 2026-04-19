@@ -1,14 +1,21 @@
 // Groups expenses for ExpenseDrawer's overview tab. Returns null for "flat"
 // so the caller keeps using its existing chronological rendering.
 //
-// by_day: activity-scope expenses roll up to their activity's day; tour-scope
-// ones land in a "整程" bucket at the end.
+// Supported modes:
+//   flat         — no grouping (null return)
+//   by_day       — by day; activity-scope expenses roll up to their
+//                  activity's day; tour-scope → "整程 / 出发前" bucket
+//   by_activity  — by activity; day-scope → per-day "全天" buckets; tour →
+//                  single "整程"
+//   by_payer     — by paid_by_id; sorted by group subtotal DESC
+//   by_category  — by category enum; sorted by group subtotal DESC
 //
-// by_activity: activity-scope expenses grouped by activity (ordered by
-// day_index, position within day); day-scope expenses go to per-day "全天"
-// buckets sorted after the day's activities; tour-scope to a single "整程".
-export function groupExpenses(expenses, mode, activityById, dayById) {
+// `lookups` (object) — { activityById, dayById, usersById, categoryLabels }.
+//   All four are optional; missing ones degrade to reasonable fallbacks
+//   ("（已删除行）", "某天", user id as label, raw enum string).
+export function groupExpenses(expenses, mode, lookups = {}) {
   if (mode === 'flat') return null
+  const { activityById = {}, dayById = {}, usersById = {}, categoryLabels = {} } = lookups
 
   const groups = new Map()
   const pushTo = (key, label, sortKey, expense) => {
@@ -53,10 +60,37 @@ export function groupExpenses(expenses, mode, activityById, dayById) {
       } else {
         pushTo('tour', '整程 / 出发前', 99999999, e)
       }
+    } else if (mode === 'by_payer') {
+      const uid = e.paid_by_id
+      pushTo(
+        `payer-${uid}`,
+        usersById[uid] || `用户 ${uid}`,
+        0, // Overridden by subtotal DESC below.
+        e,
+      )
+    } else if (mode === 'by_category') {
+      const cat = e.category
+      pushTo(
+        `cat-${cat}`,
+        categoryLabels[cat] || cat,
+        0, // Overridden by subtotal DESC below.
+        e,
+      )
     }
   }
 
-  return Array.from(groups.values()).sort((a, b) => a.sortKey - b.sortKey)
+  const result = Array.from(groups.values())
+
+  // For by_payer / by_category we want biggest buckets first — the natural
+  // "who spent most / what did we spend most on" question. Others stay in
+  // trip-chronological order.
+  if (mode === 'by_payer' || mode === 'by_category') {
+    result.forEach((g) => {
+      g.sortKey = -g.expenses.reduce((s, e) => s + (e.amount_cents || 0), 0)
+    })
+  }
+
+  return result.sort((a, b) => a.sortKey - b.sortKey)
 }
 
 export function sumAmountCents(expenses) {
