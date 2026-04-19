@@ -1,0 +1,238 @@
+/* Activity card — Fizzy-inspired pastel card for planner day columns.
+   All classes prefixed .ac-* to stay out of the global namespace.
+   Design source: .superpowers/brainstorm/58306-1776623576/content/22-final.html */
+
+.ac-card {
+  display: flex;
+  align-items: stretch;
+  box-sizing: border-box;
+  height: 60px;
+  margin-bottom: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  position: relative;
+  font-size: 12px;
+  color: #222;
+}
+
+.ac-card.ac-dragging { opacity: 0.4; }
+
+/* drop indicator — preserved from old component */
+.ac-drop-indicator {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #1677ff;
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(22, 119, 255, 0.4);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* grip */
+.ac-grip {
+  color: #999;
+  display: flex;
+  align-items: center;
+  cursor: grab;
+  flex-shrink: 0;
+  padding: 0 4px;
+  user-select: none;
+  position: relative;
+  z-index: 2;
+}
+.ac-grip svg { opacity: 0.55; }
+
+/* body */
+.ac-body {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 8px 8px 4px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 2; /* stacks above thumb gradient */
+}
+
+.ac-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 18px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+
+.ac-kind-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ac-name {
+  font-weight: 800;
+  font-size: 12.5px;
+  letter-spacing: -0.015em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* meta 2x2 cross */
+.ac-meta {
+  position: relative;
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  font-size: 10px;
+  font-weight: 400;
+  margin-left: 21px;
+}
+.ac-meta::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  right: 4px;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+.ac-meta::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 50%;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.13);
+  z-index: 2;
+}
+.ac-meta-cell {
+  padding: 0 8px;
+  gap: 4px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+  color: rgba(0, 0, 0, 0.5);
+}
+.ac-meta-cell svg {
+  width: 9px;
+  height: 9px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.ac-meta-cell--empty {
+  visibility: hidden;
+}
+
+/* citizen signal */
+.ac-ci {
+  display: inline-flex;
+  align-items: flex-end;
+  flex-shrink: 0;
+  opacity: 0.55;
+}
+.ac-ci svg {
+  width: 13px;
+  height: 10px;
+}
+
+/* tier1 overrides .ac-ci */
+.ac-card.ac-tier1 .ac-ci {
+  opacity: 0.9;
+  color: #c89100;
+}
+
+/* tier1 circular badge */
+.ac-tier-badge {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: #c89100;
+  box-shadow: 0 1px 2px rgba(200, 145, 0, 0.4);
+  z-index: 4;
+  user-select: none;
+}
+.ac-card.ac-has-thumb .ac-tier-badge { right: 60px; }
+
+/* thumb gradient */
+.ac-thumb-gradient {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 100px;
+  background-size: cover;
+  background-position: center right;
+  -webkit-mask-image: linear-gradient(to left, black 0%, black 30%, transparent 100%);
+  mask-image: linear-gradient(to left, black 0%, black 30%, transparent 100%);
+  filter: saturate(0.85) brightness(1.02);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Kind variants — soft pastel fill + kind-colored name/icon/meta */
+.ac-kind-scenic { background: #fdf7f9; border-color: #f8dce5; }
+.ac-kind-scenic .ac-kind-icon { color: #db2777; }
+.ac-kind-scenic .ac-name { color: #831843; }
+.ac-kind-scenic .ac-meta-cell { color: rgba(157, 23, 77, 0.6); }
+
+.ac-kind-food { background: #fffaf3; border-color: #fadcb8; }
+.ac-kind-food .ac-kind-icon { color: #ea580c; }
+.ac-kind-food .ac-name { color: #7c2d12; }
+.ac-kind-food .ac-meta-cell { color: rgba(154, 52, 18, 0.6); }
+
+.ac-kind-road { background: #f5f8fd; border-color: #cfdcf3; }
+.ac-kind-road .ac-kind-icon { color: #2563eb; }
+.ac-kind-road .ac-name { color: #1e3a8a; }
+.ac-kind-road .ac-meta-cell { color: rgba(30, 64, 175, 0.6); }
+
+.ac-kind-stay { background: #f8f6fd; border-color: #dcd3f0; }
+.ac-kind-stay .ac-kind-icon { color: #7c3aed; }
+.ac-kind-stay .ac-name { color: #4c1d95; }
+.ac-kind-stay .ac-meta-cell { color: rgba(91, 33, 182, 0.6); }
+
+.ac-kind-fuel { background: #f0fdfa; border-color: #99f6e4; }
+.ac-kind-fuel .ac-kind-icon { color: #0d9488; }
+.ac-kind-fuel .ac-name { color: #134e4a; }
+.ac-kind-fuel .ac-meta-cell { color: rgba(19, 78, 74, 0.6); }
+
+.ac-kind-other { background: #f9fafb; border-color: #e5e7eb; }
+.ac-kind-other .ac-kind-icon { color: #6b7280; }
+.ac-kind-other .ac-name { color: #374151; }
+.ac-kind-other .ac-meta-cell { color: rgba(55, 65, 81, 0.6); }
+
+/* tier1 overrides kind fill */
+.ac-card.ac-tier1 {
+  background: linear-gradient(90deg, #fff8d6 0%, #fffcf1 95%);
+  border-color: #dcc273;
+  box-shadow: 0 1px 3px rgba(200, 145, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.ac-card.ac-tier1 .ac-kind-icon { color: #c89100; }
+.ac-card.ac-tier1 .ac-name { color: #5c3d00; }
+.ac-card.ac-tier1 .ac-meta-cell { color: rgba(138, 100, 0, 0.65); }
+
+/* Overlay variant used by DragOverlay — tilt + heavier shadow */
+.ac-card.ac-overlay {
+  cursor: grabbing;
+  transform: rotate(2deg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
