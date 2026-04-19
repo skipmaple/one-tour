@@ -2,11 +2,13 @@
 # Includes "individual" (各付各) expenses in totals but excludes them from the
 # per-member settlement computation (they have no ExpenseSplit rows).
 #
-# Net balance accounting:
-#   outstanding_net = paid - owed + settled_out - settled_in
-# A user who paid out a settlement reduces what they still owe others by that
-# amount (so their net goes UP toward zero); the recipient's net comes DOWN
-# toward zero because they've already received the receivable.
+# Net balance accounting — "paid" here means "paid for the group" only:
+#   outstanding_net = paid_for_group - owed_to_group + settled_out - settled_in
+# Individual (各付各) expenses are money the payer spent on themselves and
+# nobody else is on the hook for — they contribute ZERO to the settlement
+# ledger (though they still count toward the user's own budget via
+# my_spend_cents). Including them in `paid` produced a phantom "应收" equal
+# to the individual amount, which is the bug this refactor fixes.
 class Expense::Summarize
   def initialize(tour, current_user)
     @tour = tour
@@ -17,11 +19,13 @@ class Expense::Summarize
     expenses = @tour.expenses.includes(:splits).to_a
     splits = expenses.flat_map(&:splits)
     settlements = @tour.settlements.to_a
+    # 各付各 expenses are self-contained — exclude from settlement math.
+    group_expenses = expenses.reject(&:split_individual?)
 
     {
       total_cents:             expenses.sum(&:amount_cents),
       currency:                @tour.currency,
-      per_member_paid:         group_sum(expenses, :paid_by_id, :amount_cents),
+      per_member_paid:         group_sum(group_expenses, :paid_by_id, :amount_cents),
       per_member_owed:         group_sum(splits, :user_id, :amount_cents),
       per_member_settled_out:  group_sum(settlements, :from_user_id, :amount_cents),
       per_member_settled_in:   group_sum(settlements, :to_user_id, :amount_cents),
@@ -41,7 +45,12 @@ class Expense::Summarize
       return nil if @current_user.nil?
 
       uid = @current_user.id
-      paid = expenses.select { |e| e.paid_by_id == uid }.sum(&:amount_cents)
+      # "Paid" in the settlement sense = money I fronted for the group.
+      # Individual (各付各) payments are money I spent on myself — excluded.
+      paid = expenses
+        .reject(&:split_individual?)
+        .select { |e| e.paid_by_id == uid }
+        .sum(&:amount_cents)
       owed = splits.select { |s| s.user_id == uid }.sum(&:amount_cents)
       settled_out = settlements.select { |s| s.from_user_id == uid }.sum(&:amount_cents)
       settled_in  = settlements.select { |s| s.to_user_id   == uid }.sum(&:amount_cents)

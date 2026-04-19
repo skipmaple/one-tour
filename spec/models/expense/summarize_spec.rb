@@ -102,4 +102,39 @@ RSpec.describe Expense::Summarize do
     # spend 2000 over budget 1200 → 800
     expect(summary[:current_user_balance][:over_tour_budget_cents]).to eq(800)
   end
+
+  # Regression: the headline bug from tour-5 production testing.
+  # Individual (各付各) expenses must NOT produce phantom "应收" because
+  # the payer paid for themselves — nobody else is on the hook. Before the
+  # fix, paid_cents summed all expenses including individual, so a user who
+  # dropped ¥100,000 on their own meal saw "应收 ¥100,000" from nobody.
+  it "individual expenses do not affect net_cents" do
+    # Baseline: author paid ¥100 AA with u2. net = 100 paid - 50 owed = +50
+    create_expense(paid_by: author, amount: 10_000, participants: [ author, u2 ])
+    baseline = described_class.new(tour, author).call[:current_user_balance][:net_cents]
+    expect(baseline).to eq(5_000)
+
+    # Add a huge individual expense by author — net should not budge
+    Expense.create!(
+      tour: tour, activity: activity, scope: :activity,
+      paid_by: author, created_by: author,
+      amount_cents: 10_000_000, category: :food, split_strategy: :individual
+    )
+    after = described_class.new(tour, author).call[:current_user_balance][:net_cents]
+    expect(after).to eq(5_000)
+    # paid_cents (settlement-scoped) should also be unchanged
+    expect(described_class.new(tour, author).call[:current_user_balance][:paid_cents]).to eq(10_000)
+  end
+
+  it "per_member_paid excludes individual expenses too" do
+    create_expense(paid_by: author, amount: 5_000, participants: [ author, u2 ])
+    Expense.create!(
+      tour: tour, activity: activity, scope: :activity,
+      paid_by: author, created_by: author,
+      amount_cents: 99_999, category: :food, split_strategy: :individual
+    )
+    summary = described_class.new(tour, author).call
+    # only the split ¥5000 counts for settlement purposes
+    expect(summary[:per_member_paid][author.id]).to eq(5_000)
+  end
 end
