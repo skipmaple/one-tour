@@ -43,10 +43,41 @@ function ConnectorText({ km, min }) {
 }
 
 // Synthesized variant — read-only, from a route_leg only.
-function SynthesizedConnector({ leg }) {
+function SynthesizedConnector({
+  leg,
+  isHighlighted = false,
+  onHoverConnector,
+  onClearHover,
+  fromActivityId,
+  toActivityId,
+  dayColorName = 'none',
+}) {
   const { km, min } = extractKmMin({ activity: null, leg })
+  const classes = [
+    'rc-line',
+    'rc-synthesized',
+    isHighlighted ? 'rc-highlighted' : '',
+  ].filter(Boolean).join(' ')
+
+  // Synthesized has pointer-events: none in CSS, but onMouseEnter still needs
+  // handlers in case that CSS rule is relaxed later. Safe no-op when hovered
+  // is impossible.
+  const handleMouseEnter = () => {
+    if (onHoverConnector && fromActivityId != null && toActivityId != null) {
+      onHoverConnector(fromActivityId, toActivityId)
+    }
+  }
+  const handleMouseLeave = () => {
+    if (onClearHover) onClearHover()
+  }
+
   return (
-    <div className="rc-line rc-synthesized">
+    <div
+      className={classes}
+      data-day-color={dayColorName}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <IconCar size={12} stroke={2} aria-hidden="true" />
       <ConnectorText km={km} min={min} />
     </div>
@@ -54,7 +85,18 @@ function SynthesizedConnector({ leg }) {
 }
 
 // Activity-backed variant — interactive, draggable via dnd-kit.
-function ActivityBackedConnector({ activity, legFallback, onClick, readOnly }) {
+function ActivityBackedConnector({
+  activity,
+  legFallback,
+  onClick,
+  readOnly,
+  isHighlighted = false,
+  onHoverConnector,
+  onClearHover,
+  fromActivityId,
+  toActivityId,
+  dayColorName = 'none',
+}) {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } =
     useDraggable({ id: `activity-${activity.id}` })
   const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -69,14 +111,33 @@ function ActivityBackedConnector({ activity, legFallback, onClick, readOnly }) {
     if (!readOnly && onClick) onClick(activity.id)
   }
 
+  // Connector hover highlights BOTH endpoint markers. Skip the call if either
+  // endpoint id is missing (day boundary, orphan connector) — connector's own
+  // .rc-highlighted bar still lights up when parent sets isHighlighted.
+  const handleMouseEnter = () => {
+    if (onHoverConnector && fromActivityId != null && toActivityId != null) {
+      onHoverConnector(fromActivityId, toActivityId)
+    }
+  }
+  const handleMouseLeave = () => {
+    if (onClearHover) onClearHover()
+  }
+
   const { km, min } = extractKmMin({ activity, leg: legFallback })
-  const classes = ['rc-line', isDragging ? 'rc-dragging' : ''].filter(Boolean).join(' ')
+  const classes = [
+    'rc-line',
+    isDragging ? 'rc-dragging' : '',
+    isHighlighted ? 'rc-highlighted' : '',
+  ].filter(Boolean).join(' ')
 
   return (
     <div
       ref={setRef}
       className={classes}
+      data-day-color={dayColorName}
       onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       {...dragAttributes}
       {...dragListeners}
     >
@@ -91,12 +152,26 @@ export default function RoadConnector(props) {
   // `synthesized` and `activity` are mutually exclusive; `synthesized` takes precedence.
   // A synthesized connector derives all data from `leg` — `activity` is ignored.
   if (props.synthesized) {
-    return <SynthesizedConnector leg={props.leg} />
+    return <SynthesizedConnector
+      leg={props.leg}
+      isHighlighted={props.isHighlighted}
+      onHoverConnector={props.onHoverConnector}
+      onClearHover={props.onClearHover}
+      fromActivityId={props.fromActivityId}
+      toActivityId={props.toActivityId}
+      dayColorName={props.dayColorName}
+    />
   }
   return <ActivityBackedConnector
     activity={props.activity}
     legFallback={props.legFallback}
     onClick={props.onClick}
     readOnly={props.readOnly}
+    isHighlighted={props.isHighlighted}
+    onHoverConnector={props.onHoverConnector}
+    onClearHover={props.onClearHover}
+    fromActivityId={props.fromActivityId}
+    toActivityId={props.toActivityId}
+    dayColorName={props.dayColorName}
   />
 }

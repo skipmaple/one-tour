@@ -125,3 +125,41 @@ test('synthesized mode ignores onClick', () => {
   fireEvent.click(screen.getByText(/45 公里/))
   expect(onClick).not.toHaveBeenCalled()
 })
+
+test('applies .rc-highlighted class when isHighlighted=true', () => {
+  const { container } = renderInDnd(<RoadConnector activity={roadActivity} isHighlighted />)
+  expect(container.querySelector('.rc-line.rc-highlighted')).toBeInTheDocument()
+})
+
+test('calls onHoverConnector(fromId, toId) on mouseenter when both ids present', () => {
+  const onHoverConnector = vi.fn()
+  const { container } = renderInDnd(
+    <RoadConnector
+      activity={roadActivity}
+      fromActivityId={10}
+      toActivityId={20}
+      onHoverConnector={onHoverConnector}
+    />
+  )
+  fireEvent.mouseEnter(container.querySelector('.rc-line'))
+  expect(onHoverConnector).toHaveBeenCalledWith(10, 20)
+})
+
+test('does NOT call onHoverConnector when fromActivityId is null', () => {
+  const onHoverConnector = vi.fn()
+  const { container } = renderInDnd(
+    <RoadConnector
+      activity={roadActivity}
+      fromActivityId={null}
+      toActivityId={20}
+      onHoverConnector={onHoverConnector}
+    />
+  )
+  fireEvent.mouseEnter(container.querySelector('.rc-line'))
+  expect(onHoverConnector).not.toHaveBeenCalled()
+})
+
+test('renders data-day-color from dayColorName prop', () => {
+  const { container } = renderInDnd(<RoadConnector activity={roadActivity} dayColorName="teal" />)
+  expect(container.querySelector('.rc-line').getAttribute('data-day-color')).toBe('teal')
+})
