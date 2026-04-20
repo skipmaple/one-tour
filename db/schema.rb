@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_19_120000) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_20_175530) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -76,6 +76,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_19_120000) do
     t.index ["activity_id"], name: "idx_activity_images_single_cover", unique: true, where: "(is_cover = true)"
     t.index ["activity_id"], name: "index_activity_images_on_activity_id"
     t.index ["uploaded_by_id"], name: "index_activity_images_on_uploaded_by_id"
+  end
+
+  create_table "activity_participants", force: :cascade do |t|
+    t.bigint "activity_id", null: false
+    t.bigint "user_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["activity_id", "user_id"], name: "index_activity_participants_on_activity_id_and_user_id", unique: true
+    t.index ["activity_id"], name: "index_activity_participants_on_activity_id"
+    t.index ["user_id"], name: "index_activity_participants_on_user_id"
   end
 
   create_table "conversations", force: :cascade do |t|
@@ -174,7 +184,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_19_120000) do
     t.jsonb "metadata"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "tokens_in"
+    t.integer "tokens_out"
+    t.integer "cost_cents"
     t.index ["conversation_id"], name: "index_messages_on_conversation_id"
+    t.index ["created_at"], name: "index_messages_on_created_at"
   end
 
   create_table "oauth_identities", force: :cascade do |t|
@@ -248,7 +262,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_19_120000) do
     t.integer "role", default: 0, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.jsonb "participating_day_ids", default: [], null: false
     t.index ["tour_id", "user_id"], name: "index_tour_memberships_on_tour_id_and_user_id", unique: true
     t.index ["tour_id"], name: "index_tour_memberships_on_tour_id"
     t.index ["user_id"], name: "index_tour_memberships_on_user_id"
@@ -279,7 +292,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_19_120000) do
     t.string "avatar_url"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "role", default: 0, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
+    t.index ["role"], name: "index_users_on_role"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
@@ -288,6 +303,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_19_120000) do
   add_foreign_key "activities", "tours"
   add_foreign_key "activity_images", "activities", on_delete: :cascade
   add_foreign_key "activity_images", "users", column: "uploaded_by_id"
+  add_foreign_key "activity_participants", "activities"
+  add_foreign_key "activity_participants", "users"
   add_foreign_key "conversations", "tours"
   add_foreign_key "conversations", "users"
   add_foreign_key "days", "tours"
