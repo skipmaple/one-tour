@@ -37,8 +37,7 @@ class ToursController < ApplicationController
           email: m.user.email,
           name: m.user.name,
           avatar_url: m.user.display_avatar_url,
-          role: m.role,
-          participating_day_ids: m.participating_day_ids
+          role: m.role
         }
       },
       author: {

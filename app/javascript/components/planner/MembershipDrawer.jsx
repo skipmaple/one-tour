@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Drawer, Stack, Text, Group, TextInput, Select, Button, Badge, Accordion, Table, Checkbox } from '@mantine/core'
+import { Drawer, Stack, Text, Group, TextInput, Select, Button, Badge, Accordion, Table } from '@mantine/core'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { router, usePage } from '@inertiajs/react'
@@ -105,56 +105,8 @@ function CurrentMembers({ tour, members, author, isAuthor, days }) {
             </Group>
           </Group>
 
-          {days.length > 0 && isAuthor && (
-            <ParticipatingDays tour={tour} membership={m} days={days} />
-          )}
         </Stack>
       ))}
-    </Stack>
-  )
-}
-
-function ParticipatingDays({ tour, membership, days }) {
-  const selected = new Set(membership.participating_day_ids || [])
-  const isFullTrip = selected.size === 0
-
-  const toggleDay = (dayId) => {
-    let next
-    if (isFullTrip) {
-      // First toggle switches from "all" to explicit-list mode containing everything minus the toggled day.
-      next = days.map((d) => d.id).filter((id) => id !== dayId)
-    } else if (selected.has(dayId)) {
-      next = [ ...selected ].filter((id) => id !== dayId)
-    } else {
-      next = [ ...selected, dayId ]
-    }
-    // If user re-selects all days, persist as [] (== 全程参与).
-    if (next.length === days.length) next = []
-    router.patch(`/tours/${tour.id}/members/${membership.id}`, { participating_day_ids: next }, {
-      preserveScroll: true, only: ['members'],
-    })
-  }
-
-  return (
-    <Stack gap={4} pl="md">
-      <Text size="xs" c="dimmed">参与的日期（"按参与天数"分账时生效）</Text>
-      <Group gap={6} wrap="wrap">
-        {days.map((d) => {
-          const checked = isFullTrip || selected.has(d.id)
-          return (
-            <Checkbox
-              key={d.id}
-              size="xs"
-              label={`D${d.day_index}`}
-              checked={checked}
-              onChange={() => toggleDay(d.id)}
-            />
-          )
-        })}
-      </Group>
-      {!isFullTrip && selected.size < days.length && (
-        <Text size="xs" c="orange">仅 {selected.size} / {days.length} 天</Text>
-      )}
     </Stack>
   )
 }
