@@ -53,6 +53,15 @@ export default function Show({ tour, days, activities, activity_images, expenses
   const [activeId, setActiveId] = useState(null)
   const [ dragWarning, setDragWarning ] = useState(null)
 
+  // Card ↔ Map hover highlight. Single state piece; array shape lets a
+  // connector emit BOTH endpoint ids so both markers light up. null = nothing.
+  const [hoveredActivityIds, setHoveredActivityIds] = useState(null)
+  const onHoverActivity = useCallback((id) => setHoveredActivityIds([id]), [])
+  const onHoverConnector = useCallback((fromId, toId) => setHoveredActivityIds([fromId, toId]), [])
+  const onMarkerHover = useCallback((id) => setHoveredActivityIds([id]), [])
+  const onClearHover = useCallback(() => setHoveredActivityIds(null), [])
+  const onMarkerLeave = useCallback(() => setHoveredActivityIds(null), [])
+
   // Activation constraint: 5px drag threshold lets the whole ActivityCard be
   // draggable without swallowing plain clicks (which still fire onClick to
   // open the drawer).
@@ -253,6 +262,10 @@ export default function Show({ tour, days, activities, activity_images, expenses
             onToggleAutoFit={layout.toggleAutoFit}
             flexStyle={layout.flexStyle('days', { autoFitWidth: days.length * 200 + 32 })}
             routeLegs={route_legs || []}
+            hoveredActivityIds={hoveredActivityIds}
+            onHoverActivity={onHoverActivity}
+            onHoverConnector={onHoverConnector}
+            onClearHover={onClearHover}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('days', 'map')}
@@ -269,6 +282,9 @@ export default function Show({ tour, days, activities, activity_images, expenses
             onToggle={() => layout.togglePanel('map')}
             canToggle={layout.openCount > 1 || !layout.panels.map.open}
             flexStyle={layout.flexStyle('map')}
+            hoveredActivityIds={hoveredActivityIds}
+            onMarkerHover={onMarkerHover}
+            onMarkerLeave={onMarkerLeave}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('map', 'ai')}
