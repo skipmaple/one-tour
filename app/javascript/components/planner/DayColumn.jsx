@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { DAY_COLOR } from './PlannerMap'
 import { Paper, Text, Stack, Group, Button } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
 import { IconAlertTriangleFilled } from '@tabler/icons-react'
@@ -14,7 +15,21 @@ const INTENSITY_COLORS = {
 
 const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-export default function DayColumn({ day, activities, constitution, onAddActivity, onEditActivity, onEditDay, readOnly, dragWarning, routeLegs = [] }) {
+export default function DayColumn({
+  day,
+  activities,
+  constitution,
+  onAddActivity,
+  onEditActivity,
+  onEditDay,
+  readOnly,
+  dragWarning,
+  routeLegs = [],
+  hoveredActivityIds = null,
+  onHoverActivity,
+  onHoverConnector,
+  onClearHover,
+}) {
   const maxH = Math.round((constitution?.max_daily_driving_minutes || 420) / 60)
   const maxTier1 = constitution?.max_tier_one_per_day || 3
 
@@ -23,6 +38,9 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
     .reduce((sum, a) => sum + (parseInt(a.details?.drive_min || 0, 10) || 0), 0)
   const driveH = Math.round(driveMin / 60 * 10) / 10
   const tierOneCount = activities.filter(a => a.citizen_level === 'tier_one').length
+
+  const dayColorName = DAY_COLOR(day.day_index)
+  const isHighlightedById = (id) => hoveredActivityIds != null && hoveredActivityIds.includes(id)
 
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${day.id}`,
@@ -72,6 +90,12 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
           legFallback={fallback}
           onClick={onEditActivity}
           readOnly={readOnly}
+          isHighlighted={isHighlightedById(a.id)}
+          onHoverConnector={onHoverConnector}
+          onClearHover={onClearHover}
+          fromActivityId={prevCardActivity?.id ?? null}
+          toActivityId={next?.id ?? null}
+          dayColorName={dayColorName}
         />
       )
       // A connector activity does not become prevCardActivity; the card before it stays
@@ -95,13 +119,25 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
             leg={leg}
             fromActivityId={prevCardActivity.id}
             toActivityId={a.id}
+            onHoverConnector={onHoverConnector}
+            onClearHover={onClearHover}
+            dayColorName={dayColorName}
           />
         )
       }
     }
 
     renderedItems.push(
-      <ActivityCard key={a.id} activity={a} onClick={onEditActivity} readOnly={readOnly} />
+      <ActivityCard
+        key={a.id}
+        activity={a}
+        onClick={onEditActivity}
+        readOnly={readOnly}
+        isHighlighted={isHighlightedById(a.id)}
+        onHoverActivity={onHoverActivity}
+        onClearHover={onClearHover}
+        dayColorName={dayColorName}
+      />
     )
     prevCardActivity = a
   }

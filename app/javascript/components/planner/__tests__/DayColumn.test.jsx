@@ -110,3 +110,23 @@ test('does not synthesize between two cards when a connector activity is between
   // Both cards still render
   expect(container.querySelectorAll('.ac-card')).toHaveLength(2)
 })
+
+test('applies .ac-highlighted to the ActivityCard whose id is in hoveredActivityIds', () => {
+  const activities = [
+    { id: 100, name: '喀纳斯湖', kind: 'scenic', citizen_level: 'tier_two', position: 1, day_id: 10 },
+    { id: 200, name: '白哈巴住宿', kind: 'stay', citizen_level: 'tier_three', position: 2, day_id: 10 },
+  ]
+  const { container } = renderInDnd(
+    <DayColumn
+      day={{ id: 10, day_index: 1 }}
+      activities={activities}
+      constitution={null}
+      hoveredActivityIds={[100]}
+    />
+  )
+  const cards = container.querySelectorAll('.ac-card')
+  expect(cards).toHaveLength(2)
+  // First card (id=100) is highlighted, second (id=200) is not.
+  expect(cards[0].classList.contains('ac-highlighted')).toBe(true)
+  expect(cards[1].classList.contains('ac-highlighted')).toBe(false)
+})
