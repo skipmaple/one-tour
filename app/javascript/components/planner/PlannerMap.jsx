@@ -5,19 +5,8 @@ import { notifications } from '@mantine/notifications'
 import { IconRoute, IconMap2 } from '@tabler/icons-react'
 import useAmap from '../../hooks/useAmap'
 import PanelShell from './PanelLayout/PanelShell'
-
-// 10-color palette using Mantine theme color names. Cycles when day_index > 10.
-// Used by buildMarkerHTML and buildPolylineConfigs to color markers/lines per day.
-export const DAY_PALETTE = [
-  'red', 'pink', 'grape', 'violet', 'indigo',
-  'blue', 'cyan', 'teal', 'green', 'yellow'
-]
-
-export function DAY_COLOR(day_index) {
-  // Handle negative / zero gracefully via positive modulo
-  const idx = ((day_index - 1) % DAY_PALETTE.length + DAY_PALETTE.length) % DAY_PALETTE.length
-  return DAY_PALETTE[idx]
-}
+import { DAY_PALETTE, DAY_COLOR } from '../../lib/dayColors'
+export { DAY_PALETTE, DAY_COLOR }
 
 // Filter activities by current view mode.
 // 'all'     — every activity

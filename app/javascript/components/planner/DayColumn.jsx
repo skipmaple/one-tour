@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { DAY_COLOR } from './PlannerMap'
+import { useMemo, useCallback } from 'react'
+import { DAY_COLOR } from '../../lib/dayColors'
 import { Paper, Text, Stack, Group, Button } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
 import { IconAlertTriangleFilled } from '@tabler/icons-react'
@@ -40,7 +40,10 @@ export default function DayColumn({
   const tierOneCount = activities.filter(a => a.citizen_level === 'tier_one').length
 
   const dayColorName = DAY_COLOR(day.day_index)
-  const isHighlightedById = (id) => hoveredActivityIds != null && hoveredActivityIds.includes(id)
+  const isHighlightedById = useCallback(
+    (id) => hoveredActivityIds != null && hoveredActivityIds.includes(id),
+    [hoveredActivityIds]
+  )
 
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${day.id}`,
