@@ -145,6 +145,20 @@ test('calls onHoverConnector(fromId, toId) on mouseenter when both ids present',
   expect(onHoverConnector).toHaveBeenCalledWith(10, 20)
 })
 
+test('calls onClearHover on mouseleave', () => {
+  const onClearHover = vi.fn()
+  const { container } = renderInDnd(
+    <RoadConnector
+      activity={roadActivity}
+      fromActivityId={10}
+      toActivityId={20}
+      onClearHover={onClearHover}
+    />
+  )
+  fireEvent.mouseLeave(container.querySelector('.rc-line'))
+  expect(onClearHover).toHaveBeenCalled()
+})
+
 test('does NOT call onHoverConnector when fromActivityId is null', () => {
   const onHoverConnector = vi.fn()
   const { container } = renderInDnd(
