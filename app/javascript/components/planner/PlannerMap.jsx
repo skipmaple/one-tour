@@ -26,9 +26,13 @@ export function filterActivitiesByViewMode(activities, viewMode) {
 // `theme` is the Mantine theme object (use useMantineTheme() in component).
 // We pull colors[name][6] (the 600-shade) for solid markers — high contrast on
 // AMap's white tile background.
-export function buildMarkerHTML(activity, dayIndexById, theme) {
+export function buildMarkerHTML(activity, dayIndexById, theme, highlighted = false) {
+  const scale = highlighted ? 'scale(1.3)' : 'scale(1)'
+  const transition = 'transition: transform 150ms ease, box-shadow 150ms ease;'
+
   if (activity.day_id == null) {
-    // Backlog marker — grey dashed circle, no label
+    // Backlog marker — grey dashed circle, no label.
+    const shadow = highlighted ? 'box-shadow: 0 4px 10px rgba(0,0,0,0.25);' : ''
     return `<div style="
       width: 22px; height: 22px;
       background: white;
@@ -36,22 +40,28 @@ export function buildMarkerHTML(activity, dayIndexById, theme) {
       border-radius: 50%;
       opacity: 0.85;
       box-sizing: border-box;
+      transform: ${scale};
+      ${shadow}
+      ${transition}
     "></div>`
   }
 
   const day_index = dayIndexById[activity.day_id]
   const colorName = DAY_COLOR(day_index)
   const hex = theme.colors[colorName][6]
+  const shadow = highlighted ? '0 4px 12px rgba(0,0,0,0.4)' : '0 2px 4px rgba(0,0,0,0.3)'
 
   return `<div style="
     width: 28px; height: 28px;
     background: ${hex};
     border: 2px solid white;
     border-radius: 50%;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: ${shadow};
     display: flex; align-items: center; justify-content: center;
     color: white; font-size: 11px; font-weight: bold;
     box-sizing: border-box;
+    transform: ${scale};
+    ${transition}
   ">D${day_index}</div>`
 }
 
@@ -154,13 +164,26 @@ export function countMissingLegs(activitiesGroupedByDay, days, theme, routeLegsB
 // Backlog activities get a grey default-style marker; day-assigned activities
 // get a blue numbered label marker so you can tell at a glance which day they
 // belong to.
-function PlannerMapInner({ activities, days = [], routeLegs = [], tourId, canEdit = false }) {
+function PlannerMapInner({
+  activities,
+  days = [],
+  routeLegs = [],
+  tourId,
+  canEdit = false,
+  hoveredActivityIds = null,
+  onMarkerHover,
+  onMarkerLeave,
+}) {
   const { amap_js_api_key, amap_js_security_code } = usePage().props
   const sdkState = useAmap(amap_js_api_key, amap_js_security_code)
 
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([])
+  // Parallel lookup: activity.id → AMap.Marker. Lets the highlight effect
+  // update just the affected markers via setContent, without scanning the
+  // whole markers array.
+  const markerByIdRef = useRef({})
   const polylinesRef = useRef([])
   // One-at-a-time tooltip for straight-polyline hover — keep a ref so we can
   // close the previous one when the cursor moves between segments.
@@ -300,6 +323,7 @@ function PlannerMapInner({ activities, days = [], routeLegs = [], tourId, canEdi
 
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
+    markerByIdRef.current = {}
 
     // Coerce Rails-serialized lat/lng strings to numbers, drop invalid
     const visible = filterActivitiesByViewMode(activities, viewMode)
@@ -312,7 +336,8 @@ function PlannerMapInner({ activities, days = [], routeLegs = [], tourId, canEdi
         position: [ a.lng, a.lat ],
         title: a.name,
         content: buildMarkerHTML(a, dayIndexById, theme),
-        anchor: 'center'
+        anchor: 'center',
+        extData: { activity: a },
       })
       const info = new window.AMap.InfoWindow({
         content: `<div style="padding:6px 10px;font-size:12px;line-height:1.5">
@@ -322,8 +347,11 @@ function PlannerMapInner({ activities, days = [], routeLegs = [], tourId, canEdi
         offset: new window.AMap.Pixel(0, -20)
       })
       marker.on('click', () => info.open(map, marker.getPosition()))
+      marker.on('mouseover', () => { if (onMarkerHover) onMarkerHover(a.id) })
+      marker.on('mouseout',  () => { if (onMarkerLeave) onMarkerLeave() })
       marker.setMap(map)
       markersRef.current.push(marker)
+      markerByIdRef.current[a.id] = marker
     })
 
     // Frame view to fit visible markers; fallbacks for 0/1 markers
@@ -334,6 +362,20 @@ function PlannerMapInner({ activities, days = [], routeLegs = [], tourId, canEdi
     }
     // visible.length === 0: don't move map (user keeps current view)
   }, [ activities, dayIndexById, viewMode, theme, sdkState ])
+
+  // Sync marker highlight state with hoveredActivityIds. Changing a marker's
+  // content replaces its DOM in place; the 150ms CSS transition on the
+  // wrapper makes the scale read as smooth.
+  useEffect(() => {
+    if (!window.AMap) return
+    const ids = hoveredActivityIds || []
+    Object.entries(markerByIdRef.current).forEach(([idStr, marker]) => {
+      const a = marker.getExtData?.().activity
+      if (!a) return
+      const isHot = ids.includes(a.id)
+      marker.setContent(buildMarkerHTML(a, dayIndexById, theme, isHot))
+    })
+  }, [ hoveredActivityIds, dayIndexById, theme ])
 
   // Sync polylines with activities + days + viewMode + theme.
   // 'backlog' mode hides polylines entirely.

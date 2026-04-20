@@ -305,3 +305,35 @@ describe('countMissingLegs', () => {
     expect(countMissingLegs({}, [], theme, {})).toBe(0)
   })
 })
+
+describe('buildMarkerHTML highlighted state', () => {
+  const theme = {
+    colors: {
+      red:    [, , , , , , '#fa5252'],
+      pink:   [, , , , , , '#e64980'],
+      grape:  [, , , , , , '#be4bdb'],
+      violet: [, , , , , , '#7950f2'],
+      indigo: [, , , , , , '#4c6ef5'],
+      blue:   [, , , , , , '#228be6'],
+      cyan:   [, , , , , , '#15aabf'],
+      teal:   [, , , , , , '#12b886'],
+      green:  [, , , , , , '#40c057'],
+      yellow: [, , , , , , '#fab005'],
+    }
+  }
+
+  test('highlighted=true adds scale(1.3) transform', () => {
+    const html = buildMarkerHTML({ day_id: 10 }, { 10: 1 }, theme, true)
+    expect(html).toContain('scale(1.3)')
+  })
+
+  test('highlighted=false (default) uses scale(1)', () => {
+    const html = buildMarkerHTML({ day_id: 10 }, { 10: 1 }, theme)
+    expect(html).toContain('scale(1)')
+  })
+
+  test('backlog marker honors highlighted flag', () => {
+    const html = buildMarkerHTML({ day_id: null }, {}, theme, true)
+    expect(html).toContain('scale(1.3)')
+  })
+})
