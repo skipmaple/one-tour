@@ -141,7 +141,7 @@ jobs:
       # Kamal's `deploy` does build + push + release. Needs Buildx on the runner
       # since the Dockerfile uses BuildKit secrets (Sentry source-map upload).
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Deploy with Kamal
         run: bin/kamal deploy
