@@ -28,6 +28,10 @@ export default function DayPanel({
   readOnly,
   dragWarning,
   routeLegs,
+  hoveredActivityIds,
+  onHoverActivity,
+  onHoverConnector,
+  onClearHover,
 }) {
   const autoFitButton = (
     <UnstyledButton
@@ -87,6 +91,10 @@ export default function DayPanel({
             readOnly={readOnly}
             dragWarning={dragWarning?.dayId === d.id ? dragWarning : null}
             routeLegs={routeLegs}
+            hoveredActivityIds={hoveredActivityIds}
+            onHoverActivity={onHoverActivity}
+            onHoverConnector={onHoverConnector}
+            onClearHover={onClearHover}
           />
         ))}
         <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />
