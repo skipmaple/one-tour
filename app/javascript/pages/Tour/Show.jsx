@@ -239,6 +239,9 @@ export default function Show({ tour, days, activities, activity_images, expenses
             onToggle={() => layout.togglePanel('candidates')}
             canToggle={layout.openCount > 1 || !layout.panels.candidates.open}
             flexStyle={layout.flexStyle('candidates')}
+            hoveredActivityIds={hoveredActivityIds}
+            onHoverActivity={onHoverActivity}
+            onClearHover={onClearHover}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('candidates', 'days')}
