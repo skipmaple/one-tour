@@ -120,6 +120,7 @@ export default function DayColumn({
             key={`synth-${prevCardActivity.id}-${a.id}`}
             synthesized
             leg={leg}
+            isHighlighted={isHighlightedById(prevCardActivity.id) || isHighlightedById(a.id)}
             fromActivityId={prevCardActivity.id}
             toActivityId={a.id}
             onHoverConnector={onHoverConnector}
