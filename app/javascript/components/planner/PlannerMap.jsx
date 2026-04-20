@@ -202,6 +202,16 @@ function PlannerMapInner({
   // only setContent on markers whose state actually changed.
   const prevHoveredIdsRef = useRef([])
 
+  // Current hoveredActivityIds mirrored in a ref so the markers-sync effect
+  // (which runs on activities / viewMode / theme changes) can build each new
+  // marker with the correct highlight state. Without this, a marker rebuild
+  // while a card is hovered would produce un-highlighted markers until the
+  // hover effect catches up. `hoveredActivityIds` itself can't be added to
+  // the marker-sync effect's deps (would trigger full marker rebuild on
+  // every hover), so the ref bridges the gap.
+  const hoveredActivityIdsRef = useRef(hoveredActivityIds)
+  useEffect(() => { hoveredActivityIdsRef.current = hoveredActivityIds }, [hoveredActivityIds])
+
   const [ batchSaving, setBatchSaving ] = useState(false)
 
   // Stable lookup: day.id → day_index (for marker labels like "D2")
@@ -343,12 +353,17 @@ function PlannerMapInner({
       .map(a => ({ ...a, lat: parseFloat(a.lat), lng: parseFloat(a.lng) }))
       .filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lng))
 
+    // Apply current hover state at creation so rebuilt markers keep their
+    // highlight rather than flashing back to unhighlighted.
+    const currentHoveredIds = hoveredActivityIdsRef.current || []
+
     visible.forEach(a => {
       const inDay = a.day_id && dayIndexById[a.day_id]
+      const isHot = currentHoveredIds.includes(a.id)
       const marker = new window.AMap.Marker({
         position: [ a.lng, a.lat ],
         title: a.name,
-        content: buildMarkerHTML(a, dayIndexById, theme),
+        content: buildMarkerHTML(a, dayIndexById, theme, isHot),
         anchor: 'center',
         extData: { activity: a },
       })

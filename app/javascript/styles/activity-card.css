@@ -277,13 +277,14 @@
   flex-shrink: 0;
 }
 
-/* Synthesized from route_legs — read-only, drags pass through to the next card.
-   Dotted (vs dashed on activity-backed) signals "inferred from route_leg, not
-   a user-kept road activity" — interaction differs too (no click/drag), so the
-   line style differentiates at a glance. */
+/* Synthesized from route_legs — read-only, but still hoverable so the spec's
+   "hover synthesized connector → both endpoints + own bar light up" path is
+   reachable. Dotted (vs dashed on activity-backed) signals "inferred from
+   route_leg, not a user-kept road activity" — interaction differs (no click,
+   no drag: the component has neither useDraggable nor useDroppable, so dnd
+   doesn't know about the element), only the line style + opacity distinguish. */
 .rc-line.rc-synthesized {
   cursor: default;
-  pointer-events: none;
   opacity: 0.85;
   border-left-style: dotted;
 }
