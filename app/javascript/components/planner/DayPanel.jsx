@@ -27,6 +27,7 @@ export default function DayPanel({
   onEditDay,
   readOnly,
   dragWarning,
+  routeLegs,
 }) {
   const autoFitButton = (
     <UnstyledButton
@@ -85,6 +86,7 @@ export default function DayPanel({
             onEditDay={onEditDay}
             readOnly={readOnly}
             dragWarning={dragWarning?.dayId === d.id ? dragWarning : null}
+            routeLegs={routeLegs}
           />
         ))}
         <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />

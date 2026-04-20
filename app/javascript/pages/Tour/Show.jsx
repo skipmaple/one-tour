@@ -239,6 +239,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
             autoFit={layout.panels.days.autoFit}
             onToggleAutoFit={layout.toggleAutoFit}
             flexStyle={layout.flexStyle('days', { autoFitWidth: days.length * 200 + 32 })}
+            routeLegs={route_legs || []}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('days', 'map')}

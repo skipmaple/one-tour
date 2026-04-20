@@ -12,7 +12,7 @@ const INTENSITY_COLORS = {
 
 const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-export default function DayColumn({ day, activities, constitution, onAddActivity, onEditActivity, onEditDay, readOnly, dragWarning }) {
+export default function DayColumn({ day, activities, constitution, onAddActivity, onEditActivity, onEditDay, readOnly, dragWarning, routeLegs = [] }) {
   const maxH = Math.round((constitution?.max_daily_driving_minutes || 420) / 60)
   const maxTier1 = constitution?.max_tier_one_per_day || 3
 
