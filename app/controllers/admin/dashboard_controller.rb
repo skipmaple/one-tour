@@ -6,7 +6,8 @@ module Admin
       range = resolve_range
       render inertia: "Admin/Dashboard", props: {
         range: range_key,
-        kpis:  compute_kpis(range)
+        kpis:  compute_kpis(range),
+        trend: compute_trend(range)
       }
     end
 
@@ -40,6 +41,27 @@ module Admin
       message_user_ids = Message.billable.where(created_at: range)
                                 .joins(conversation: :user).pluck("users.id")
       (tour_user_ids + member_user_ids + message_user_ids).uniq.size
+    end
+
+    def compute_trend(range)
+      rows = Message.billable
+                    .where(created_at: range)
+                    .group("DATE_TRUNC('day', created_at)")
+                    .pluck(Arel.sql("DATE_TRUNC('day', created_at)"),
+                           Arel.sql("COUNT(*)"),
+                           Arel.sql("COALESCE(SUM(cost_cents), 0)"))
+
+      by_date = rows.to_h { |date, cnt, cost| [date.to_date, { count: cnt, cost: cost }] }
+      days_in_range = ((range.begin.to_date)..(range.end.to_date)).to_a
+
+      days_in_range.map do |d|
+        bucket = by_date[d] || { count: 0, cost: 0 }
+        {
+          "date"       => d.iso8601,
+          "messages"   => bucket[:count],
+          "cost_cents" => bucket[:cost].to_i
+        }
+      end
     end
   end
 end

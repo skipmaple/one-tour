@@ -2,6 +2,7 @@ import { usePage, router } from '@inertiajs/react'
 import {
   Container, SimpleGrid, Card, Group, Text, Title, Tabs, Stack,
 } from '@mantine/core'
+import { LineChart } from '@mantine/charts'
 import {
   IconUserPlus, IconUsersGroup, IconMapPlus, IconMap,
   IconMessageDots, IconCurrencyYen,
@@ -32,7 +33,7 @@ function fmtCost(cents) {
 
 export default function Dashboard() {
   const { url, props } = usePage()
-  const { range, kpis } = props
+  const { range, kpis, trend } = props
 
   const onRangeChange = (value) => {
     router.get('/admin', { range: value }, { preserveState: true, preserveScroll: true })
@@ -61,6 +62,33 @@ export default function Dashboard() {
             <KpiCard icon={IconMessageDots}  label="LLM 消息" value={kpis.llm_messages} />
             <KpiCard icon={IconCurrencyYen}  label="LLM 成本" value={fmtCost(kpis.llm_cost_cents)} />
           </SimpleGrid>
+
+          <Card withBorder padding="md" radius="md">
+            <Group justify="space-between" mb="md">
+              <Text fw={600}>趋势</Text>
+              <Text size="sm" c="dimmed">消息数（左）· 成本 ¥（右）</Text>
+            </Group>
+            {trend.length === 0 ? (
+              <Text c="dimmed" ta="center" py="xl">本时段暂无数据</Text>
+            ) : (
+              <LineChart
+                h={240}
+                data={trend.map((t) => ({
+                  ...t,
+                  cost_yuan: t.cost_cents / 100,
+                }))}
+                dataKey="date"
+                series={[
+                  { name: 'messages',  label: '消息数', color: 'blue.6',   yAxisId: 'left'  },
+                  { name: 'cost_yuan', label: '成本¥',  color: 'orange.6', yAxisId: 'right' },
+                ]}
+                withRightYAxis
+                curveType="monotone"
+                withTooltip
+                withLegend
+              />
+            )}
+          </Card>
         </Stack>
       </Container>
     </AdminShell>

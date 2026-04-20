@@ -27,6 +27,7 @@
     "@emotion/react": "^11.14.0",
     "@inertiajs/react": "^3.0.3",
     "@inertiajs/vite": "^3.0.3",
+    "@mantine/charts": "^9.0.2",
     "@mantine/core": "^9.0.1",
     "@mantine/dates": "^9.0.2",
     "@mantine/form": "^9.0.2",
@@ -47,6 +48,7 @@
     "react-dom": "^19.2.5",
     "react-leaflet": "^5.0.0",
     "react-markdown": "^10.1.0",
+    "recharts": "^3.8.1",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1"
   }

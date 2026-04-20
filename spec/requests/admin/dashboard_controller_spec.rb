@@ -41,4 +41,22 @@ RSpec.describe "Admin::DashboardController", type: :request do
     props = JSON.parse(response.body).fetch("props")
     expect(props.fetch("range")).to eq("7d")
   end
+
+  it "returns trend[] data in Inertia props with date/messages/cost per bucket" do
+    user = create(:user)
+    tour = create(:tour, author: user)
+    conv = create(:conversation, tour: tour, user: user)
+    create(:message, conversation: conv, role: :assistant,
+                      tokens_in: 10, tokens_out: 20, cost_cents: 7,
+                      created_at: 2.days.ago)
+
+    get "/admin?range=7d", headers: inertia_headers
+    props = JSON.parse(response.body).fetch("props")
+    trend = props.fetch("trend")
+
+    expect(trend).to be_an(Array)
+    sample = trend.find { |b| b["messages"] > 0 }
+    expect(sample).to include("date", "messages", "cost_cents")
+    expect(sample["cost_cents"]).to eq(7)
+  end
 end
