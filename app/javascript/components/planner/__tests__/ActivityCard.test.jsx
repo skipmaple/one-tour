@@ -162,3 +162,35 @@ test('ActivityCardOverlay renders name without drag handlers', () => {
   render(<ActivityCardOverlay activity={baseActivity} />)
   expect(screen.getByText('喀纳斯湖')).toBeInTheDocument()
 })
+
+test('applies .ac-highlighted class when isHighlighted=true', () => {
+  const { container } = renderInDnd(<ActivityCard activity={baseActivity} isHighlighted />)
+  expect(container.querySelector('.ac-card.ac-highlighted')).toBeInTheDocument()
+})
+
+test('does NOT apply .ac-highlighted class when isHighlighted=false', () => {
+  const { container } = renderInDnd(<ActivityCard activity={baseActivity} isHighlighted={false} />)
+  expect(container.querySelector('.ac-card.ac-highlighted')).toBeNull()
+})
+
+test('calls onHoverActivity(activity.id) on mouseenter and onClearHover on mouseleave', () => {
+  const onHoverActivity = vi.fn()
+  const onClearHover    = vi.fn()
+  const { container } = renderInDnd(
+    <ActivityCard
+      activity={baseActivity}
+      onHoverActivity={onHoverActivity}
+      onClearHover={onClearHover}
+    />
+  )
+  const card = container.querySelector('.ac-card')
+  fireEvent.mouseEnter(card)
+  expect(onHoverActivity).toHaveBeenCalledWith(baseActivity.id)
+  fireEvent.mouseLeave(card)
+  expect(onClearHover).toHaveBeenCalled()
+})
+
+test('renders data-day-color attribute from dayColorName prop', () => {
+  const { container } = renderInDnd(<ActivityCard activity={baseActivity} dayColorName="blue" />)
+  expect(container.querySelector('.ac-card').getAttribute('data-day-color')).toBe('blue')
+})

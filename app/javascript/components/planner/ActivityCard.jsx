@@ -150,7 +150,15 @@ function ThumbAndBadge({ activity }) {
   )
 }
 
-export default function ActivityCard({ activity, onClick, readOnly }) {
+export default function ActivityCard({
+  activity,
+  onClick,
+  readOnly,
+  isHighlighted = false,
+  onHoverActivity,
+  onClearHover,
+  dayColorName = 'none',
+}) {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } =
     useDraggable({ id: `activity-${activity.id}` })
   const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -171,12 +179,23 @@ export default function ActivityCard({ activity, onClick, readOnly }) {
   const extra = [
     isDragging ? 'ac-dragging' : '',
     readOnly && onClick ? 'ac-readonly' : '',
+    isHighlighted ? 'ac-highlighted' : '',
   ].filter(Boolean).join(' ')
+
+  const handleMouseEnter = () => {
+    if (onHoverActivity) onHoverActivity(activity.id)
+  }
+  const handleMouseLeave = () => {
+    if (onClearHover) onClearHover()
+  }
 
   return (
     <div
       ref={setRef}
       className={cardClasses(activity, extra)}
+      data-day-color={dayColorName}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       {...dragAttributes}
       {...dragListeners}
     >
