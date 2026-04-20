@@ -327,9 +327,10 @@ describe('buildMarkerHTML highlighted state', () => {
     expect(html).toContain('scale(1.3)')
   })
 
-  test('highlighted=false (default) uses scale(1)', () => {
+  test('highlighted=false (default) uses scale(1) and NOT scale(1.3)', () => {
     const html = buildMarkerHTML({ day_id: 10 }, { 10: 1 }, theme)
     expect(html).toContain('scale(1)')
+    expect(html).not.toContain('scale(1.3)')
   })
 
   test('backlog marker honors highlighted flag', () => {

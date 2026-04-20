@@ -189,6 +189,15 @@ function PlannerMapInner({
   // close the previous one when the cursor moves between segments.
   const tooltipRef = useRef(null)
 
+  // Mirror hover callbacks in refs so AMap marker listeners (registered ONCE
+  // per marker creation) always call the current callback reference. Without
+  // this, a prop-ref change on hoveredActivityIds-unrelated renders would
+  // leave markers calling a stale version of the callback.
+  const onMarkerHoverRef = useRef(onMarkerHover)
+  const onMarkerLeaveRef = useRef(onMarkerLeave)
+  useEffect(() => { onMarkerHoverRef.current = onMarkerHover }, [onMarkerHover])
+  useEffect(() => { onMarkerLeaveRef.current = onMarkerLeave }, [onMarkerLeave])
+
   const [ batchSaving, setBatchSaving ] = useState(false)
 
   // Stable lookup: day.id → day_index (for marker labels like "D2")
@@ -347,8 +356,8 @@ function PlannerMapInner({
         offset: new window.AMap.Pixel(0, -20)
       })
       marker.on('click', () => info.open(map, marker.getPosition()))
-      marker.on('mouseover', () => { if (onMarkerHover) onMarkerHover(a.id) })
-      marker.on('mouseout',  () => { if (onMarkerLeave) onMarkerLeave() })
+      marker.on('mouseover', () => onMarkerHoverRef.current?.(a.id))
+      marker.on('mouseout',  () => onMarkerLeaveRef.current?.())
       marker.setMap(map)
       markersRef.current.push(marker)
       markerByIdRef.current[a.id] = marker
