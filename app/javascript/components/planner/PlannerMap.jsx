@@ -560,6 +560,9 @@ export default function PlannerMap({
   onToggle,
   canToggle = true,
   flexStyle,
+  hoveredActivityIds,
+  onMarkerHover,
+  onMarkerLeave,
 }) {
   return (
     <PanelShell
@@ -576,6 +579,9 @@ export default function PlannerMap({
         routeLegs={routeLegs}
         tourId={tourId}
         canEdit={canEdit}
+        hoveredActivityIds={hoveredActivityIds}
+        onMarkerHover={onMarkerHover}
+        onMarkerLeave={onMarkerLeave}
       />
     </PanelShell>
   )
