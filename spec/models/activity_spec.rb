@@ -148,6 +148,19 @@ RSpec.describe Activity do
         tour.author_id, member1.id, member2.id
       )
     end
+
+    it "does not issue a SQL query when activity_participants is preloaded" do
+      ActivityParticipant.create!(activity: activity, user: member1)
+      preloaded = Activity.where(id: activity.id).includes(:activity_participants).first
+
+      queries = []
+      callback = ->(*, payload) { queries << payload[:sql] unless payload[:name] == "SCHEMA" }
+      ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+        expect(preloaded.effective_participant_ids).to contain_exactly(member1.id)
+      end
+
+      expect(queries.select { |q| q.include?("activity_participants") }).to be_empty
+    end
   end
 
   describe "associations" do
