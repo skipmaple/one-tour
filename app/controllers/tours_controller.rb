@@ -21,7 +21,9 @@ class ToursController < ApplicationController
     render inertia: "Tour/Show", props: {
       tour: @tour.as_json.merge("editable_by_current_user" => @tour.editable_by?(current_user)),
       days: @tour.days.map { |d| d.as_json.merge("intensity_derived" => d.intensity_derived(tour_violations).to_s) },
-      activities: @tour.activities.as_json,
+      activities: @tour.activities.includes(:activity_participants).map { |a|
+        a.as_json.merge("participant_user_ids" => a.activity_participants.map(&:user_id))
+      },
       activity_images: activity_images_for(@tour),
       expenses: expenses_for(@tour),
       expenses_summary: Expense::Summarize.new(@tour, current_user).call,

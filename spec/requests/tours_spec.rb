@@ -5,16 +5,17 @@ RSpec.describe "Tours", type: :request do
     post "/login_test", params: { user_id: user.id }
   end
 
+  # inertia_rails >= 3.20 serialises the page blob into
+  #   <script data-page="app" type="application/json">{...}</script>
+  def inertia_page_from(body)
+    match = body.match(/<script data-page="app" type="application\/json">(.*?)<\/script>/m)
+    match or raise "no Inertia <script data-page> block in body"
+    JSON.parse(match[1])
+  end
+
   let(:user) { create(:user) }
 
   describe "inertia_share current_user (BUG #1)" do
-    # inertia_rails >= 3.20 serialises the page blob into
-    #   <script data-page="app" type="application/json">{...}</script>
-    def inertia_page_from(body)
-      match = body.match(/<script data-page="app" type="application\/json">(.*?)<\/script>/m)
-      match or raise "no Inertia <script data-page> block in body"
-      JSON.parse(match[1])
-    end
 
     it "embeds current_user into the Inertia page props so the nav layout can read it" do
       login_as(user)
@@ -126,6 +127,43 @@ RSpec.describe "Tours", type: :request do
       get "/tours/#{tour.id}"
       expect(response).to have_http_status(:ok)
       expect(response.body).to include('"conversation_empty":false')
+    end
+  end
+
+  describe "GET /tours/:id — participant_user_ids on activities" do
+    it "includes participant_user_ids as empty array for activity without explicit participants" do
+      tour = create(:tour, author: user)
+      activity = create(:activity, tour: tour)
+
+      login_as(user)
+      get "/tours/#{tour.id}"
+
+      expect(response).to have_http_status(:ok)
+      page = inertia_page_from(response.body)
+      activities = page.dig("props", "activities")
+      act = activities.find { |a| a["id"] == activity.id }
+      expect(act).not_to be_nil
+      expect(act["participant_user_ids"]).to eq([])
+    end
+
+    it "includes participant_user_ids with member ids for activity with explicit participants" do
+      tour   = create(:tour, author: user)
+      member = create(:user)
+      create(:tour_membership, tour: tour, user: member, role: :editor)
+      activity_with    = create(:activity, tour: tour)
+      activity_without = create(:activity, tour: tour)
+      ActivityParticipant.create!(activity: activity_with, user: member)
+
+      login_as(user)
+      get "/tours/#{tour.id}"
+
+      expect(response).to have_http_status(:ok)
+      page = inertia_page_from(response.body)
+      activities = page.dig("props", "activities")
+      with_act    = activities.find { |a| a["id"] == activity_with.id }
+      without_act = activities.find { |a| a["id"] == activity_without.id }
+      expect(with_act["participant_user_ids"]).to eq([member.id])
+      expect(without_act["participant_user_ids"]).to eq([])
     end
   end
 
