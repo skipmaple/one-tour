@@ -1,7 +1,9 @@
+import { useMemo } from 'react'
 import { Paper, Text, Stack, Group, Button } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
 import { IconAlertTriangleFilled } from '@tabler/icons-react'
 import ActivityCard from './ActivityCard'
+import RoadConnector from './RoadConnector'
 import DayMetricBar from '../DayMetricBar'
 
 const INTENSITY_COLORS = {
@@ -33,6 +35,75 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
 
   const handleHeaderClick = () => {
     if (!readOnly && onEditDay) onEditDay(day.id)
+  }
+
+  // Build a pair-indexed lookup of drive-mode route_legs for synthesis
+  // between adjacent ActivityCards: routeLegByPair[fromId][toId] = leg
+  const routeLegByPair = useMemo(() => {
+    const out = {}
+    for (const leg of routeLegs) {
+      if (leg.mode !== 0 && leg.mode !== 'drive') continue
+      const from = leg.from_activity_id
+      const to = leg.to_activity_id
+      if (from == null || to == null) continue
+      out[from] = out[from] || {}
+      out[from][to] = leg
+    }
+    return out
+  }, [routeLegs])
+
+  // Walk activities in order, emitting an ActivityCard or a RoadConnector
+  // per activity, and inserting a synthesized RoadConnector between
+  // adjacent ActivityCards when a matching route_leg exists.
+  const renderedItems = []
+  let prevCardActivity = null // last ActivityCard activity, for synthesis lookup
+  for (const a of activities) {
+    const isRoadConnectorActivity = a.kind === 'road' && a.citizen_level !== 'tier_one'
+
+    if (isRoadConnectorActivity) {
+      // Find the NEXT non-road-connector activity after this one (for fallback)
+      const currentIdx = activities.indexOf(a)
+      const next = activities.find((x, idx) => idx > currentIdx && !(x.kind === 'road' && x.citizen_level !== 'tier_one'))
+      const fallback = (prevCardActivity && next) ? routeLegByPair[prevCardActivity.id]?.[next.id] : undefined
+      renderedItems.push(
+        <RoadConnector
+          key={`conn-${a.id}`}
+          activity={a}
+          legFallback={fallback}
+          onClick={onEditActivity}
+          readOnly={readOnly}
+        />
+      )
+      // A connector activity does not become prevCardActivity; the card before it stays
+      continue
+    }
+
+    // This activity will render as an ActivityCard (scenic/food/stay/fuel/other,
+    // or road+tier_one).
+    // Before emitting, check if we should synthesize a connector between
+    // prevCardActivity and this one (only when there was no connector-activity between them).
+    const lastPushed = renderedItems[renderedItems.length - 1]
+    const lastKey = lastPushed && lastPushed.key ? String(lastPushed.key) : ''
+    const lastWasConnector = lastKey.startsWith('conn-') || lastKey.startsWith('synth-')
+    if (prevCardActivity && !lastWasConnector) {
+      const leg = routeLegByPair[prevCardActivity.id]?.[a.id]
+      if (leg) {
+        renderedItems.push(
+          <RoadConnector
+            key={`synth-${prevCardActivity.id}-${a.id}`}
+            synthesized
+            leg={leg}
+            fromActivityId={prevCardActivity.id}
+            toActivityId={a.id}
+          />
+        )
+      }
+    }
+
+    renderedItems.push(
+      <ActivityCard key={a.id} activity={a} onClick={onEditActivity} readOnly={readOnly} />
+    )
+    prevCardActivity = a
   }
 
   return (
@@ -89,9 +160,7 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
         background: isOver ? '#f0f7ff' : undefined,
         border: dragWarning ? '1px solid var(--mantine-color-red-6)' : undefined
       }}>
-        {activities.map(a => (
-          <ActivityCard key={a.id} activity={a} onClick={onEditActivity} readOnly={readOnly} />
-        ))}
+        {renderedItems}
         {activities.length === 0 && <Text size="xs" c="dimmed" ta="center" mt="md">空</Text>}
       </Stack>
       {!readOnly && onAddActivity && (
