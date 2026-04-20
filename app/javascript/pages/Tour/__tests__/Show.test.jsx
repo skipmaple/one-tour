@@ -12,6 +12,7 @@ vi.mock('@inertiajs/react', () => ({
 // PlannerMap loads AMAP JS SDK via <script>; stub it out for unit tests.
 vi.mock('../../../components/planner/PlannerMap', () => ({
   default: () => <div data-testid="planner-map-stub" />,
+  DAY_COLOR: (day_index) => 'red',
 }))
 
 vi.mock('@dnd-kit/core', () => ({
@@ -25,7 +26,8 @@ vi.mock('@dnd-kit/core', () => ({
     </div>
   ),
   DragOverlay: ({ children }) => <div data-testid="drag-overlay">{children}</div>,
-  closestCenter: null,
+  pointerWithin: () => [],
+  rectIntersection: () => [],
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, isDragging: false }),
   PointerSensor: class PointerSensor {},

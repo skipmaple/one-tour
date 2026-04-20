@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
 import { Button, Group, Text } from '@mantine/core'
-import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, DragOverlay, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { IconPencil } from '@tabler/icons-react'
@@ -23,6 +23,19 @@ import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
 
+// Hybrid collision: prefer the droppable the cursor is literally inside
+// (pointerWithin). Only when the pointer is outside every droppable — e.g.
+// dropping below a day column's last item in free scroll space — fall back
+// to rectIntersection so the drop still lands somewhere plausible.
+// closestCenter / closestCorners both misfire here: the former misses the
+// empty tail of a column, the latter misfires horizontally (same-y-band
+// origin card wins a drag-to-backlog).
+function hybridCollisionDetection(args) {
+  const pointerCollisions = pointerWithin(args)
+  if (pointerCollisions.length > 0) return pointerCollisions
+  return rectIntersection(args)
+}
+
 export default function Show({ tour, days, activities, activity_images, expenses, expenses_summary, tour_budgets, settlements, route_legs, violations, members, author, conversation_empty }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
@@ -39,6 +52,15 @@ export default function Show({ tour, days, activities, activity_images, expenses
   // Drag overlay state
   const [activeId, setActiveId] = useState(null)
   const [ dragWarning, setDragWarning ] = useState(null)
+
+  // Card ↔ Map hover highlight. Single state piece; array shape lets a
+  // connector emit BOTH endpoint ids so both markers light up. null = nothing.
+  const [hoveredActivityIds, setHoveredActivityIds] = useState(null)
+  const onHoverActivity = useCallback((id) => setHoveredActivityIds([id]), [])
+  const onHoverConnector = useCallback((fromId, toId) => setHoveredActivityIds([fromId, toId]), [])
+  const onMarkerHover = useCallback((id) => setHoveredActivityIds([id]), [])
+  const onClearHover = useCallback(() => setHoveredActivityIds(null), [])
+  const onMarkerLeave = useCallback(() => setHoveredActivityIds(null), [])
 
   // Activation constraint: 5px drag threshold lets the whole ActivityCard be
   // draggable without swallowing plain clicks (which still fire onClick to
@@ -144,7 +166,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
       <Head title={tour.title} />
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={hybridCollisionDetection}
         onDragStart={({ active }) => setActiveId(active.id)}
         onDragOver={({ active, over }) => updateDragWarning(active, over)}
         onDragEnd={(e) => { setActiveId(null); setDragWarning(null); handleDragEnd(e) }}
@@ -217,6 +239,9 @@ export default function Show({ tour, days, activities, activity_images, expenses
             onToggle={() => layout.togglePanel('candidates')}
             canToggle={layout.openCount > 1 || !layout.panels.candidates.open}
             flexStyle={layout.flexStyle('candidates')}
+            hoveredActivityIds={hoveredActivityIds}
+            onHoverActivity={onHoverActivity}
+            onClearHover={onClearHover}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('candidates', 'days')}
@@ -239,6 +264,11 @@ export default function Show({ tour, days, activities, activity_images, expenses
             autoFit={layout.panels.days.autoFit}
             onToggleAutoFit={layout.toggleAutoFit}
             flexStyle={layout.flexStyle('days', { autoFitWidth: days.length * 200 + 32 })}
+            routeLegs={route_legs || []}
+            hoveredActivityIds={hoveredActivityIds}
+            onHoverActivity={onHoverActivity}
+            onHoverConnector={onHoverConnector}
+            onClearHover={onClearHover}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('days', 'map')}
@@ -255,6 +285,9 @@ export default function Show({ tour, days, activities, activity_images, expenses
             onToggle={() => layout.togglePanel('map')}
             canToggle={layout.openCount > 1 || !layout.panels.map.open}
             flexStyle={layout.flexStyle('map')}
+            hoveredActivityIds={hoveredActivityIds}
+            onMarkerHover={onMarkerHover}
+            onMarkerLeave={onMarkerLeave}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('map', 'ai')}

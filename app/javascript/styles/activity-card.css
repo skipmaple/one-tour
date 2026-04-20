@@ -235,3 +235,112 @@
   transform: rotate(2deg);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
+
+/* Road connector — slim inline line between ActivityCards for non-tier1 road
+   activities and for synthesized route_leg pairs. Visual style B from
+   brainstorm: 2px dashed left border + inline car icon + Chinese-unit text. */
+.rc-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  /* Negative vertical margins collapse the gap so the dashed line starts
+     flush with the card above and ends flush with the card below.
+     -12px cancels .ac-card margin-bottom (8px) + Stack gap (4px);
+     -4px cancels the Stack gap (4px) below.
+     margin-left: 5px puts the dashed line on the same vertical axis as the
+     card's kind-icon / signal-bar column (both inset 5px from card edge),
+     so the "route" visually continues out of the card's content column. */
+  margin: -12px 0 -4px 5px;
+  padding: 4px 8px 4px 24px;
+  border-left: 2px dashed rgba(0, 0, 0, 0.18);
+  font-size: 10.5px;
+  color: #6b7280;
+  font-weight: 500;
+  flex-shrink: 0; /* same rigidity fix as .ac-card — don't crush in dense columns */
+  cursor: default;
+  position: relative;
+}
+
+/* Cursor affordance matches .ac-card pattern: grab only when actually
+   draggable (dnd-kit adds aria-roledescription on the outer element when
+   it spreads its attributes), default otherwise. Keeps readOnly/synthesized
+   connectors from showing a misleading grab cursor. */
+.rc-line[aria-roledescription="draggable"] {
+  cursor: grab;
+}
+
+.rc-line svg {
+  width: 12px;
+  height: 12px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+/* Synthesized from route_legs — read-only, but still hoverable so the spec's
+   "hover synthesized connector → both endpoints + own bar light up" path is
+   reachable. Dotted (vs dashed on activity-backed) signals "inferred from
+   route_leg, not a user-kept road activity" — interaction differs (no click,
+   no drag: the component has neither useDraggable nor useDroppable, so dnd
+   doesn't know about the element), only the line style + opacity distinguish. */
+.rc-line.rc-synthesized {
+  cursor: default;
+  opacity: 0.85;
+  border-left-style: dotted;
+}
+
+/* Active drag state (matches ActivityCard.ac-dragging) */
+.rc-line.rc-dragging {
+  opacity: 0.4;
+  cursor: grabbing;
+}
+
+/* Drop indicator (reused from .ac-drop-indicator pattern) */
+.rc-line .rc-drop-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #1677ff;
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(22, 119, 255, 0.4);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* =====================================================================
+   Card ↔ Map hover highlight
+   Day-color CSS custom property. Populated via [data-day-color] on cards
+   and connectors. The attribute value mirrors PlannerMap.jsx DAY_PALETTE
+   (red/pink/grape/violet/indigo/blue/cyan/teal/green/yellow). "none" is
+   the backlog / unassigned state. Keep in sync with DAY_PALETTE.
+   ===================================================================== */
+.ac-card[data-day-color="red"],    .rc-line[data-day-color="red"]    { --day-accent: var(--mantine-color-red-6); }
+.ac-card[data-day-color="pink"],   .rc-line[data-day-color="pink"]   { --day-accent: var(--mantine-color-pink-6); }
+.ac-card[data-day-color="grape"],  .rc-line[data-day-color="grape"]  { --day-accent: var(--mantine-color-grape-6); }
+.ac-card[data-day-color="violet"], .rc-line[data-day-color="violet"] { --day-accent: var(--mantine-color-violet-6); }
+.ac-card[data-day-color="indigo"], .rc-line[data-day-color="indigo"] { --day-accent: var(--mantine-color-indigo-6); }
+.ac-card[data-day-color="blue"],   .rc-line[data-day-color="blue"]   { --day-accent: var(--mantine-color-blue-6); }
+.ac-card[data-day-color="cyan"],   .rc-line[data-day-color="cyan"]   { --day-accent: var(--mantine-color-cyan-6); }
+.ac-card[data-day-color="teal"],   .rc-line[data-day-color="teal"]   { --day-accent: var(--mantine-color-teal-6); }
+.ac-card[data-day-color="green"],  .rc-line[data-day-color="green"]  { --day-accent: var(--mantine-color-green-6); }
+.ac-card[data-day-color="yellow"], .rc-line[data-day-color="yellow"] { --day-accent: var(--mantine-color-yellow-6); }
+.ac-card[data-day-color="none"],   .rc-line[data-day-color="none"]   { --day-accent: #9ca3af; }
+
+/* Hover-only device: touch devices have no hover, silently skip. */
+@media (hover: hover) {
+  .ac-card.ac-highlighted,
+  .rc-line.rc-highlighted {
+    box-shadow: inset 3px 0 0 var(--day-accent, #6b7280);
+  }
+}
+
+/* Tint applies only when user hasn't asked for reduced motion.
+   Using `no-preference` (the positive form) avoids the `@media not ...`
+   syntax which varies in browser support and can drop the entire rule. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .ac-card.ac-highlighted {
+    background-color: color-mix(in srgb, var(--day-accent) 4%, white);
+  }
+}

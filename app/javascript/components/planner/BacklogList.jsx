@@ -47,6 +47,9 @@ export default function BacklogList({
   onToggle,
   canToggle = true,
   flexStyle,
+  hoveredActivityIds = null,
+  onHoverActivity,
+  onClearHover,
 }) {
   const [kindFilter, setKindFilter] = useState('')
   const [levelFilter, setLevelFilter] = useState('')
@@ -170,7 +173,15 @@ export default function BacklogList({
 
             <Stack gap={4}>
               {filtered.map(a => (
-                <ActivityCard key={a.id} activity={a} onClick={onEditActivity} readOnly={readOnly} />
+                <ActivityCard
+                  key={a.id}
+                  activity={a}
+                  onClick={onEditActivity}
+                  readOnly={readOnly}
+                  isHighlighted={hoveredActivityIds != null && hoveredActivityIds.includes(a.id)}
+                  onHoverActivity={onHoverActivity}
+                  onClearHover={onClearHover}
+                />
               ))}
               {filtered.length === 0 && (
                 <Text size="xs" c="dimmed">无匹配的候选。调整筛选或清空条件。</Text>
