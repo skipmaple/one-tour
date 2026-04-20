@@ -198,6 +198,10 @@ function PlannerMapInner({
   useEffect(() => { onMarkerHoverRef.current = onMarkerHover }, [onMarkerHover])
   useEffect(() => { onMarkerLeaveRef.current = onMarkerLeave }, [onMarkerLeave])
 
+  // Previous hoveredActivityIds — used by the highlight effect to diff and
+  // only setContent on markers whose state actually changed.
+  const prevHoveredIdsRef = useRef([])
+
   const [ batchSaving, setBatchSaving ] = useState(false)
 
   // Stable lookup: day.id → day_index (for marker labels like "D2")
@@ -372,18 +376,27 @@ function PlannerMapInner({
     // visible.length === 0: don't move map (user keeps current view)
   }, [ activities, dayIndexById, viewMode, theme, sdkState ])
 
-  // Sync marker highlight state with hoveredActivityIds. Changing a marker's
-  // content replaces its DOM in place; the 150ms CSS transition on the
-  // wrapper makes the scale read as smooth.
+  // Sync marker highlight state with hoveredActivityIds. Only touches markers
+  // whose highlighted state actually changed (union of previous and next ids).
+  // Typical hover affects 1-2 ids out of 50+ markers, so this is O(1) vs the
+  // naive "rebuild all markers" approach which was O(n) per hover event.
+  // Note: when dayIndexById or theme changes, the separate markers-sync effect
+  // rebuilds all markers from scratch, so this effect doesn't need to worry
+  // about repainting unchanged markers on theme change.
   useEffect(() => {
     if (!window.AMap) return
-    const ids = hoveredActivityIds || []
-    Object.entries(markerByIdRef.current).forEach(([idStr, marker]) => {
+    const next = hoveredActivityIds || []
+    const prev = prevHoveredIdsRef.current
+    const touchedIds = new Set([ ...prev, ...next ])
+    touchedIds.forEach(id => {
+      const marker = markerByIdRef.current[id]
+      if (!marker) return
       const a = marker.getExtData?.().activity
       if (!a) return
-      const isHot = ids.includes(a.id)
+      const isHot = next.includes(a.id)
       marker.setContent(buildMarkerHTML(a, dayIndexById, theme, isHot))
     })
+    prevHoveredIdsRef.current = next
   }, [ hoveredActivityIds, dayIndexById, theme ])
 
   // Sync polylines with activities + days + viewMode + theme.
