@@ -245,3 +245,43 @@ test('non-empty backlog: clicking toolbar AI 帮选 calls onAskAI', () => {
   fireEvent.click(screen.getByRole('button', { name: 'AI 帮选' }))
   expect(onAskAI).toHaveBeenCalled()
 })
+
+test('hoveredActivityIds=[id] applies .ac-highlighted to the matching card only', () => {
+  const { container } = render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          hoveredActivityIds={[2]}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  const cards = container.querySelectorAll('.ac-card')
+  expect(cards).toHaveLength(3)
+  // fixtures order: id=1 赛里木湖, id=2 独库公路, id=3 早餐
+  expect(cards[0].classList.contains('ac-highlighted')).toBe(false)
+  expect(cards[1].classList.contains('ac-highlighted')).toBe(true)
+  expect(cards[2].classList.contains('ac-highlighted')).toBe(false)
+})
+
+test('card mouseenter calls onHoverActivity(id); mouseleave calls onClearHover', () => {
+  const onHoverActivity = vi.fn()
+  const onClearHover = vi.fn()
+  const { container } = render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList
+          activities={fixtures}
+          onHoverActivity={onHoverActivity}
+          onClearHover={onClearHover}
+        />
+      </DndContext>
+    </MantineProvider>
+  )
+  const firstCard = container.querySelectorAll('.ac-card')[0]
+  fireEvent.mouseEnter(firstCard)
+  expect(onHoverActivity).toHaveBeenCalledWith(1) // fixtures[0].id === 1
+  fireEvent.mouseLeave(firstCard)
+  expect(onClearHover).toHaveBeenCalled()
+})
