@@ -325,12 +325,12 @@
   .rc-line.rc-highlighted {
     box-shadow: inset 3px 0 0 var(--day-accent, #6b7280);
   }
-  .ac-card.ac-highlighted {
-    background-color: color-mix(in srgb, var(--day-accent) 4%, white);
+  /* Motion-reduced users get the bar but skip the tint.
+     Nested guard (instead of a later override) avoids relying on source-order
+     specificity: if a bundler reorders stylesheets, the tint still won't apply. */
+  @media not (prefers-reduced-motion: reduce) {
+    .ac-card.ac-highlighted {
+      background-color: color-mix(in srgb, var(--day-accent) 4%, white);
+    }
   }
-}
-
-/* Motion-reduced users: keep the bar, drop the tint. */
-@media (prefers-reduced-motion: reduce) {
-  .ac-card.ac-highlighted { background-color: initial; }
 }
