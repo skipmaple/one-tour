@@ -51,4 +51,33 @@ RSpec.describe "Admin::UsersController", type: :request do
       expect(props["total"]).to be >= 30
     end
   end
+
+  describe "GET /admin/users/:id" do
+    it "returns profile, lifetime stats, tours, recent messages" do
+      user = create(:user, name: "Carol", email: "carol@ex.com")
+      tour = create(:tour, author: user, title: "Xinjiang")
+      create(:tour_membership, user: user, tour: create(:tour))
+      conv = create(:conversation, tour: tour, user: user)
+      create(:message, conversation: conv, role: :user, content: "hi")
+      create(:message, conversation: conv, role: :assistant, content: "hello",
+                        tokens_in: 10, tokens_out: 20, cost_cents: 5)
+
+      get "/admin/users/#{user.id}", headers: inertia_headers
+      props = JSON.parse(response.body).fetch("props")
+
+      expect(props["profile"]).to include("id" => user.id, "name" => "Carol")
+      expect(props["lifetime_stats"]).to include(
+        "total_tours", "total_messages", "total_tokens", "total_cost_cents"
+      )
+      expect(props["authored_tours"].first).to include("title" => "Xinjiang")
+      expect(props["joined_tours"].size).to eq(1)
+      expect(props["recent_messages"]).to be_an(Array)
+      expect(props["recent_messages"].size).to be >= 2
+    end
+
+    it "returns 404 for non-existent user" do
+      get "/admin/users/999999", headers: inertia_headers
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end

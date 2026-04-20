@@ -22,6 +22,19 @@ module Admin
       }
     end
 
+    def show
+      user = User.find(params[:id])
+      render inertia: "Admin/UsersShow", props: {
+        profile:         serialize_profile(user),
+        lifetime_stats:  lifetime_stats(user),
+        authored_tours:  authored_tours(user),
+        joined_tours:    joined_tours(user),
+        recent_messages: recent_messages(user)
+      }
+    rescue ActiveRecord::RecordNotFound
+      raise ActionController::RoutingError.new("Not Found")
+    end
+
     private
 
     def count_scope(q)
@@ -95,6 +108,63 @@ module Admin
         tokens_30d:     u.tokens_30d.to_i,
         cost_30d_cents: u.cost_30d_cents.to_i
       }
+    end
+
+    def serialize_profile(user)
+      {
+        id:              user.id,
+        name:            user.name,
+        email:           user.email,
+        role:            user.role,
+        created_at:      user.created_at.iso8601,
+        avatar_url:      user.display_avatar_url,
+        oauth_providers: user.oauth_identities.pluck(:provider)
+      }
+    end
+
+    def lifetime_stats(user)
+      msgs = Message.billable.joins(conversation: :user).where(users: { id: user.id })
+      {
+        total_tours:      user.tours.count + user.tour_memberships.count,
+        total_messages:   msgs.count,
+        total_tokens:     msgs.sum("COALESCE(tokens_in,0) + COALESCE(tokens_out,0)").to_i,
+        total_cost_cents: msgs.sum(:cost_cents).to_i
+      }
+    end
+
+    def authored_tours(user)
+      user.tours.order(updated_at: :desc).limit(20).map do |t|
+        { id: t.id, title: t.title, day_count: t.days.count, updated_at: t.updated_at.iso8601 }
+      end
+    end
+
+    def joined_tours(user)
+      TourMembership.includes(:tour).where(user: user).limit(20).map do |m|
+        {
+          id:         m.tour.id,
+          title:      m.tour.title,
+          role:       m.role,
+          joined_at:  m.created_at.iso8601,
+          updated_at: m.tour.updated_at.iso8601
+        }
+      end
+    end
+
+    def recent_messages(user)
+      Message.joins(conversation: :user)
+             .where(users: { id: user.id })
+             .order(created_at: :desc).limit(20)
+             .map do |m|
+        {
+          id:         m.id,
+          role:       m.role,
+          content:    m.content.to_s.first(200),
+          tokens_in:  m.tokens_in,
+          tokens_out: m.tokens_out,
+          cost_cents: m.cost_cents,
+          created_at: m.created_at.iso8601
+        }
+      end
     end
   end
 end
