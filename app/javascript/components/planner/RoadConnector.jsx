@@ -44,8 +44,7 @@ function ConnectorText({ km, min }) {
 
 // Synthesized variant — read-only, from a route_leg only.
 function SynthesizedConnector({ leg }) {
-  const km = leg?.distance_m != null ? Math.round(leg.distance_m / 1000) : undefined
-  const min = leg?.duration_s != null ? Math.round(leg.duration_s / 60) : undefined
+  const { km, min } = extractKmMin({ activity: null, leg })
   return (
     <div className="rc-line rc-synthesized">
       <IconCar size={12} stroke={2} aria-hidden="true" />
@@ -89,6 +88,8 @@ function ActivityBackedConnector({ activity, legFallback, onClick, readOnly }) {
 }
 
 export default function RoadConnector(props) {
+  // `synthesized` and `activity` are mutually exclusive; `synthesized` takes precedence.
+  // A synthesized connector derives all data from `leg` — `activity` is ignored.
   if (props.synthesized) {
     return <SynthesizedConnector leg={props.leg} />
   }
