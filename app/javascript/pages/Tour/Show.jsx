@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
 import { Button, Group, Text } from '@mantine/core'
-import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, DragOverlay, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { IconPencil } from '@tabler/icons-react'
@@ -22,6 +22,19 @@ import ExpenseDrawer from '../../components/planner/ExpenseDrawer'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
+
+// Hybrid collision: prefer the droppable the cursor is literally inside
+// (pointerWithin). Only when the pointer is outside every droppable — e.g.
+// dropping below a day column's last item in free scroll space — fall back
+// to rectIntersection so the drop still lands somewhere plausible.
+// closestCenter / closestCorners both misfire here: the former misses the
+// empty tail of a column, the latter misfires horizontally (same-y-band
+// origin card wins a drag-to-backlog).
+function hybridCollisionDetection(args) {
+  const pointerCollisions = pointerWithin(args)
+  if (pointerCollisions.length > 0) return pointerCollisions
+  return rectIntersection(args)
+}
 
 export default function Show({ tour, days, activities, activity_images, expenses, expenses_summary, tour_budgets, settlements, route_legs, violations, members, author, conversation_empty }) {
   const { current_user } = usePage().props
@@ -144,7 +157,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
       <Head title={tour.title} />
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={hybridCollisionDetection}
         onDragStart={({ active }) => setActiveId(active.id)}
         onDragOver={({ active, over }) => updateDragWarning(active, over)}
         onDragEnd={(e) => { setActiveId(null); setDragWarning(null); handleDragEnd(e) }}

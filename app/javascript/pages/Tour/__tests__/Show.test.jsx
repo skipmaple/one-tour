@@ -25,7 +25,8 @@ vi.mock('@dnd-kit/core', () => ({
     </div>
   ),
   DragOverlay: ({ children }) => <div data-testid="drag-overlay">{children}</div>,
-  closestCenter: null,
+  pointerWithin: () => [],
+  rectIntersection: () => [],
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
   useDraggable: () => ({ attributes: {}, listeners: {}, setNodeRef: () => {}, isDragging: false }),
   PointerSensor: class PointerSensor {},
