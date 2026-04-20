@@ -184,7 +184,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_20_175530) do
     t.jsonb "metadata"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "tokens_in"
+    t.integer "tokens_out"
+    t.integer "cost_cents"
     t.index ["conversation_id"], name: "index_messages_on_conversation_id"
+    t.index ["created_at"], name: "index_messages_on_created_at"
   end
 
   create_table "oauth_identities", force: :cascade do |t|

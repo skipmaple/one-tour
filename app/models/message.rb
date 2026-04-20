@@ -3,6 +3,8 @@ class Message < ApplicationRecord
 
   enum :role, { user: 0, assistant: 1, system: 2, tool: 3 }
 
+  scope :billable, -> { where(role: :assistant).where.not(tokens_out: nil) }
+
   # Override as_json so role is exposed as the enum key (string),
   # not the underlying integer. Frontend (useChat / MessageBubble)
   # reads `role` as 'user' / 'assistant' to render bubbles correctly.
