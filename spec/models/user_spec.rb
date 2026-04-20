@@ -1,6 +1,32 @@
 require "rails_helper"
 
 RSpec.describe User, type: :model do
+  describe "role enum" do
+    it "defaults to :user" do
+      user = create(:user)
+      expect(user.role).to eq("user")
+      expect(user.admin?).to be false
+    end
+
+    it "admin? returns true after promotion" do
+      user = create(:user)
+      user.update!(role: :admin)
+      expect(user.admin?).to be true
+    end
+  end
+
+  describe "associations (post-rename cleanup)" do
+    it "has_many :tours (not :guidebooks)" do
+      expect(User.reflect_on_association(:tours)).not_to be_nil
+      expect(User.reflect_on_association(:guidebooks)).to be_nil
+    end
+
+    it "has_many :tour_memberships (not :guidebook_memberships)" do
+      expect(User.reflect_on_association(:tour_memberships)).not_to be_nil
+      expect(User.reflect_on_association(:guidebook_memberships)).to be_nil
+    end
+  end
+
   describe "associations" do
     it "has many oauth_identities" do
       association = described_class.reflect_on_association(:oauth_identities)

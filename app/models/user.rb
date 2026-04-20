@@ -2,10 +2,12 @@ class User < ApplicationRecord
   has_one_attached :avatar
 
   has_many :oauth_identities, dependent: :destroy
-  has_many :guidebooks, foreign_key: :author_id, dependent: :destroy
-  has_many :guidebook_memberships, dependent: :destroy
+  has_many :tours, foreign_key: :author_id, dependent: :destroy
+  has_many :tour_memberships, dependent: :destroy
   has_many :conversations, dependent: :destroy
   has_many :activity_participants, dependent: :destroy
+
+  enum :role, user: 0, admin: 1
 
   validates :name, presence: true,
                    length: { maximum: 30 },
