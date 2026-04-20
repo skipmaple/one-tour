@@ -44,6 +44,19 @@ export default function DayColumn({
     (id) => hoveredActivityIds != null && hoveredActivityIds.includes(id),
     [hoveredActivityIds]
   )
+  // Connector bar lights up only when hoveredActivityIds represents a
+  // connector hover (array of exactly 2 endpoint ids) and those two endpoints
+  // match this connector's pair. Single-id hovers (from cards or map markers)
+  // highlight only the matching card, not the connectors adjacent to it.
+  const isPairHovered = useCallback(
+    (fromId, toId) =>
+      hoveredActivityIds != null &&
+      hoveredActivityIds.length === 2 &&
+      fromId != null && toId != null &&
+      hoveredActivityIds.includes(fromId) &&
+      hoveredActivityIds.includes(toId),
+    [hoveredActivityIds]
+  )
 
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${day.id}`,
@@ -108,7 +121,7 @@ export default function DayColumn({
           legFallback={fallback}
           onClick={onEditActivity}
           readOnly={readOnly}
-          isHighlighted={isHighlightedById(a.id)}
+          isHighlighted={isPairHovered(prevCardActivity?.id ?? null, next?.id ?? null)}
           onHoverConnector={onHoverConnector}
           onClearHover={onClearHover}
           fromActivityId={prevCardActivity?.id ?? null}
@@ -133,7 +146,7 @@ export default function DayColumn({
             key={`synth-${prevCardActivity.id}-${a.id}`}
             synthesized
             leg={leg}
-            isHighlighted={isHighlightedById(prevCardActivity.id) || isHighlightedById(a.id)}
+            isHighlighted={isPairHovered(prevCardActivity.id, a.id)}
             fromActivityId={prevCardActivity.id}
             toActivityId={a.id}
             onHoverConnector={onHoverConnector}

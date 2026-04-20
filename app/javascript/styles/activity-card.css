@@ -258,8 +258,16 @@
   color: #6b7280;
   font-weight: 500;
   flex-shrink: 0; /* same rigidity fix as .ac-card — don't crush in dense columns */
-  cursor: grab;
+  cursor: default;
   position: relative;
+}
+
+/* Cursor affordance matches .ac-card pattern: grab only when actually
+   draggable (dnd-kit adds aria-roledescription on the outer element when
+   it spreads its attributes), default otherwise. Keeps readOnly/synthesized
+   connectors from showing a misleading grab cursor. */
+.rc-line[aria-roledescription="draggable"] {
+  cursor: grab;
 }
 
 .rc-line svg {
