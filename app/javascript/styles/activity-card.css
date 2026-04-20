@@ -7,6 +7,7 @@
   align-items: stretch;
   box-sizing: border-box;
   height: 60px;
+  flex-shrink: 0; /* Parent DayColumn is flex column with overflow:auto; without this, many cards per day would be crushed below 60px instead of triggering scroll. */
   margin-bottom: 8px;
   background: #fff;
   border: 1px solid #e5e7eb;
