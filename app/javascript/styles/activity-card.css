@@ -325,12 +325,13 @@
   .rc-line.rc-highlighted {
     box-shadow: inset 3px 0 0 var(--day-accent, #6b7280);
   }
-  /* Motion-reduced users get the bar but skip the tint.
-     Nested guard (instead of a later override) avoids relying on source-order
-     specificity: if a bundler reorders stylesheets, the tint still won't apply. */
-  @media not (prefers-reduced-motion: reduce) {
-    .ac-card.ac-highlighted {
-      background-color: color-mix(in srgb, var(--day-accent) 4%, white);
-    }
+}
+
+/* Tint applies only when user hasn't asked for reduced motion.
+   Using `no-preference` (the positive form) avoids the `@media not ...`
+   syntax which varies in browser support and can drop the entire rule. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .ac-card.ac-highlighted {
+    background-color: color-mix(in srgb, var(--day-accent) 4%, white);
   }
 }
