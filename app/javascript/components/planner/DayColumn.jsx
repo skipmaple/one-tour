@@ -42,7 +42,7 @@ export default function DayColumn({ day, activities, constitution, onAddActivity
   const routeLegByPair = useMemo(() => {
     const out = {}
     for (const leg of routeLegs) {
-      if (leg.mode !== 0 && leg.mode !== 'drive') continue
+      if (leg.mode !== 'driving' && leg.mode !== 0 && leg.mode !== 'drive') continue
       const from = leg.from_activity_id
       const to = leg.to_activity_id
       if (from == null || to == null) continue
