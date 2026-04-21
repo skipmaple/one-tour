@@ -172,6 +172,15 @@ describe('ActivityDetailDrawer – location', () => {
     expect(loc).toHaveTextContent('（未定位）')
   })
 
+  test('handles string lat/lng (Rails decimal serialization) without crashing', () => {
+    // Rails serializes decimal columns as JSON strings. The drawer must cope.
+    renderDrawer({ activity: makeActivity({ lat: '44.6', lng: '81.2' }) })
+    const loc = screen.getByTestId('detail-location')
+    expect(loc).toHaveTextContent(/44\.6/)
+    expect(loc).toHaveTextContent(/81\.2/)
+    expect(screen.getByTestId('mock-mini-map')).toBeInTheDocument()
+  })
+
   test('shows a single "（未定位）" when both address and coords are missing', () => {
     renderDrawer({ activity: makeActivity({ address: null, lat: null, lng: null }) })
     const loc = screen.getByTestId('detail-location')

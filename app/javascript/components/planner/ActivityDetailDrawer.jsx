@@ -81,7 +81,9 @@ function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) 
 }
 
 function DetailLocationSection({ activity }) {
-  const hasCoords = activity.lat != null && activity.lng != null
+  const latNum = activity.lat != null ? Number(activity.lat) : null
+  const lngNum = activity.lng != null ? Number(activity.lng) : null
+  const hasCoords = latNum != null && !Number.isNaN(latNum) && lngNum != null && !Number.isNaN(lngNum)
   const kindFields = KIND_SCHEMA[activity.kind] || []
   const detailEntries = kindFields
     .map((f) => {
@@ -100,7 +102,7 @@ function DetailLocationSection({ activity }) {
           {activity.address}
           {hasCoords ? (
             <Text component="span" size="xs" c="dimmed" ml="xs">
-              {activity.lat.toFixed(4)}, {activity.lng.toFixed(4)}
+              {latNum.toFixed(4)}, {lngNum.toFixed(4)}
             </Text>
           ) : (
             <Text component="span" size="xs" c="dimmed" ml={activity.address ? 'xs' : 0}>
@@ -118,7 +120,7 @@ function DetailLocationSection({ activity }) {
           ))}
         </Group>
       )}
-      {hasCoords && <ActivityMiniMap lat={activity.lat} lng={activity.lng} height={160} />}
+      {hasCoords && <ActivityMiniMap lat={latNum} lng={lngNum} height={160} />}
     </Stack>
   )
 }
