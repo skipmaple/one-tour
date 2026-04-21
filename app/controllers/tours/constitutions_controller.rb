@@ -14,10 +14,16 @@ class Tours::ConstitutionsController < ApplicationController
   end
 
   # POST /tours/:tour_id/constitution/accept
+  # Inertia callers get a redirect (which re-fetches the planner with the
+  # updated constitution_accepted flag); fetch/spec callers requesting JSON
+  # still get { ok: true }.
   def accept
     head :forbidden and return unless @tour.editable_by?(current_user)
     @tour.update!(constitution_accepted: true)
-    head :ok
+    respond_to do |format|
+      format.json { render json: { ok: true } }
+      format.html { redirect_to tour_path(@tour) }
+    end
   end
 
   private
