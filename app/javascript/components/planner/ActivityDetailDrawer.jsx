@@ -1,5 +1,7 @@
 import { Drawer, Stack, Group, Text, Button } from '@mantine/core'
-import { IconPlus, IconPencil } from '@tabler/icons-react'
+import { IconPlus, IconPencil, IconMapPin } from '@tabler/icons-react'
+import ActivityMiniMap from './ActivityMiniMap'
+import { KIND_SCHEMA } from '../activity-editor/detailsSchema'
 
 // Read-only detail view for a single Activity. Unified entry point for all
 // roles when clicking an activity card — author/editor see [+ 记一笔] and
@@ -59,6 +61,49 @@ function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) 
   )
 }
 
+function DetailLocationSection({ activity }) {
+  const hasCoords = activity.lat != null && activity.lng != null
+  const kindFields = KIND_SCHEMA[activity.kind] || []
+  const detailEntries = kindFields
+    .map((f) => {
+      const raw = activity.details?.[f.key]
+      if (raw == null || raw === '') return null
+      const suffix = f.suffix ? `${f.suffix}` : ''
+      return { key: f.key, label: f.label, text: `${raw}${suffix}` }
+    })
+    .filter(Boolean)
+
+  return (
+    <Stack gap={6} data-testid="detail-location">
+      <Group gap="xs" wrap="nowrap" align="flex-start">
+        <IconMapPin size={14} style={{ marginTop: 3, flexShrink: 0 }} />
+        <Text size="sm">
+          {activity.address || '（未定位）'}
+          {hasCoords ? (
+            <Text component="span" size="xs" c="dimmed" ml="xs">
+              {activity.lat.toFixed(4)}, {activity.lng.toFixed(4)}
+            </Text>
+          ) : (
+            <Text component="span" size="xs" c="dimmed" ml="xs">
+              （未定位）
+            </Text>
+          )}
+        </Text>
+      </Group>
+      {detailEntries.length > 0 && (
+        <Group gap="md" wrap="wrap">
+          {detailEntries.map((e) => (
+            <Text key={e.key} size="xs" c="dimmed">
+              {e.label}: {e.text}
+            </Text>
+          ))}
+        </Group>
+      )}
+      {hasCoords && <ActivityMiniMap lat={activity.lat} lng={activity.lng} height={160} />}
+    </Stack>
+  )
+}
+
 export default function ActivityDetailDrawer({
   opened, onClose,
   tour, days, activity, activityImages, author, members, expenses,
@@ -85,7 +130,8 @@ export default function ActivityDetailDrawer({
             onEdit={onEdit}
             onAddExpense={onAddExpense}
           />
-          {/* Sections plugged in by Tasks 5-9 */}
+          <DetailLocationSection activity={activity} />
+          {/* Sections plugged in by Tasks 6-9 */}
         </Stack>
       )}
     </Drawer>

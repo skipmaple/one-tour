@@ -132,3 +132,34 @@ describe('ActivityDetailDrawer – header meta + actions', () => {
     expect(onEdit).toHaveBeenCalledWith(10)
   })
 })
+
+describe('ActivityDetailDrawer – location', () => {
+  test('renders address + coords when present', () => {
+    renderDrawer()
+    const loc = screen.getByTestId('detail-location')
+    expect(loc).toHaveTextContent('新疆伊犁州赛里木湖风景区')
+    expect(loc).toHaveTextContent(/44\.6/)
+    expect(loc).toHaveTextContent(/81\.2/)
+  })
+
+  test('renders kind-specific detail fields (altitude, ticket_info for scenic)', () => {
+    renderDrawer()
+    const loc = screen.getByTestId('detail-location')
+    expect(loc).toHaveTextContent('2073')  // altitude
+    expect(loc).toHaveTextContent('70')    // ticket_info
+  })
+
+  test('renders mini-map when lat/lng present', () => {
+    renderDrawer()
+    const map = screen.getByTestId('mock-mini-map')
+    expect(map).toHaveAttribute('data-lat', '44.6')
+    expect(map).toHaveAttribute('data-lng', '81.2')
+  })
+
+  test('omits mini-map and shows "（未定位）" when lat/lng missing', () => {
+    renderDrawer({ activity: makeActivity({ lat: null, lng: null }) })
+    expect(screen.queryByTestId('mock-mini-map')).toBeNull()
+    const loc = screen.getByTestId('detail-location')
+    expect(loc).toHaveTextContent('（未定位）')
+  })
+})
