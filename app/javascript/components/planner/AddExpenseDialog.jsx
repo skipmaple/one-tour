@@ -42,7 +42,7 @@ const STRATEGY_OPTIONS = [
   { value: 'individual', label: '各付各（不分摊）' },
 ]
 
-export default function AddExpenseDialog({ opened, onClose, tour, days, activities, members, author, expense, readOnly = false }) {
+export default function AddExpenseDialog({ opened, onClose, tour, days, activities, members, author, expense, readOnly = false, initialActivityId = null }) {
   const isEdit = Boolean(expense)
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [scope, setScope] = useState('activity')
@@ -157,7 +157,9 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
         }
       : {
           scope: 'activity',
-          activityId: nonBacklogActivities[0] ? String(nonBacklogActivities[0].id) : '',
+          activityId: initialActivityId
+            ? String(initialActivityId)
+            : (nonBacklogActivities[0] ? String(nonBacklogActivities[0].id) : ''),
           dayId: days[0] ? String(days[0].id) : '',
           paidById: String(author.user_id),
           amount: '',
