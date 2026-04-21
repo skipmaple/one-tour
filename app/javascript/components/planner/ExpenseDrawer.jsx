@@ -38,11 +38,28 @@ function formatCents(cents, currency = 'CNY') {
 }
 
 export default function ExpenseDrawer({
-  opened, onClose, tour, days, activities, members, author, expenses, summary, budgets, settlements, canEdit
+  opened, onClose, tour, days, activities, members, author,
+  expenses, summary, budgets, settlements, canEdit,
+  initialActivityId = null, initialExpenseId = null,
 }) {
   const [activeTab, setActiveTab] = useState('overview')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState(null)
+
+  // When the drawer opens with initial* hints from Tour/Show (e.g., from the
+  // ActivityDetailDrawer), immediately launch the AddExpenseDialog in the
+  // appropriate mode. Reset on close is handled by the parent (Show.jsx
+  // clears these props in its ExpenseDrawer onClose).
+  useEffect(() => {
+    if (!opened) return
+    if (initialExpenseId != null) {
+      setEditingExpenseId(initialExpenseId)
+      setDialogOpen(true)
+    } else if (initialActivityId != null) {
+      setEditingExpenseId(null)
+      setDialogOpen(true)
+    }
+  }, [opened, initialExpenseId, initialActivityId])
   const [rowLightbox, setRowLightbox] = useState({ receipts: [], index: null })
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
   const [manualSettlementOpen, setManualSettlementOpen] = useState(false)
@@ -247,6 +264,7 @@ export default function ExpenseDrawer({
         author={author}
         expense={editingExpense}
         readOnly={!canEdit}
+        initialActivityId={initialActivityId}
       />
 
       <ActivityGalleryLightbox
