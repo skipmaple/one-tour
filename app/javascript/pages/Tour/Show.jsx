@@ -242,6 +242,8 @@ export default function Show({ tour, days, activities, activity_images, expenses
             hoveredActivityIds={hoveredActivityIds}
             onHoverActivity={onHoverActivity}
             onClearHover={onClearHover}
+            author={author}
+            members={members}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('candidates', 'days')}
@@ -269,6 +271,8 @@ export default function Show({ tour, days, activities, activity_images, expenses
             onHoverActivity={onHoverActivity}
             onHoverConnector={onHoverConnector}
             onClearHover={onClearHover}
+            author={author}
+            members={members}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('days', 'map')}
@@ -305,7 +309,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
           />
         </div>
         <DragOverlay>
-          {activeActivity && <ActivityCardOverlay activity={activeActivity} />}
+          {activeActivity && <ActivityCardOverlay activity={activeActivity} author={author} members={members} />}
         </DragOverlay>
       </DndContext>
 

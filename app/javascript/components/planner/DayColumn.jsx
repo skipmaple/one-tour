@@ -29,6 +29,8 @@ export default function DayColumn({
   onHoverActivity,
   onHoverConnector,
   onClearHover,
+  author,
+  members,
 }) {
   const maxH = Math.round((constitution?.max_daily_driving_minutes || 420) / 60)
   const maxTier1 = constitution?.max_tier_one_per_day || 3
@@ -168,6 +170,8 @@ export default function DayColumn({
         onHoverActivity={onHoverActivity}
         onClearHover={onClearHover}
         dayColorName={dayColorName}
+        author={author}
+        members={members}
       />
     )
     prevCardActivity = a

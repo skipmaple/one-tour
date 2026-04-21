@@ -10,6 +10,7 @@ import {
   IconMapPin,
   IconClock,
 } from '@tabler/icons-react'
+import { Avatar, Tooltip } from '@mantine/core'
 import '../../styles/activity-card.css'
 
 const KIND_ICONS = {
@@ -158,7 +159,24 @@ export default function ActivityCard({
   onHoverActivity,
   onClearHover,
   dayColorName = 'none',
+  author,
+  members,
 }) {
+  const participantUserIds = activity.participant_user_ids || []
+  const isFullTrip = participantUserIds.length === 0
+  // Null-safe: existing call sites (tests, some planner contexts) may not yet
+  // pass author/members — render nothing rather than crash.
+  const hasUserCtx = author && Array.isArray(members)
+  const allUsers = hasUserCtx
+    ? [
+        { user_id: author.user_id, name: author.name, avatar_url: author.avatar_url },
+        ...members.map((m) => ({ user_id: m.user_id, name: m.name, avatar_url: m.avatar_url })),
+      ]
+    : []
+  const participantUsers = participantUserIds
+    .map((id) => allUsers.find((u) => u.user_id === id))
+    .filter(Boolean)
+
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } =
     useDraggable({ id: `activity-${activity.id}` })
   const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -207,12 +225,37 @@ export default function ActivityCard({
           <span className="ac-name">{activity.name}</span>
         </div>
         <MetaGrid activity={activity} />
+        {hasUserCtx && !isFullTrip && participantUsers.length > 0 && (
+          <Avatar.Group spacing="xs" data-testid="activity-participants">
+            {participantUsers.slice(0, 3).map((u) => (
+              <Tooltip key={u.user_id} label={u.name}>
+                <Avatar src={u.avatar_url} size="xs" radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
+              </Tooltip>
+            ))}
+            {participantUsers.length > 3 && (
+              <Avatar size="xs" radius="xl">+{participantUsers.length - 3}</Avatar>
+            )}
+          </Avatar.Group>
+        )}
       </div>
     </div>
   )
 }
 
-export function ActivityCardOverlay({ activity }) {
+export function ActivityCardOverlay({ activity, author, members }) {
+  const participantUserIds = activity.participant_user_ids || []
+  const isFullTrip = participantUserIds.length === 0
+  const hasUserCtx = author && Array.isArray(members)
+  const allUsers = hasUserCtx
+    ? [
+        { user_id: author.user_id, name: author.name, avatar_url: author.avatar_url },
+        ...members.map((m) => ({ user_id: m.user_id, name: m.name, avatar_url: m.avatar_url })),
+      ]
+    : []
+  const participantUsers = participantUserIds
+    .map((id) => allUsers.find((u) => u.user_id === id))
+    .filter(Boolean)
+
   return (
     <div className={cardClasses(activity, 'ac-overlay')}>
       <ThumbAndBadge activity={activity} />
@@ -222,6 +265,18 @@ export function ActivityCardOverlay({ activity }) {
           <span className="ac-name">{activity.name}</span>
         </div>
         <MetaGrid activity={activity} />
+        {hasUserCtx && !isFullTrip && participantUsers.length > 0 && (
+          <Avatar.Group spacing="xs" data-testid="activity-participants">
+            {participantUsers.slice(0, 3).map((u) => (
+              <Tooltip key={u.user_id} label={u.name}>
+                <Avatar src={u.avatar_url} size="xs" radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
+              </Tooltip>
+            ))}
+            {participantUsers.length > 3 && (
+              <Avatar size="xs" radius="xl">+{participantUsers.length - 3}</Avatar>
+            )}
+          </Avatar.Group>
+        )}
       </div>
     </div>
   )

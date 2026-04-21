@@ -32,6 +32,8 @@ export default function DayPanel({
   onHoverActivity,
   onHoverConnector,
   onClearHover,
+  author,
+  members,
 }) {
   const autoFitButton = (
     <UnstyledButton
@@ -95,6 +97,8 @@ export default function DayPanel({
             onHoverActivity={onHoverActivity}
             onHoverConnector={onHoverConnector}
             onClearHover={onClearHover}
+            author={author}
+            members={members}
           />
         ))}
         <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />

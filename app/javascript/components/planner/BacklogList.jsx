@@ -50,6 +50,8 @@ export default function BacklogList({
   hoveredActivityIds = null,
   onHoverActivity,
   onClearHover,
+  author,
+  members,
 }) {
   const [kindFilter, setKindFilter] = useState('')
   const [levelFilter, setLevelFilter] = useState('')
@@ -181,6 +183,8 @@ export default function BacklogList({
                   isHighlighted={hoveredActivityIds != null && hoveredActivityIds.includes(a.id)}
                   onHoverActivity={onHoverActivity}
                   onClearHover={onClearHover}
+                  author={author}
+                  members={members}
                 />
               ))}
               {filtered.length === 0 && (
