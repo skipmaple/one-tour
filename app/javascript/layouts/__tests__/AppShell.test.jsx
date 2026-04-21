@@ -69,4 +69,20 @@ describe('AppShell', () => {
     expect(screen.getByText('概览')).toBeInTheDocument()
     expect(screen.queryByText('概览 · 路书')).not.toBeInTheDocument()
   })
+
+  // Regression: Inertia replaces the <title> element wholesale (rather than
+  // mutating its text node). An observer attached to the original <title>
+  // element would not fire on subsequent navigations. Observing document.head
+  // with subtree:true is what catches both replacement and text mutation.
+  it('updates header title when <title> element is replaced (Inertia behavior)', async () => {
+    renderShell()
+    expect(screen.getByText('我的旅程')).toBeInTheDocument()
+    act(() => {
+      document.head.querySelector('title')?.remove()
+      const next = document.createElement('title')
+      next.textContent = '用户'
+      document.head.appendChild(next)
+    })
+    expect(await screen.findByText('用户')).toBeInTheDocument()
+  })
 })

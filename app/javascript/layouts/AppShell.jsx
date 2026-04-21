@@ -22,10 +22,8 @@ function useDocumentTitle() {
   useEffect(() => {
     if (typeof document === 'undefined') return
     setTitle(stripSuffix(document.title))
-    const titleEl = document.querySelector('title')
-    if (!titleEl) return
     const observer = new MutationObserver(() => setTitle(stripSuffix(document.title)))
-    observer.observe(titleEl, { childList: true })
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true })
     return () => observer.disconnect()
   }, [])
   return title
