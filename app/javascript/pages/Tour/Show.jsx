@@ -19,6 +19,7 @@ import MembershipDrawer from '../../components/planner/MembershipDrawer'
 import DayEditModal from '../../components/planner/DayEditModal'
 import TourSettingsModal from '../../components/planner/TourSettingsModal'
 import ExpenseDrawer from '../../components/planner/ExpenseDrawer'
+import AddExpenseDialog from '../../components/planner/AddExpenseDialog'
 import ActivityDetailDrawer from '../../components/planner/ActivityDetailDrawer'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
@@ -119,7 +120,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
 
   // Activity detail drawer state
   const [detailViewer, setDetailViewer] = useState({ open: false, activityId: null })
-  const [initialExpenseActivityId, setInitialExpenseActivityId] = useState(null)
+  const [quickExpenseActivityId, setQuickExpenseActivityId] = useState(null)
   const [initialExpenseId, setInitialExpenseId] = useState(null)
 
   // Day edit state
@@ -148,12 +149,10 @@ export default function Show({ tour, days, activities, activity_images, expenses
     setEditor({ open: true, mode: 'edit', activityId, targetDayId: null })
   }
 
-  // User clicked [+ 记一笔] inside the detail drawer → stack AddExpenseDialog
-  // on top via ExpenseDrawer with a prefilled activity.
+  // User clicked [+ 记一笔] inside the detail drawer → open AddExpenseDialog
+  // directly (bypass ExpenseDrawer to avoid a 3-layer drawer stack).
   const openAddExpenseForActivity = (activityId) => {
-    setInitialExpenseActivityId(activityId)
-    setInitialExpenseId(null)
-    setExpenseDrawerOpen(true)
+    setQuickExpenseActivityId(activityId)
   }
 
   // User clicked a specific expense row in detail → jump into ExpenseDrawer
@@ -398,11 +397,22 @@ export default function Show({ tour, days, activities, activity_images, expenses
         onFocusExpense={openExpenseById}
       />
 
+      <AddExpenseDialog
+        opened={quickExpenseActivityId != null}
+        onClose={() => setQuickExpenseActivityId(null)}
+        tour={tour}
+        days={days}
+        activities={activities}
+        members={members || []}
+        author={author || { user_id: tour.author_id, name: '', email: '', avatar_url: null }}
+        expense={null}
+        initialActivityId={quickExpenseActivityId}
+      />
+
       <ExpenseDrawer
         opened={expenseDrawerOpen}
         onClose={() => {
           setExpenseDrawerOpen(false)
-          setInitialExpenseActivityId(null)
           setInitialExpenseId(null)
         }}
         tour={tour}
@@ -415,7 +425,6 @@ export default function Show({ tour, days, activities, activity_images, expenses
         budgets={tour_budgets || []}
         settlements={settlements || []}
         canEdit={canEdit}
-        initialActivityId={initialExpenseActivityId}
         initialExpenseId={initialExpenseId}
       />
 
