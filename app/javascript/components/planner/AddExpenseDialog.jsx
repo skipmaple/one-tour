@@ -42,7 +42,7 @@ const STRATEGY_OPTIONS = [
   { value: 'individual', label: '各付各（不分摊）' },
 ]
 
-export default function AddExpenseDialog({ opened, onClose, tour, days, activities, members, author, expense, readOnly = false }) {
+export default function AddExpenseDialog({ opened, onClose, tour, days, activities, members, author, expense, readOnly = false, initialActivityId = null }) {
   const isEdit = Boolean(expense)
   const isMobile = useMediaQuery('(max-width: 640px)')
   const [scope, setScope] = useState('activity')
@@ -157,7 +157,9 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
         }
       : {
           scope: 'activity',
-          activityId: nonBacklogActivities[0] ? String(nonBacklogActivities[0].id) : '',
+          activityId: initialActivityId
+            ? String(initialActivityId)
+            : (nonBacklogActivities[0] ? String(nonBacklogActivities[0].id) : ''),
           dayId: days[0] ? String(days[0].id) : '',
           paidById: String(author.user_id),
           amount: '',
@@ -165,9 +167,10 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           strategy: 'equal',
           note: '',
           participantIds: (() => {
-            const firstActivity = nonBacklogActivities[0]
-            if (!firstActivity) return allUsers.map((u) => u.user_id)
-            return effectiveParticipants(firstActivity, { author, members })
+            const targetId = initialActivityId ? Number(initialActivityId) : nonBacklogActivities[0]?.id
+            const targetActivity = targetId ? activities.find((a) => a.id === targetId) : null
+            if (!targetActivity) return allUsers.map((u) => u.user_id)
+            return effectiveParticipants(targetActivity, { author, members })
           })(),
           externalCount: 0,
           externalAttributedToId: String(author.user_id),
@@ -193,7 +196,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
       ...v,
       participantIds: [ ...v.participantIds ].sort(),
     })
-  }, [opened, expense?.id])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [opened, expense?.id, initialActivityId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Revoke preview object URLs on unmount — reads from the ref so we see the
   // current list, not the one captured at mount.

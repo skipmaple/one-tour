@@ -177,7 +177,14 @@ export default function ActivityCard({
   const dragListeners = readOnly ? {} : listeners
 
   const handleBodyClick = () => {
-    if (!readOnly && onClick) onClick(activity.id)
+    if (onClick) onClick(activity.id)
+  }
+
+  const handleKeyDown = (e) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault()
+      onClick(activity.id)
+    }
   }
 
   const extra = [
@@ -200,12 +207,17 @@ export default function ActivityCard({
       data-day-color={dayColorName}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={onClick ? handleBodyClick : undefined}
+      onKeyDown={onClick ? handleKeyDown : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? activity.name : undefined}
       {...dragAttributes}
       {...dragListeners}
     >
       {isOver && <div data-testid="drop-indicator" className="ac-drop-indicator" />}
       <ThumbAndBadge activity={activity} />
-      <div className="ac-body" onClick={handleBodyClick}>
+      <div className="ac-body">
         <div className="ac-name-row">
           <KindIcon kind={activity.kind} />
           <span className="ac-name">{activity.name}</span>
