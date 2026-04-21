@@ -35,7 +35,7 @@ export default function ToursIndex() {
 
   return (
     <AdminShell currentPath={url.split('?')[0]}>
-      <Container size="md" px={0}>
+      <Container fluid px="md">
         <Stack gap="md">
           <Title order={2}>旅程</Title>
           <TextInput

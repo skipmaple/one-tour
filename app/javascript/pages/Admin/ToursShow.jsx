@@ -29,7 +29,7 @@ export default function ToursShow() {
 
   return (
     <AdminShell currentPath="/admin/tours">
-      <Container size="md" px={0}>
+      <Container size="lg" px="md">
         <Stack gap="md">
           <Anchor component={Link} href="/admin/tours">
             <Group gap={4}><IconArrowLeft size={14} /><Text size="sm">返回旅程列表</Text></Group>

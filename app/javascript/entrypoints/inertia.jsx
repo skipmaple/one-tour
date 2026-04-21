@@ -45,7 +45,8 @@ createInertiaApp({
       { eager: true }
     )
     const page = pages[`../pages/${name}.jsx`]
-    if (!page.default.layout) {
+    const isAdminPage = name.startsWith('Admin/')
+    if (!page.default.layout && !isAdminPage) {
       page.default.layout = (page) => <AppLayout>{page}</AppLayout>
     }
     return page
