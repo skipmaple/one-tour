@@ -1,8 +1,10 @@
 import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useMemo } from 'react'
 import { MantineProvider } from '@mantine/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AppShell from '../AppShell'
+import { useInjectHeaderRight } from '../HeaderSlot'
 
 vi.mock('@inertiajs/react', () => ({
   usePage: () => ({
@@ -84,5 +86,25 @@ describe('AppShell', () => {
       document.head.appendChild(next)
     })
     expect(await screen.findByText('用户')).toBeInTheDocument()
+  })
+
+  it('renders content injected by useInjectHeaderRight', () => {
+    // Consumers of useInjectHeaderRight must memoize the node — passing a fresh
+    // JSX element every render would create a new reference and make the
+    // hook's useEffect re-fire infinitely (setRight → re-render → new node →
+    // setRight). Task 8 uses useMemo; the test mirrors that contract.
+    function Injector() {
+      const node = useMemo(() => <span data-testid="right-slot">buttons</span>, [])
+      useInjectHeaderRight(node)
+      return <div />
+    }
+    render(
+      <MantineProvider>
+        <AppShell>
+          <Injector />
+        </AppShell>
+      </MantineProvider>,
+    )
+    expect(screen.getByTestId('right-slot')).toBeInTheDocument()
   })
 })
