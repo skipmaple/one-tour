@@ -19,6 +19,7 @@ import MembershipDrawer from '../../components/planner/MembershipDrawer'
 import DayEditModal from '../../components/planner/DayEditModal'
 import TourSettingsModal from '../../components/planner/TourSettingsModal'
 import ExpenseDrawer from '../../components/planner/ExpenseDrawer'
+import ActivityDetailDrawer from '../../components/planner/ActivityDetailDrawer'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
@@ -116,6 +117,11 @@ export default function Show({ tour, days, activities, activity_images, expenses
   // Activity editor state
   const [editor, setEditor] = useState({ open: false, mode: 'create', activityId: null, targetDayId: null })
 
+  // Activity detail drawer state
+  const [detailViewer, setDetailViewer] = useState({ open: false, activityId: null })
+  const [initialExpenseActivityId, setInitialExpenseActivityId] = useState(null)
+  const [initialExpenseId, setInitialExpenseId] = useState(null)
+
   // Day edit state
   const [editingDayId, setEditingDayId] = useState(null)
 
@@ -126,6 +132,38 @@ export default function Show({ tour, days, activities, activity_images, expenses
   const openCreate = (dayId) => setEditor({ open: true, mode: 'create', activityId: null, targetDayId: dayId })
   const openEdit = (activityId) => setEditor({ open: true, mode: 'edit', activityId, targetDayId: null })
   const closeEditor = () => setEditor({ open: false, mode: 'create', activityId: null, targetDayId: null })
+
+  // New: cards now route here instead of directly to the edit drawer.
+  const openDetail = (activityId) => {
+    setDetailViewer({ open: true, activityId })
+  }
+
+  const closeDetail = () => {
+    setDetailViewer({ open: false, activityId: null })
+  }
+
+  // User clicked [编辑] inside the detail drawer → switch drawers.
+  const openEditFromDetail = (activityId) => {
+    setDetailViewer({ open: false, activityId: null })
+    setEditor({ open: true, mode: 'edit', activityId, targetDayId: null })
+  }
+
+  // User clicked [+ 记一笔] inside the detail drawer → stack AddExpenseDialog
+  // on top via ExpenseDrawer with a prefilled activity.
+  const openAddExpenseForActivity = (activityId) => {
+    setInitialExpenseActivityId(activityId)
+    setInitialExpenseId(null)
+    setExpenseDrawerOpen(true)
+  }
+
+  // User clicked a specific expense row in detail → jump into ExpenseDrawer
+  // with that expense focused for editing.
+  const openExpenseById = (expenseId) => {
+    setDetailViewer({ open: false, activityId: null })
+    setInitialExpenseActivityId(null)
+    setInitialExpenseId(expenseId)
+    setExpenseDrawerOpen(true)
+  }
 
   const editingActivity = editor.activityId ? activities.find(a => a.id === editor.activityId) : null
 
@@ -232,7 +270,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
           <BacklogList
             activities={backlog}
             onAddActivity={canEdit ? openCreate : undefined}
-            onEditActivity={canEdit ? openEdit : undefined}
+            onEditActivity={openDetail}
             onAskAI={canEdit ? () => setPendingChatPrompt(ASK_AI_BACKLOG_PROMPT) : undefined}
             readOnly={!canEdit}
             open={layout.panels.candidates.open}
@@ -256,7 +294,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
             tour={tour}
             nextDayIndex={nextDayIndex}
             onAddActivity={canEdit ? openCreate : undefined}
-            onEditActivity={canEdit ? openEdit : undefined}
+            onEditActivity={openDetail}
             onEditDay={canEdit ? setEditingDayId : undefined}
             readOnly={!canEdit}
             dragWarning={dragWarning}
@@ -344,9 +382,29 @@ export default function Show({ tour, days, activities, activity_images, expenses
         days={days}
       />
 
+      <ActivityDetailDrawer
+        opened={detailViewer.open}
+        onClose={closeDetail}
+        tour={tour}
+        days={days}
+        activity={detailViewer.activityId ? activities.find((a) => a.id === detailViewer.activityId) : null}
+        activityImages={activity_images || []}
+        author={author || { user_id: tour.author_id, name: '', email: '', avatar_url: null }}
+        members={members || []}
+        expenses={expenses || []}
+        canEdit={canEdit}
+        onEdit={openEditFromDetail}
+        onAddExpense={openAddExpenseForActivity}
+        onFocusExpense={openExpenseById}
+      />
+
       <ExpenseDrawer
         opened={expenseDrawerOpen}
-        onClose={() => setExpenseDrawerOpen(false)}
+        onClose={() => {
+          setExpenseDrawerOpen(false)
+          setInitialExpenseActivityId(null)
+          setInitialExpenseId(null)
+        }}
         tour={tour}
         days={days}
         activities={activities}
@@ -357,6 +415,8 @@ export default function Show({ tour, days, activities, activity_images, expenses
         budgets={tour_budgets || []}
         settlements={settlements || []}
         canEdit={canEdit}
+        initialActivityId={initialExpenseActivityId}
+        initialExpenseId={initialExpenseId}
       />
 
       <DayEditModal
