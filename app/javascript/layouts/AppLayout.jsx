@@ -31,6 +31,11 @@ export default function AppLayout({ children }) {
                     )}
                     <Menu.Divider />
                     <Menu.Item onClick={open}>个人设置</Menu.Item>
+                    {current_user.is_admin && (
+                      <Menu.Item component={Link} href="/admin" as="a">
+                        管理后台
+                      </Menu.Item>
+                    )}
                     <Menu.Item component={Link} href="/logout" method="delete" as="button">
                       退出
                     </Menu.Item>

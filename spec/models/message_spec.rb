@@ -49,4 +49,26 @@ RSpec.describe Message, type: :model do
       expect(msg.as_json["role"]).to eq("assistant")
     end
   end
+
+  describe ".billable scope" do
+    let(:conversation) { create(:conversation) }
+
+    it "includes assistant messages with tokens_out recorded" do
+      m = create(:message, conversation: conversation, role: :assistant,
+                           tokens_out: 100, tokens_in: 50, cost_cents: 5)
+      expect(Message.billable).to include(m)
+    end
+
+    it "excludes assistant messages with null tokens_out" do
+      m = create(:message, conversation: conversation, role: :assistant,
+                           tokens_out: nil)
+      expect(Message.billable).not_to include(m)
+    end
+
+    it "excludes user messages even if tokens_out is set somehow" do
+      m = create(:message, conversation: conversation, role: :user,
+                           tokens_out: 99)
+      expect(Message.billable).not_to include(m)
+    end
+  end
 end

@@ -1,0 +1,12 @@
+# Unit: cents per million tokens (CN fen per million tokens)
+# Values are PLACEHOLDERS — replace with real SiliconFlow published rates
+# before first deploy. Update this file does NOT require migration.
+"moonshotai/Kimi-K2-Instruct-0905":
+  input_cents_per_mtok:  400
+  output_cents_per_mtok: 1200
+qwen3-235b:
+  input_cents_per_mtok:  200
+  output_cents_per_mtok: 800
+_default:
+  input_cents_per_mtok:  500
+  output_cents_per_mtok: 1500

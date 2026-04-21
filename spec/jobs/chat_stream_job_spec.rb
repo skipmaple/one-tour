@@ -208,6 +208,71 @@ RSpec.describe ChatStreamJob do
     end
   end
 
+  describe "LLM usage capture" do
+    it "writes tokens_in/tokens_out/cost_cents on the assistant message when usage present" do
+      fake_response = double(
+        "RubyLLM::Message",
+        input_tokens: 1_000,
+        output_tokens: 500,
+        model_id: "moonshotai/Kimi-K2-Instruct-0905"
+      )
+
+      fake_chat = double("RubyLLM::Chat")
+      allow(fake_chat).to receive(:with_instructions)
+      allow(fake_chat).to receive(:with_tool)
+      allow(fake_chat).to receive(:messages).and_return([])
+      allow(fake_chat).to receive(:on_tool_call)
+      allow(fake_chat).to receive(:on_tool_result)
+      allow(fake_chat).to receive(:ask) do |_text, &blk|
+        blk.call(double(content: "hello")) if blk
+        fake_response
+      end
+
+      allow(RubyLLM).to receive(:chat).and_return(fake_chat)
+      capture_broadcasts
+
+      described_class.new.perform(conversation.id, tour.id, user.id)
+
+      m = conversation.messages.where(role: :assistant).last
+      expect(m.tokens_in).to eq(1_000)
+      expect(m.tokens_out).to eq(500)
+      # 1000 * 400/1M + 500 * 1200/1M = 0.4 + 0.6 = 1.0 cent; rounded
+      expect(m.cost_cents).to eq(1)
+    end
+
+    it "stores nulls and does not raise when usage is missing" do
+      fake_response = double(
+        "RubyLLM::Message",
+        input_tokens: nil,
+        output_tokens: nil,
+        model_id: nil
+      )
+
+      fake_chat = double("RubyLLM::Chat")
+      allow(fake_chat).to receive(:with_instructions)
+      allow(fake_chat).to receive(:with_tool)
+      allow(fake_chat).to receive(:messages).and_return([])
+      allow(fake_chat).to receive(:on_tool_call)
+      allow(fake_chat).to receive(:on_tool_result)
+      allow(fake_chat).to receive(:ask) do |_text, &blk|
+        blk.call(double(content: "hello")) if blk
+        fake_response
+      end
+
+      allow(RubyLLM).to receive(:chat).and_return(fake_chat)
+      capture_broadcasts
+
+      expect {
+        described_class.new.perform(conversation.id, tour.id, user.id)
+      }.not_to raise_error
+
+      m = conversation.messages.where(role: :assistant).last
+      expect(m.tokens_in).to be_nil
+      expect(m.tokens_out).to be_nil
+      expect(m.cost_cents).to be_nil
+    end
+  end
+
   private
     def capture_broadcasts
       broadcasts = []

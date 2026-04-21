@@ -15,8 +15,8 @@ class ChatStreamJob < ApplicationJob
     user         = User.find(user_id)
     channel      = "chat_tour_#{tour_id}_user_#{user_id}"
 
-    full_text = stream_response(conversation, tour, user, channel)
-    save_assistant_message(conversation, full_text)
+    full_text, final_response = stream_response(conversation, tour, user, channel)
+    save_assistant_message(conversation, full_text, final_response)
     broadcast(channel, type: "complete", content: full_text)
   rescue => e
     Sentry.capture_exception(e, extra: {
@@ -48,14 +48,14 @@ class ChatStreamJob < ApplicationJob
       latest = conversation.messages.order(:created_at).last.content
       full_text = "".dup
 
-      chat.ask(latest) do |chunk|
+      final_response = chat.ask(latest) do |chunk|
         text = chunk.content.to_s
         next if text.empty?
         full_text << text
         broadcast(channel, type: "assistant_text", delta: text)
       end
 
-      full_text
+      [ full_text, final_response ]
     end
 
     def attach_tool_callbacks(chat, channel)
@@ -93,8 +93,37 @@ class ChatStreamJob < ApplicationJob
       content.length > KIMI_MAX_CONTENT || content.match?(KIMI_LOOP_PATTERN)
     end
 
-    def save_assistant_message(conversation, content)
-      conversation.messages.create!(role: :assistant, content: content) if content.present?
+    def save_assistant_message(conversation, content, final_response)
+      return unless content.present?
+
+      tokens_in  = safely(final_response) { final_response.input_tokens }
+      tokens_out = safely(final_response) { final_response.output_tokens }
+      model      = safely(final_response) { final_response.model_id } ||
+                   ENV.fetch("LLM_MODEL", "moonshotai/Kimi-K2-Instruct-0905")
+
+      cost_cents = if tokens_in && tokens_out
+        pricing = LlmPricing.lookup(model)
+        (
+          tokens_in  * pricing["input_cents_per_mtok"] +
+          tokens_out * pricing["output_cents_per_mtok"]
+        ) / 1_000_000.0
+      end
+
+      conversation.messages.create!(
+        role: :assistant,
+        content: content,
+        tokens_in:  tokens_in,
+        tokens_out: tokens_out,
+        cost_cents: cost_cents&.round
+      )
+    end
+
+    def safely(obj)
+      return nil unless obj
+      yield
+    rescue NoMethodError => e
+      Rails.logger.warn("[llm_usage] missing method on response: #{e.message}")
+      nil
     end
 
     def broadcast(channel, **payload)
