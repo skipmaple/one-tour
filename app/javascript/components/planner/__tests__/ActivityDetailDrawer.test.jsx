@@ -236,3 +236,31 @@ describe('ActivityDetailDrawer – gallery', () => {
     expect(screen.getAllByTestId(/^detail-thumb-/)).toHaveLength(2)
   })
 })
+
+describe('ActivityDetailDrawer – participants', () => {
+  test('default-full (empty participant_user_ids) shows "默认全员 · N 人"', () => {
+    renderDrawer()
+    const sec = screen.getByTestId('detail-participants')
+    expect(sec).toHaveTextContent('默认全员')
+    expect(sec).toHaveTextContent('3 人')  // author + 2 members
+    expect(sec).toHaveTextContent('Alice')
+    expect(sec).toHaveTextContent('Bob')
+    expect(sec).toHaveTextContent('Cindy')
+  })
+
+  test('explicit subset shows "参与人 · N 人" and lists only those users', () => {
+    renderDrawer({ activity: makeActivity({ participant_user_ids: [ 2 ] }) })
+    const sec = screen.getByTestId('detail-participants')
+    expect(sec).toHaveTextContent('参与人')
+    expect(sec).toHaveTextContent('1 人')
+    expect(sec).toHaveTextContent('Bob')
+    expect(sec).not.toHaveTextContent('Alice')
+    expect(sec).not.toHaveTextContent('Cindy')
+  })
+
+  test('renders author with isAuthor flag in UserLabel', () => {
+    renderDrawer({ activity: makeActivity({ participant_user_ids: [ 1 ] }) })
+    const sec = screen.getByTestId('detail-participants')
+    expect(sec).toHaveTextContent('作者')
+  })
+})

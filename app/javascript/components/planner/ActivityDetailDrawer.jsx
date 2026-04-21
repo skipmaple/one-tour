@@ -4,6 +4,8 @@ import { IconPlus, IconPencil, IconMapPin } from '@tabler/icons-react'
 import ActivityMiniMap from './ActivityMiniMap'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import { KIND_SCHEMA } from '../activity-editor/detailsSchema'
+import UserLabel from './UserLabel'
+import { effectiveParticipants, isFullRoster } from '../../lib/effectiveParticipants'
 
 // Read-only detail view for a single Activity. Unified entry point for all
 // roles when clicking an activity card — author/editor see [+ 记一笔] and
@@ -158,6 +160,34 @@ function DetailGallerySection({ activity, activityImages }) {
   )
 }
 
+function DetailParticipantsSection({ activity, author, members }) {
+  const ids = effectiveParticipants(activity, { author, members })
+  const isDefault = isFullRoster(activity)
+  const allUsers = [
+    { ...author, isAuthor: true },
+    ...members.map((m) => ({ ...m, isAuthor: false })),
+  ]
+  const displayed = ids
+    .map((id) => allUsers.find((u) => u.user_id === id))
+    .filter(Boolean)
+
+  const title = isDefault ? '默认全员' : '参与人'
+
+  return (
+    <>
+      <Divider />
+      <Stack gap={6} data-testid="detail-participants">
+        <Text size="xs" c="dimmed">{title} · {displayed.length} 人</Text>
+        <Stack gap={4}>
+          {displayed.map((u) => (
+            <UserLabel key={u.user_id} user={u} isAuthor={u.isAuthor} size={22} fz="sm" />
+          ))}
+        </Stack>
+      </Stack>
+    </>
+  )
+}
+
 export default function ActivityDetailDrawer({
   opened, onClose,
   tour, days, activity, activityImages, author, members, expenses,
@@ -187,7 +217,8 @@ export default function ActivityDetailDrawer({
           <DetailLocationSection activity={activity} />
           <DetailDescSection activity={activity} />
           <DetailGallerySection activity={activity} activityImages={activityImages} />
-          {/* Sections plugged in by Tasks 8-9 */}
+          <DetailParticipantsSection activity={activity} author={author} members={members} />
+          {/* Expenses section plugged in by Task 9 */}
         </Stack>
       )}
     </Drawer>
