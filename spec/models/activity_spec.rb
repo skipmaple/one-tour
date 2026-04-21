@@ -118,4 +118,63 @@ RSpec.describe Activity do
       end
     end
   end
+
+  describe "#effective_participant_ids" do
+    let(:tour)     { create(:tour) }
+    let(:member1)  { create(:user) }
+    let(:member2)  { create(:user) }
+    let(:activity) { create(:activity, tour: tour) }
+
+    before do
+      create(:tour_membership, tour: tour, user: member1, role: :editor)
+      create(:tour_membership, tour: tour, user: member2, role: :reader)
+    end
+
+    it "returns [author_id, ...member_ids] when no explicit participants" do
+      expect(activity.effective_participant_ids).to contain_exactly(
+        tour.author_id, member1.id, member2.id
+      )
+    end
+
+    it "returns explicit participant user_ids when set" do
+      ActivityParticipant.create!(activity: activity, user: member1)
+      expect(activity.effective_participant_ids).to contain_exactly(member1.id)
+    end
+
+    it "returns an empty-fallback (full roster) when all explicit rows are removed" do
+      ap = ActivityParticipant.create!(activity: activity, user: member1)
+      ap.destroy
+      expect(activity.effective_participant_ids).to contain_exactly(
+        tour.author_id, member1.id, member2.id
+      )
+    end
+
+    it "does not issue a SQL query when activity_participants is preloaded" do
+      ActivityParticipant.create!(activity: activity, user: member1)
+      preloaded = Activity.where(id: activity.id).includes(:activity_participants).first
+
+      queries = []
+      callback = ->(*, payload) { queries << payload[:sql] unless payload[:name] == "SCHEMA" }
+      ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+        expect(preloaded.effective_participant_ids).to contain_exactly(member1.id)
+      end
+
+      expect(queries.select { |q| q.include?("activity_participants") }).to be_empty
+    end
+  end
+
+  describe "associations" do
+    it "has_many activity_participants with dependent: :destroy" do
+      assoc = described_class.reflect_on_association(:activity_participants)
+      expect(assoc.macro).to eq(:has_many)
+      expect(assoc.options[:dependent]).to eq(:destroy)
+    end
+
+    it "has_many participants through activity_participants sourced from user" do
+      assoc = described_class.reflect_on_association(:participants)
+      expect(assoc.macro).to eq(:has_many)
+      expect(assoc.options[:through]).to eq(:activity_participants)
+      expect(assoc.options[:source]).to eq(:user)
+    end
+  end
 end

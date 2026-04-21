@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { DndContext } from '@dnd-kit/core'
+import { MantineProvider } from '@mantine/core'
 import { vi, afterEach } from 'vitest'
 import ActivityCard, { ActivityCardOverlay } from '../ActivityCard'
 
@@ -19,6 +20,12 @@ afterEach(() => {
 
 function renderInDnd(ui) {
   return render(<DndContext>{ui}</DndContext>)
+}
+
+// Avatar.Group (Mantine) requires MantineProvider. Use this wrapper for tests
+// that exercise participant avatar rendering.
+function renderInMantine(ui) {
+  return render(<MantineProvider><DndContext>{ui}</DndContext></MantineProvider>)
 }
 
 const baseActivity = {
@@ -193,4 +200,45 @@ test('calls onHoverActivity(activity.id) on mouseenter and onClearHover on mouse
 test('renders data-day-color attribute from dayColorName prop', () => {
   const { container } = renderInDnd(<ActivityCard activity={baseActivity} dayColorName="blue" />)
   expect(container.querySelector('.ac-card').getAttribute('data-day-color')).toBe('blue')
+})
+
+const AUTHOR  = { user_id: 1, name: '甲', avatar_url: null }
+const MEMBERS = [
+  { user_id: 2, name: '乙', avatar_url: null },
+  { user_id: 3, name: '丙', avatar_url: null },
+  { user_id: 4, name: '丁', avatar_url: null },
+]
+
+test('does not render participant avatar group when participant_user_ids is empty (默认全员)', () => {
+  const { container } = renderInMantine(
+    <ActivityCard
+      activity={{ ...baseActivity, participant_user_ids: [] }}
+      author={AUTHOR}
+      members={MEMBERS}
+    />
+  )
+  expect(container.querySelector('[data-testid="activity-participants"]')).toBeNull()
+})
+
+test('renders avatar group with overflow when 4 explicit participants', () => {
+  const { container } = renderInMantine(
+    <ActivityCard
+      activity={{ ...baseActivity, participant_user_ids: [ 1, 2, 3, 4 ] }}
+      author={AUTHOR}
+      members={MEMBERS}
+    />
+  )
+  expect(container.querySelector('[data-testid="activity-participants"]')).toBeInTheDocument()
+  expect(screen.getByText('+1')).toBeInTheDocument()
+})
+
+test('renders avatar group without "+N" when exactly 3 explicit participants', () => {
+  renderInMantine(
+    <ActivityCard
+      activity={{ ...baseActivity, participant_user_ids: [ 1, 2, 3 ] }}
+      author={AUTHOR}
+      members={MEMBERS}
+    />
+  )
+  expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument()
 })

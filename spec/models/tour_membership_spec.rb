@@ -22,41 +22,28 @@ RSpec.describe TourMembership do
     expect(build(:tour_membership, tour: tour_b, user: user)).to be_valid
   end
 
-  describe "participating_day_ids" do
-    let(:tour) { create(:tour) }
+  describe "after_destroy" do
+    let(:tour)       { create(:tour) }
+    let(:other_tour) { create(:tour) }
+    let(:user)       { create(:user) }
 
-    it "defaults to [] (meaning 全程参与)" do
-      m = create(:tour_membership, tour: tour)
-      expect(m.participating_day_ids).to eq([])
+    before do
+      create(:tour_membership, tour: other_tour, user: user, role: :editor)
     end
 
-    it "accepts ids of days belonging to the tour" do
-      m = build(:tour_membership, tour: tour, participating_day_ids: [ tour.days.first.id ])
-      expect(m).to be_valid
-    end
+    it "removes the user's ActivityParticipant rows in the same tour only" do
+      membership = create(:tour_membership, tour: tour, user: user, role: :editor)
+      activity_a = create(:activity, tour: tour)
+      activity_b = create(:activity, tour: other_tour)
 
-    it "rejects ids of days belonging to a different tour" do
-      foreign = create(:tour).days.first.id
-      m = build(:tour_membership, tour: tour, participating_day_ids: [ foreign ])
-      expect(m).not_to be_valid
-      expect(m.errors[:participating_day_ids].first).to match(/不属于本行程/)
-    end
-  end
+      ActivityParticipant.create!(activity: activity_a, user: user)
+      ActivityParticipant.create!(activity: activity_b, user: user)
 
-  describe "#participates_in_day?" do
-    let(:tour) { create(:tour) }
-    let!(:day2) { create(:day, tour: tour, day_index: 2) }
+      expect {
+        membership.destroy!
+      }.to change { ActivityParticipant.where(user: user).count }.from(2).to(1)
 
-    it "returns true for all days when participating_day_ids is empty" do
-      m = create(:tour_membership, tour: tour)
-      expect(m.participates_in_day?(tour.days.first.id)).to be true
-      expect(m.participates_in_day?(day2.id)).to be true
-    end
-
-    it "returns true only for listed days when participating_day_ids is set" do
-      m = create(:tour_membership, tour: tour, participating_day_ids: [ day2.id ])
-      expect(m.participates_in_day?(tour.days.first.id)).to be false
-      expect(m.participates_in_day?(day2.id)).to be true
+      expect(ActivityParticipant.where(activity: activity_b, user: user)).to exist
     end
   end
 end

@@ -16,6 +16,8 @@ class Activity < ApplicationRecord
   has_many :activity_images, -> { order(:position) }, dependent: :destroy
   has_many :expenses, dependent: :destroy
   has_many :tour_budgets, dependent: :destroy
+  has_many :activity_participants, dependent: :destroy
+  has_many :participants, through: :activity_participants, source: :user
 
   # When an activity moves to a different day (or goes to backlog), propagate the
   # new day_id to all its activity-scope expenses so the daily aggregation stays
@@ -41,6 +43,12 @@ class Activity < ApplicationRecord
         hash["planned_start_at"] = planned_start_at.strftime("%H:%M")
       end
     end
+  end
+
+  def effective_participant_ids
+    explicit = activity_participants.loaded? ? activity_participants.map(&:user_id) : activity_participants.pluck(:user_id)
+    return explicit if explicit.any?
+    tour.member_user_ids
   end
 
   private

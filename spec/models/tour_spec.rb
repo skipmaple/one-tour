@@ -177,4 +177,16 @@ RSpec.describe Tour do
       expect(tour.days.size).to eq(1)
     end
   end
+
+  describe "#member_user_ids" do
+    it "returns author_id + all tour_membership user_ids" do
+      tour = create(:tour)
+      m1 = create(:user)
+      m2 = create(:user)
+      create(:tour_membership, tour: tour, user: m1, role: :editor)
+      create(:tour_membership, tour: tour, user: m2, role: :reader)
+
+      expect(tour.member_user_ids).to contain_exactly(tour.author_id, m1.id, m2.id)
+    end
+  end
 end

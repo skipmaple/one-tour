@@ -22,10 +22,6 @@ class TourMembershipsController < ApplicationController
       head :unprocessable_entity and return unless ALLOWED_ROLES.include?(params[:role])
       attrs[:role] = params[:role]
     end
-    if params.key?(:participating_day_ids)
-      attrs[:participating_day_ids] = Array(params[:participating_day_ids]).map(&:to_i)
-    end
-
     membership.update!(attrs)
     redirect_to @tour
   end

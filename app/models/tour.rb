@@ -39,6 +39,17 @@ class Tour < ApplicationRecord
     end
   end
 
+  # "作者 + 所有成员" 的 user_id 集合。当前调用方：
+  #   - Activity#effective_participant_ids 的"空=全员"回退
+  #   - ActivityParticipantsController 的 PUT 白名单过滤
+  # (ActivityParticipant 的校验走 exists? 索引查询，不经这里。)
+  # .uniq 防御：author 若同时也持有一行 TourMembership（当前没有硬约束
+  # 阻止），不至于在回退路径里产出重复 id。per-instance 缓存避免同一
+  # 请求里对同一 Tour 多次 pluck。
+  def member_user_ids
+    @member_user_ids ||= [ author_id, *tour_memberships.pluck(:user_id) ].uniq
+  end
+
   def tier_two_food_count
     activities.where(kind: :food, citizen_level: :tier_two).count
   end

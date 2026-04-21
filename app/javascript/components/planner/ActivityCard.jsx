@@ -10,6 +10,8 @@ import {
   IconMapPin,
   IconClock,
 } from '@tabler/icons-react'
+import { Avatar, Tooltip } from '@mantine/core'
+import { isFullRoster } from '../../lib/effectiveParticipants'
 import '../../styles/activity-card.css'
 
 const KIND_ICONS = {
@@ -158,6 +160,8 @@ export default function ActivityCard({
   onHoverActivity,
   onClearHover,
   dayColorName = 'none',
+  author,
+  members,
 }) {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } =
     useDraggable({ id: `activity-${activity.id}` })
@@ -208,11 +212,12 @@ export default function ActivityCard({
         </div>
         <MetaGrid activity={activity} />
       </div>
+      <ParticipantAvatarGroup activity={activity} author={author} members={members} />
     </div>
   )
 }
 
-export function ActivityCardOverlay({ activity }) {
+export function ActivityCardOverlay({ activity, author, members }) {
   return (
     <div className={cardClasses(activity, 'ac-overlay')}>
       <ThumbAndBadge activity={activity} />
@@ -223,6 +228,39 @@ export function ActivityCardOverlay({ activity }) {
         </div>
         <MetaGrid activity={activity} />
       </div>
+      <ParticipantAvatarGroup activity={activity} author={author} members={members} />
     </div>
+  )
+}
+
+// Shared across ActivityCard + ActivityCardOverlay. Null-safe: when `author`
+// or `members` is missing (e.g. older call sites, tests), renders nothing
+// rather than crashing. When `participant_user_ids` is empty (= 默认全员 per
+// the feature's single-source semantics, see effectiveParticipants.js),
+// also renders nothing — cards stay visually calm in the default case.
+function ParticipantAvatarGroup({ activity, author, members }) {
+  if (!author || !Array.isArray(members)) return null
+  if (isFullRoster(activity)) return null
+
+  const roster = [
+    { user_id: author.user_id, name: author.name, avatar_url: author.avatar_url },
+    ...members.map((m) => ({ user_id: m.user_id, name: m.name, avatar_url: m.avatar_url })),
+  ]
+  const users = activity.participant_user_ids
+    .map((id) => roster.find((u) => u.user_id === id))
+    .filter(Boolean)
+  if (users.length === 0) return null
+
+  return (
+    <Avatar.Group className="ac-participants" spacing="xs" data-testid="activity-participants">
+      {users.slice(0, 3).map((u) => (
+        <Tooltip key={u.user_id} label={u.name}>
+          <Avatar src={u.avatar_url} size={16} radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
+        </Tooltip>
+      ))}
+      {users.length > 3 && (
+        <Avatar size={16} radius="xl">+{users.length - 3}</Avatar>
+      )}
+    </Avatar.Group>
   )
 }

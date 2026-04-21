@@ -8,6 +8,7 @@ import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { IconPlus, IconX, IconReceipt2 } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
+import { effectiveParticipants } from '../../lib/effectiveParticipants'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import UserLabel from './UserLabel'
 
@@ -163,7 +164,11 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           category: 'food',
           strategy: 'equal',
           note: '',
-          participantIds: allUsers.map((u) => u.user_id),
+          participantIds: (() => {
+            const firstActivity = nonBacklogActivities[0]
+            if (!firstActivity) return allUsers.map((u) => u.user_id)
+            return effectiveParticipants(firstActivity, { author, members })
+          })(),
           externalCount: 0,
           externalAttributedToId: String(author.user_id),
         }

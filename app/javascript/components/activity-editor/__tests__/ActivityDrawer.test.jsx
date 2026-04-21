@@ -7,8 +7,9 @@ import ActivityDrawer from '../ActivityDrawer'
 // Mock Inertia router
 vi.mock('@inertiajs/react', () => ({
   router: {
-    post: vi.fn((url, data, opts) => opts?.onSuccess?.()),
-    patch: vi.fn((url, data, opts) => opts?.onSuccess?.()),
+    post:   vi.fn((url, data, opts) => opts?.onSuccess?.()),
+    patch:  vi.fn((url, data, opts) => opts?.onSuccess?.()),
+    put:    vi.fn((url, data, opts) => opts?.onSuccess?.()),
     delete: vi.fn((url, opts) => opts?.onSuccess?.()),
     reload: vi.fn(),
   },
@@ -43,6 +44,7 @@ beforeEach(async () => {
   const { router } = await import('@inertiajs/react')
   router.post.mockClear()
   router.patch.mockClear()
+  router.put.mockClear()
   router.delete.mockClear()
   router.reload.mockClear()
   mockUndoStack.push.mockClear()
@@ -57,6 +59,11 @@ function renderDrawer(props = {}) {
     mode: 'create',
     activity: null,
     targetDayId: null,
+    author:  { user_id: 1, name: '作者', email: 'a@x', avatar_url: null },
+    members: [
+      { user_id: 2, name: '乙', email: 'b@x', avatar_url: null, role: 'editor' },
+      { user_id: 3, name: '丙', email: 'c@x', avatar_url: null, role: 'reader' },
+    ],
   }
   return render(
     <MantineProvider>
@@ -190,6 +197,8 @@ test('form clears when switching from edit to create mode', async () => {
             details: {},
           }}
           targetDayId={null}
+          author={{ user_id: 1, name: '作者', email: 'a@x', avatar_url: null }}
+          members={[]}
         />
       </ModalsProvider>
     </MantineProvider>
@@ -206,6 +215,8 @@ test('form clears when switching from edit to create mode', async () => {
           mode="create"
           activity={null}
           targetDayId={7}
+          author={{ user_id: 1, name: '作者', email: 'a@x', avatar_url: null }}
+          members={[]}
         />
       </ModalsProvider>
     </MantineProvider>
@@ -359,4 +370,57 @@ test('update path pushes undo entry on save success', async () => {
       expect.objectContaining({ label: expect.stringContaining('X 改') })
     )
   })
+})
+
+test('renders 参与人 tab in edit mode with default-全员 Alert + all-checked boxes', () => {
+  renderDrawer({
+    mode: 'edit',
+    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_three', participant_user_ids: [] },
+  })
+  fireEvent.click(screen.getByRole('tab', { name: '参与人' }))
+  expect(screen.getByText(/默认全员参与/)).toBeInTheDocument()
+  expect(screen.getAllByRole('checkbox')).toHaveLength(3)
+  screen.getAllByRole('checkbox').forEach((cb) => expect(cb).toBeChecked())
+})
+
+test('unchecking a member sends "全员 minus that id" via PUT', async () => {
+  const { router } = await import('@inertiajs/react')
+  renderDrawer({
+    mode: 'edit',
+    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_three', participant_user_ids: [] },
+  })
+  fireEvent.click(screen.getByRole('tab', { name: '参与人' }))
+  const checkboxes = screen.getAllByRole('checkbox')
+  fireEvent.click(checkboxes[2])
+  expect(router.put).toHaveBeenCalledWith(
+    '/activities/42/participants',
+    { user_ids: [ 1, 2 ] },
+    expect.objectContaining({ preserveScroll: true, only: [ 'activities' ] }),
+  )
+})
+
+test('re-checking the last-missing user sends [] (回到全员)', async () => {
+  const { router } = await import('@inertiajs/react')
+  renderDrawer({
+    mode: 'edit',
+    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_three', participant_user_ids: [ 1, 2 ] },
+  })
+  fireEvent.click(screen.getByRole('tab', { name: '参与人' }))
+  const checkboxes = screen.getAllByRole('checkbox')
+  fireEvent.click(checkboxes[2])
+  expect(router.put).toHaveBeenCalledWith(
+    '/activities/42/participants',
+    { user_ids: [] },
+    expect.any(Object),
+  )
+})
+
+test('participants tab checkboxes are disabled when canEdit=false', () => {
+  renderDrawer({
+    mode: 'edit',
+    canEdit: false,
+    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_three', participant_user_ids: [] },
+  })
+  fireEvent.click(screen.getByRole('tab', { name: '参与人' }))
+  screen.getAllByRole('checkbox').forEach((cb) => expect(cb).toBeDisabled())
 })
