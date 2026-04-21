@@ -32,7 +32,7 @@ export default function UsersShow() {
 
   return (
     <AdminShell currentPath="/admin/users">
-      <Container size="lg" px={0}>
+      <Container size="md" px={0}>
         <Stack gap="md">
           <Anchor component={Link} href="/admin/users">
             <Group gap={4}><IconArrowLeft size={14} /><Text size="sm">返回用户列表</Text></Group>

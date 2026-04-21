@@ -41,7 +41,7 @@ export default function Dashboard() {
 
   return (
     <AdminShell currentPath={url.split('?')[0]}>
-      <Container size="lg" px={0}>
+      <Container size="md" px={0}>
         <Stack gap="lg">
           <Group justify="space-between">
             <Title order={2}>概览</Title>
