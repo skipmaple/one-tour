@@ -10,7 +10,7 @@ import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
 import '@mantine/dates/styles.css'
 import '@mantine/charts/styles.css'
-import AppLayout from '../layouts/AppLayout'
+import AppShell from '../layouts/AppShell'
 import { UndoStackProvider } from '../hooks/useUndoStack'
 import ErrorFallback from '../components/ErrorFallback'
 
@@ -45,9 +45,8 @@ createInertiaApp({
       { eager: true }
     )
     const page = pages[`../pages/${name}.jsx`]
-    const isAdminPage = name.startsWith('Admin/')
-    if (!page.default.layout && !isAdminPage) {
-      page.default.layout = (page) => <AppLayout>{page}</AppLayout>
+    if (!page.default.layout) {
+      page.default.layout = (page) => <AppShell>{page}</AppShell>
     }
     return page
   },

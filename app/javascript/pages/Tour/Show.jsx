@@ -565,3 +565,5 @@ function fixPromptFor(v) {
   return `请分析 ${v.message} 的硬违反，给我 3 个修正方案，每个说明原因、对其他日的影响，以及整程天数/体验是否变化。`
 }
 
+Show.layout = (page) => page
+
