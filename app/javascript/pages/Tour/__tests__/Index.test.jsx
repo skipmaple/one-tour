@@ -27,27 +27,24 @@ describe('Tour Index', () => {
     expect(screen.getByText(/还没有旅程/)).toBeInTheDocument()
   })
 
-  it('routes to planner when tour has days (BUG #9)', () => {
+  it('routes to tour show page', () => {
     renderWithMantine(<Index tours={[{ id: 7, title: 't', days_count: 3, my_role: 'author' }]} />)
     const link = screen.getByRole('link', { name: /打开/ })
     expect(link).toHaveAttribute('href', '/tours/7')
   })
 
-  it('routes to constitution setup when tour has no days yet (BUG #9)', () => {
+  it('routes to tour show page even when tour has no days yet', () => {
     renderWithMantine(<Index tours={[{ id: 8, title: 't', days_count: 0, my_role: 'author' }]} />)
-    const link = screen.getByRole('link', { name: /继续设置/ })
-    expect(link).toHaveAttribute('href', '/tours/8/constitution')
+    const link = screen.getByRole('link', { name: /打开/ })
+    expect(link).toHaveAttribute('href', '/tours/8')
   })
 })
 
-describe('openHref (BUG #9)', () => {
-  it('points to planner when days exist', () => {
+describe('openHref', () => {
+  it('points to tour show page', () => {
     expect(openHref({ id: 1, days_count: 5 })).toBe('/tours/1')
-  })
-
-  it('points to constitution when days_count is 0 or missing', () => {
-    expect(openHref({ id: 1, days_count: 0 })).toBe('/tours/1/constitution')
-    expect(openHref({ id: 1 })).toBe('/tours/1/constitution')
+    expect(openHref({ id: 1, days_count: 0 })).toBe('/tours/1')
+    expect(openHref({ id: 1 })).toBe('/tours/1')
   })
 })
 

@@ -44,7 +44,7 @@ export default function Index({ tours }) {
               <Table.Td>{t.my_role === 'author' ? '作者' : t.my_role === 'editor' ? '编辑' : t.my_role === 'reader' ? '只读' : t.my_role || '作者'}</Table.Td>
               <Table.Td>
                 <Button component={Link} href={openHref(t)} size="xs" variant="light">
-                  {(t.days_count ?? 0) > 0 ? '打开 →' : '继续设置 →'}
+                  打开 →
                 </Button>
               </Table.Td>
             </Table.Tr>
@@ -59,11 +59,8 @@ export default function Index({ tours }) {
   )
 }
 
-// Tours with no days yet haven't finished the guided-setup; send the user
-// back to the constitution page to complete it. Once days exist, jump
-// straight into the planner.
 export function openHref(t) {
-  return (t.days_count ?? 0) > 0 ? `/tours/${t.id}` : `/tours/${t.id}/constitution`
+  return `/tours/${t.id}`
 }
 
 // Relative Chinese formatter with ISO tooltip on hover (<Text title>).

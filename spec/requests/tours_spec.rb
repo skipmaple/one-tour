@@ -51,13 +51,13 @@ RSpec.describe "Tours", type: :request do
   end
 
   describe "POST /tours" do
-    it "creates a tour and redirects to its constitution page" do
+    it "creates a tour and redirects to its show page" do
       login_as(user)
       expect {
         post "/tours", params: { tour: { title: "新伊犁" } }
       }.to change(Tour, :count).by(1)
       tour = Tour.last
-      expect(response).to redirect_to(tour_constitution_path(tour))
+      expect(response).to redirect_to(tour_path(tour))
     end
   end
 

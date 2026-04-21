@@ -7,13 +7,6 @@ RSpec.describe "Tours::Constitutions", type: :request do
 
   let(:user) { create(:user) }
 
-  it "GET /tours/:id/constitution renders inertia page" do
-    tour = create(:tour, author: user)
-    login_as(user)
-    get tour_constitution_path(tour)
-    expect(response).to have_http_status(:ok)
-  end
-
   it "PATCH updates constitution jsonb" do
     tour = create(:tour, author: user)
     login_as(user)
@@ -27,11 +20,5 @@ RSpec.describe "Tours::Constitutions", type: :request do
     login_as(user)
     patch tour_constitution_path(tour), params: { constitution: { max_tier_one_per_day: 4 } }
     expect(response).to have_http_status(:forbidden)
-  end
-
-  it "GET returns 404 when tour does not exist (I4)" do
-    login_as(user)
-    get "/tours/9999999/constitution"
-    expect(response).to have_http_status(:not_found)
   end
 end

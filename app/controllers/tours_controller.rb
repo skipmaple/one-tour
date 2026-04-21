@@ -59,7 +59,7 @@ class ToursController < ApplicationController
 
   def create
     @tour = Tour.create!(author: current_user, **tour_params)
-    redirect_to tour_constitution_path(@tour)
+    redirect_to tour_path(@tour)
   end
 
   def update
