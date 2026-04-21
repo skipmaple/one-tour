@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { vi, beforeEach, describe, test, expect } from 'vitest'
 import ActivityDetailDrawer from '../ActivityDetailDrawer'
@@ -115,8 +115,9 @@ describe('ActivityDetailDrawer – header meta + actions', () => {
 
   test('canEdit=true renders [+ 记一笔] and [编辑] header buttons', () => {
     renderDrawer({ canEdit: true })
-    expect(screen.getByRole('button', { name: /记一笔/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /编辑/ })).toBeInTheDocument()
+    const header = screen.getByTestId('detail-header')
+    expect(within(header).getByRole('button', { name: /记一笔/ })).toBeInTheDocument()
+    expect(within(header).getByRole('button', { name: /编辑/ })).toBeInTheDocument()
   })
 
   test('canEdit=false hides [+ 记一笔] and [编辑] header buttons', () => {
@@ -128,7 +129,8 @@ describe('ActivityDetailDrawer – header meta + actions', () => {
   test('clicking [+ 记一笔] calls onAddExpense with activity id', () => {
     const onAddExpense = vi.fn()
     renderDrawer({ onAddExpense })
-    fireEvent.click(screen.getByRole('button', { name: /记一笔/ }))
+    const header = screen.getByTestId('detail-header')
+    fireEvent.click(within(header).getByRole('button', { name: /记一笔/ }))
     expect(onAddExpense).toHaveBeenCalledWith(10)
   })
 
@@ -262,5 +264,72 @@ describe('ActivityDetailDrawer – participants', () => {
     renderDrawer({ activity: makeActivity({ participant_user_ids: [ 1 ] }) })
     const sec = screen.getByTestId('detail-participants')
     expect(sec).toHaveTextContent('作者')
+  })
+})
+
+describe('ActivityDetailDrawer – expenses', () => {
+  const E1 = {
+    id: 501, scope: 'activity', activity_id: 10,
+    amount_cents: 12000, category: 'ticket',
+    paid_by_id: 1, split_strategy: 'equal',
+    splits: [ { user_id: 1, amount_cents: 4000 }, { user_id: 2, amount_cents: 4000 }, { user_id: 3, amount_cents: 4000 } ],
+  }
+  const E2 = {
+    id: 502, scope: 'activity', activity_id: 10,
+    amount_cents: 8000, category: 'food',
+    paid_by_id: 2, split_strategy: 'individual',
+    splits: [],
+  }
+  const OTHER = { id: 503, scope: 'day', activity_id: null, day_id: 1, amount_cents: 5000, category: 'fuel', paid_by_id: 1 }
+
+  test('renders empty state when no activity-scope expenses', () => {
+    renderDrawer({ expenses: [] })
+    expect(screen.getByTestId('detail-expenses')).toHaveTextContent('还没有花销记录')
+  })
+
+  test('filters to activity-scope only and shows count + total', () => {
+    renderDrawer({ expenses: [ E1, E2, OTHER ] })
+    const sec = screen.getByTestId('detail-expenses')
+    expect(sec).toHaveTextContent('2 笔')
+    expect(sec).toHaveTextContent('¥200')  // 12000 + 8000 = 20000 cents = ¥200
+  })
+
+  test('does not count expenses from other activities', () => {
+    const ForeignActivity = { ...E1, id: 999, activity_id: 999 }
+    renderDrawer({ expenses: [ E1, ForeignActivity ] })
+    expect(screen.getByTestId('detail-expenses')).toHaveTextContent('1 笔')
+  })
+
+  test('canEdit=true + non-backlog activity shows section [+ 记一笔] button (enabled)', () => {
+    renderDrawer({ canEdit: true })
+    const btns = screen.getAllByRole('button', { name: /记一笔/ })
+    // Two [+ 记一笔] buttons expected: header + expenses section
+    expect(btns).toHaveLength(2)
+    expect(btns[1]).not.toBeDisabled()
+  })
+
+  test('canEdit=true + backlog activity shows section [+ 记一笔] button disabled', () => {
+    renderDrawer({ canEdit: true, activity: makeActivity({ day_id: null }) })
+    const sectionBtn = screen.getByTestId('detail-expenses-add-btn')
+    expect(sectionBtn).toBeDisabled()
+  })
+
+  test('canEdit=false hides section [+ 记一笔] button', () => {
+    renderDrawer({ canEdit: false })
+    expect(screen.queryByTestId('detail-expenses-add-btn')).toBeNull()
+  })
+
+  test('clicking section [+ 记一笔] calls onAddExpense', () => {
+    const onAddExpense = vi.fn()
+    renderDrawer({ onAddExpense })
+    fireEvent.click(screen.getByTestId('detail-expenses-add-btn'))
+    expect(onAddExpense).toHaveBeenCalledWith(10)
+  })
+
+  test('clicking an expense row calls onFocusExpense with its id', () => {
+    const onFocusExpense = vi.fn()
+    renderDrawer({ expenses: [ E1 ], onFocusExpense })
+    fireEvent.click(screen.getByTestId('detail-expense-row-501'))
+    expect(onFocusExpense).toHaveBeenCalledWith(501)
   })
 })

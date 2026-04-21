@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Drawer, Stack, Group, Text, Button, Divider } from '@mantine/core'
+import { Drawer, Stack, Group, Text, Button, Divider, Tooltip } from '@mantine/core'
 import { IconPlus, IconPencil, IconMapPin } from '@tabler/icons-react'
 import ActivityMiniMap from './ActivityMiniMap'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
@@ -27,6 +27,21 @@ function formatDuration(min) {
   if (min == null) return null
   if (min >= 60 && min % 30 === 0) return `${min / 60}h`
   return `${min}分`
+}
+
+const CATEGORY_LABELS = {
+  food: '吃饭', fuel: '加油', lodging: '住宿', ticket: '门票', refund: '退款', misc: '其他',
+}
+
+function formatYuan(cents) {
+  const yuan = Math.round(cents / 100)
+  return `¥${yuan.toLocaleString('zh-CN')}`
+}
+
+function usersById(author, members) {
+  const map = { [author.user_id]: author }
+  for (const m of members) map[m.user_id] = m
+  return map
 }
 
 function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) {
@@ -188,6 +203,84 @@ function DetailParticipantsSection({ activity, author, members }) {
   )
 }
 
+function DetailExpensesSection({ activity, expenses, author, members, canEdit, onAddExpense, onFocusExpense }) {
+  const mine = (expenses || []).filter((e) => e.scope === 'activity' && e.activity_id === activity.id)
+  const total = mine.reduce((sum, e) => sum + (e.amount_cents || 0), 0)
+  const users = usersById(author, members)
+  const isBacklog = activity.day_id == null
+
+  return (
+    <>
+      <Divider />
+      <Stack gap="xs" data-testid="detail-expenses">
+        <Group justify="space-between" wrap="nowrap">
+          <Text size="xs" c="dimmed">
+            {mine.length === 0
+              ? '账单'
+              : `账单 · 共 ${formatYuan(total)} · ${mine.length} 笔`}
+          </Text>
+        </Group>
+
+        {mine.length === 0 ? (
+          <Text size="sm" c="dimmed">还没有花销记录。</Text>
+        ) : (
+          <Stack gap={4}>
+            {mine.map((e) => {
+              const payer = users[e.paid_by_id]
+              const payerName = payer?.name || `用户 ${e.paid_by_id}`
+              const strategyText = e.split_strategy === 'individual'
+                ? '个人'
+                : `AA ${e.splits?.length || 0} 人分`
+              return (
+                <button
+                  key={e.id}
+                  type="button"
+                  data-testid={`detail-expense-row-${e.id}`}
+                  onClick={() => onFocusExpense(e.id)}
+                  style={{
+                    textAlign: 'left', border: 0, background: 'transparent',
+                    padding: '6px 4px', cursor: 'pointer', borderBottom: '1px solid #f0f0f0',
+                  }}
+                >
+                  <Text size="sm">
+                    {formatYuan(e.amount_cents)}  {CATEGORY_LABELS[e.category] || e.category}  ·  {payerName} 付  ·  {strategyText}
+                  </Text>
+                </button>
+              )
+            })}
+          </Stack>
+        )}
+
+        {canEdit && (
+          isBacklog ? (
+            <Tooltip label="候选池活动无法记账，请先排入某一天">
+              <Button
+                data-testid="detail-expenses-add-btn"
+                fullWidth
+                variant="filled"
+                leftSection={<IconPlus size={14} />}
+                disabled
+              >
+                记一笔
+              </Button>
+            </Tooltip>
+          ) : (
+            <Button
+              data-testid="detail-expenses-add-btn"
+              fullWidth
+              variant="filled"
+              leftSection={<IconPlus size={14} />}
+              onClick={() => onAddExpense(activity.id)}
+            >
+              记一笔
+            </Button>
+          )
+        )}
+      </Stack>
+    </>
+  )
+}
+
 export default function ActivityDetailDrawer({
   opened, onClose,
   tour, days, activity, activityImages, author, members, expenses,
@@ -218,7 +311,15 @@ export default function ActivityDetailDrawer({
           <DetailDescSection activity={activity} />
           <DetailGallerySection activity={activity} activityImages={activityImages} />
           <DetailParticipantsSection activity={activity} author={author} members={members} />
-          {/* Expenses section plugged in by Task 9 */}
+          <DetailExpensesSection
+            activity={activity}
+            expenses={expenses}
+            author={author}
+            members={members}
+            canEdit={canEdit}
+            onAddExpense={onAddExpense}
+            onFocusExpense={onFocusExpense}
+          />
         </Stack>
       )}
     </Drawer>
