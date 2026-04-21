@@ -177,7 +177,7 @@ export default function ActivityCard({
   const dragListeners = readOnly ? {} : listeners
 
   const handleBodyClick = () => {
-    if (!readOnly && onClick) onClick(activity.id)
+    if (onClick) onClick(activity.id)
   }
 
   const extra = [

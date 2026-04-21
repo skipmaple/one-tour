@@ -120,11 +120,11 @@ test('fires onClick when card body is clicked', () => {
   expect(onClick).toHaveBeenCalledWith(1)
 })
 
-test('does not fire onClick when readOnly', () => {
+test('readOnly=true does NOT gate onClick — reader can click to open detail', () => {
   const onClick = vi.fn()
   renderInDnd(<ActivityCard activity={baseActivity} onClick={onClick} readOnly />)
   fireEvent.click(screen.getByText('喀纳斯湖'))
-  expect(onClick).not.toHaveBeenCalled()
+  expect(onClick).toHaveBeenCalledWith(1)
 })
 
 test('does not expose draggable aria role when readOnly', () => {
