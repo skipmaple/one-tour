@@ -182,6 +182,7 @@ function PermissionMatrix() {
             <Table.Tbody>
               <Table.Tr><Table.Td>查看行程</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{Y}</Table.Td></Table.Tr>
               <Table.Tr><Table.Td>编辑 Activity/Day</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{N}</Table.Td></Table.Tr>
+              <Table.Tr><Table.Td>改 Activity 参与人</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{N}</Table.Td></Table.Tr>
               <Table.Tr><Table.Td>管理成员</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{N}</Table.Td><Table.Td>{N}</Table.Td></Table.Tr>
               <Table.Tr><Table.Td>删除行程</Table.Td><Table.Td>{Y}</Table.Td><Table.Td>{N}</Table.Td><Table.Td>{N}</Table.Td></Table.Tr>
             </Table.Tbody>
