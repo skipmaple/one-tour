@@ -68,7 +68,11 @@ export default function Dashboard() {
               <Text fw={600}>趋势</Text>
               <Text size="sm" c="dimmed">消息数（左）· 花费 ¥（右）</Text>
             </Group>
-            {trend.length === 0 ? (
+            {/* Backend fills every day in the range with zero buckets so
+                the x-axis stays stable across Tab switches, which means
+                trend.length is always > 0. Detect "nothing happened" by
+                checking every bucket is zero instead. */}
+            {trend.every((t) => t.messages === 0 && t.cost_cents === 0) ? (
               <Text c="dimmed" ta="center" py="xl">本时段暂无数据</Text>
             ) : (
               <LineChart

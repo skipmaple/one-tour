@@ -47,7 +47,39 @@ module Admin
     end
 
     def build_scope(q)
-      rel = Tour.includes(:author, :days, :activities, :tour_memberships)
+      # Count associations in SQL rather than loading every day/activity/
+      # membership row into memory via .includes.  With 25 tours per page
+      # and potentially hundreds of activities per tour, .size-on-includes
+      # would hydrate thousands of rows just to return counts. Three
+      # independent subqueries keep it one row per tour with no cartesian
+      # product (the classic trap of joining all three siblings at once).
+      day_counts_sql = <<~SQL.squish
+        SELECT tour_id, COUNT(*) AS day_count FROM days GROUP BY tour_id
+      SQL
+      activity_counts_sql = <<~SQL.squish
+        SELECT tour_id, COUNT(*) AS activity_count FROM activities GROUP BY tour_id
+      SQL
+      # Memberships where the member is NOT also the tour author, so a
+      # rogue self-membership doesn't inflate the count (same reasoning
+      # as serialize_row's non_author_memberships filter).
+      member_counts_sql = <<~SQL.squish
+        SELECT tm.tour_id, COUNT(*) AS member_count
+        FROM tour_memberships tm
+        INNER JOIN tours t ON t.id = tm.tour_id
+        WHERE tm.user_id <> t.author_id
+        GROUP BY tm.tour_id
+      SQL
+
+      rel = Tour.includes(:author)
+                .select(<<~COLS.squish)
+                  tours.*,
+                  COALESCE(dc.day_count, 0)      AS day_count_agg,
+                  COALESCE(ac.activity_count, 0) AS activity_count_agg,
+                  COALESCE(mc.member_count, 0)   AS member_count_agg
+                COLS
+                .joins("LEFT JOIN (#{day_counts_sql}) dc ON dc.tour_id = tours.id")
+                .joins("LEFT JOIN (#{activity_counts_sql}) ac ON ac.tour_id = tours.id")
+                .joins("LEFT JOIN (#{member_counts_sql}) mc ON mc.tour_id = tours.id")
       rel = rel.where("tours.title ILIKE ?", "%#{q}%") if q.present?
       rel
     end
@@ -62,18 +94,18 @@ module Admin
     end
 
     def serialize_row(t)
-      # Count author + non-author memberships distinctly (see members_list
-      # comment — author can hold a membership row on their own tour).
-      non_author_memberships = t.tour_memberships.reject { |m| m.user_id == t.author_id }.size
+      # Counts are pre-aggregated in build_scope via SELECT columns —
+      # no further loading required here. members_count is 1 (author)
+      # plus the SQL-side non-author membership count.
       {
         id:             t.id,
         title:          t.title,
         author_name:    t.author.name,
         author_email:   t.author.email,
         author_id:      t.author.id,
-        members_count:  1 + non_author_memberships,
-        day_count:      t.days.size,
-        activity_count: t.activities.size,
+        members_count:  1 + t.member_count_agg.to_i,
+        day_count:      t.day_count_agg.to_i,
+        activity_count: t.activity_count_agg.to_i,
         created_at:     t.created_at.iso8601,
         updated_at:     t.updated_at.iso8601
       }

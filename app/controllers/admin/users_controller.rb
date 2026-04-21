@@ -50,7 +50,11 @@ module Admin
       # Do NOT join users → tours AND users → conversations → messages in
       # the same query — that creates a cartesian product (tour_count ×
       # message_count) that multiplies SUM/COUNT aggregates.
-      message_stats_sql = ActiveRecord::Base.sanitize_sql_array([ <<~SQL.squish, cutoff ])
+      #
+      # Both the enum value and the cutoff are bound — don't hard-code
+      # `m.role = 1` since the enum mapping could shift silently.
+      assistant_role = Message.roles.fetch("assistant")
+      message_stats_sql = ActiveRecord::Base.sanitize_sql_array([ <<~SQL.squish, assistant_role, cutoff ])
         SELECT
           c.user_id,
           COUNT(DISTINCT m.id) AS messages_30d,
@@ -58,7 +62,7 @@ module Admin
           COALESCE(SUM(m.cost_cents), 0) AS cost_30d_cents
         FROM messages m
         INNER JOIN conversations c ON c.id = m.conversation_id
-        WHERE m.role = 1
+        WHERE m.role = ?
           AND m.tokens_out IS NOT NULL
           AND m.created_at > ?
         GROUP BY c.user_id
