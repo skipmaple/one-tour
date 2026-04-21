@@ -13,6 +13,10 @@ function fmtCost(cents) {
 function fmtNum(n) { return n == null ? '—' : n.toLocaleString() }
 function fmtDate(iso) { return new Date(iso).toLocaleString('zh-CN') }
 
+const USER_ROLE_LABEL = { admin: '管理员', user: '普通用户' }
+const MESSAGE_ROLE_LABEL = { user: '用户', assistant: '助手', system: '系统', tool: '工具' }
+const MEMBER_ROLE_LABEL = { reader: '成员', editor: '编辑' }
+
 function StatCard({ label, value }) {
   return (
     <Card withBorder padding="md" radius="md">
@@ -42,14 +46,14 @@ export default function UsersShow() {
                 <Group gap="xs">
                   <Title order={3}>{profile.name}</Title>
                   <Badge color={profile.role === 'admin' ? 'red' : 'gray'} variant="light">
-                    {profile.role}
+                    {USER_ROLE_LABEL[profile.role] || profile.role}
                   </Badge>
                 </Group>
                 <Text size="sm">{profile.email}</Text>
                 <Text size="xs" c="dimmed">
-                  ID #{profile.id} · 注册 {fmtDate(profile.created_at)}
+                  编号 {profile.id} · 注册 {fmtDate(profile.created_at)}
                   {profile.oauth_providers.length > 0 &&
-                    ` · ${profile.oauth_providers.join(', ')}`}
+                    ` · 登录方式：${profile.oauth_providers.join('、')}`}
                 </Text>
               </Stack>
             </Group>
@@ -57,18 +61,18 @@ export default function UsersShow() {
 
           {/* Lifetime */}
           <SimpleGrid cols={{ base: 2, sm: 4 }}>
-            <StatCard label="总 Tour 数" value={lifetime_stats.total_tours} />
-            <StatCard label="总消息数" value={fmtNum(lifetime_stats.total_messages)} />
-            <StatCard label="总 token" value={fmtNum(lifetime_stats.total_tokens)} />
-            <StatCard label="总成本" value={fmtCost(lifetime_stats.total_cost_cents)} />
+            <StatCard label="累计旅程" value={lifetime_stats.total_tours} />
+            <StatCard label="累计消息" value={fmtNum(lifetime_stats.total_messages)} />
+            <StatCard label="累计用量" value={fmtNum(lifetime_stats.total_tokens)} />
+            <StatCard label="累计花费" value={fmtCost(lifetime_stats.total_cost_cents)} />
           </SimpleGrid>
 
           {/* Tours tabs */}
           <Card withBorder padding="md" radius="md">
             <Tabs defaultValue="authored">
               <Tabs.List>
-                <Tabs.Tab value="authored">我的 Tour ({authored_tours.length})</Tabs.Tab>
-                <Tabs.Tab value="joined">参与的 Tour ({joined_tours.length})</Tabs.Tab>
+                <Tabs.Tab value="authored">我的旅程 ({authored_tours.length})</Tabs.Tab>
+                <Tabs.Tab value="joined">参与的旅程 ({joined_tours.length})</Tabs.Tab>
               </Tabs.List>
               <Tabs.Panel value="authored" pt="md">
                 <TourList items={authored_tours} showRole={false} />
@@ -89,17 +93,17 @@ export default function UsersShow() {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>时间</Table.Th>
-                    <Table.Th>Role</Table.Th>
+                    <Table.Th>角色</Table.Th>
                     <Table.Th>内容（前 200 字）</Table.Th>
-                    <Table.Th>Token</Table.Th>
-                    <Table.Th>成本</Table.Th>
+                    <Table.Th>用量（输入/输出）</Table.Th>
+                    <Table.Th>花费</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {recent_messages.map((m) => (
                     <Table.Tr key={m.id}>
                       <Table.Td>{fmtDate(m.created_at)}</Table.Td>
-                      <Table.Td><Badge variant="light">{m.role}</Badge></Table.Td>
+                      <Table.Td><Badge variant="light">{MESSAGE_ROLE_LABEL[m.role] || m.role}</Badge></Table.Td>
                       <Table.Td>{m.content}</Table.Td>
                       <Table.Td>
                         {m.tokens_in != null ? `${m.tokens_in} / ${m.tokens_out}` : '—'}
@@ -125,7 +129,7 @@ function TourList({ items, showRole }) {
         <Table.Tr>
           <Table.Th>标题</Table.Th>
           {showRole && <Table.Th>角色</Table.Th>}
-          <Table.Th>Day 数</Table.Th>
+          <Table.Th>天数</Table.Th>
           <Table.Th>更新时间</Table.Th>
         </Table.Tr>
       </Table.Thead>
@@ -135,7 +139,7 @@ function TourList({ items, showRole }) {
             <Table.Td>
               <Anchor component={Link} href={`/admin/tours/${t.id}`}>{t.title}</Anchor>
             </Table.Td>
-            {showRole && <Table.Td>{t.role}</Table.Td>}
+            {showRole && <Table.Td>{MEMBER_ROLE_LABEL[t.role] || t.role}</Table.Td>}
             <Table.Td>{t.day_count ?? '—'}</Table.Td>
             <Table.Td>{fmtDate(t.updated_at)}</Table.Td>
           </Table.Tr>

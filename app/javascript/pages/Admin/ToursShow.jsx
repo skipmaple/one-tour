@@ -12,6 +12,8 @@ function fmtCost(cents) {
 function fmtNum(n) { return n == null ? '—' : n.toLocaleString() }
 function fmtDate(iso) { return iso ? new Date(iso).toLocaleString('zh-CN') : '—' }
 
+const MEMBER_ROLE_LABEL = { author: '作者', reader: '成员', editor: '编辑' }
+
 function Stat({ label, value }) {
   return (
     <Card withBorder padding="sm" radius="md">
@@ -30,7 +32,7 @@ export default function ToursShow() {
       <Container size="lg" px={0}>
         <Stack gap="md">
           <Anchor component={Link} href="/admin/tours">
-            <Group gap={4}><IconArrowLeft size={14} /><Text size="sm">返回 Tour 列表</Text></Group>
+            <Group gap={4}><IconArrowLeft size={14} /><Text size="sm">返回旅程列表</Text></Group>
           </Anchor>
 
           {/* Tour profile */}
@@ -44,8 +46,8 @@ export default function ToursShow() {
               {' '}<Text span c="dimmed">{tour.author.email}</Text>
             </Text>
             <Text size="xs" c="dimmed" mt={4}>
-              ID #{tour.id} · 创建 {fmtDate(tour.created_at)} · 更新 {fmtDate(tour.updated_at)}
-              {tour.start_date && ` · ${tour.start_date} → ${tour.end_date || '—'}`}
+              编号 {tour.id} · 创建 {fmtDate(tour.created_at)} · 更新 {fmtDate(tour.updated_at)}
+              {tour.start_date && ` · 出行 ${tour.start_date} → ${tour.end_date || '—'}`}
             </Text>
           </Card>
 
@@ -70,7 +72,7 @@ export default function ToursShow() {
                     <Table.Td>{m.email}</Table.Td>
                     <Table.Td>
                       <Badge variant="light" color={m.role === 'author' ? 'grape' : 'gray'}>
-                        {m.role}
+                        {MEMBER_ROLE_LABEL[m.role] || m.role}
                       </Badge>
                     </Table.Td>
                     <Table.Td>{fmtDate(m.joined_at)}</Table.Td>
@@ -82,23 +84,23 @@ export default function ToursShow() {
 
           {/* Days */}
           <Card withBorder padding="md" radius="md">
-            <Title order={4} mb="sm">Days ({days.length})</Title>
+            <Title order={4} mb="sm">天数 ({days.length})</Title>
             {days.length === 0 ? (
-              <Text c="dimmed">暂无 Day</Text>
+              <Text c="dimmed">暂无天数安排</Text>
             ) : (
               <Table>
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>Day</Table.Th>
+                    <Table.Th>第几天</Table.Th>
                     <Table.Th>日期</Table.Th>
-                    <Table.Th>Activity 数</Table.Th>
+                    <Table.Th>行数</Table.Th>
                     <Table.Th>更新时间</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {days.map((d) => (
                     <Table.Tr key={d.id}>
-                      <Table.Td>Day {d.day_index}</Table.Td>
+                      <Table.Td>第 {d.day_index} 天</Table.Td>
                       <Table.Td>{d.date || '—'}</Table.Td>
                       <Table.Td>{d.activity_count}</Table.Td>
                       <Table.Td>{fmtDate(d.updated_at)}</Table.Td>
@@ -111,11 +113,11 @@ export default function ToursShow() {
 
           {/* Conversation stats */}
           <Card withBorder padding="md" radius="md">
-            <Title order={4} mb="sm">对话统计</Title>
+            <Title order={4} mb="sm">AI 对话统计</Title>
             <SimpleGrid cols={{ base: 2, sm: 4 }}>
               <Stat label="消息数" value={fmtNum(stats.total_messages)} />
-              <Stat label="总 token" value={fmtNum(stats.total_tokens)} />
-              <Stat label="总成本" value={fmtCost(stats.total_cost_cents)} />
+              <Stat label="累计用量" value={fmtNum(stats.total_tokens)} />
+              <Stat label="累计花费" value={fmtCost(stats.total_cost_cents)} />
               <Stat label="最后发言" value={fmtDate(stats.last_message_at)} />
             </SimpleGrid>
           </Card>

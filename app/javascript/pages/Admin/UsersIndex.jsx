@@ -12,6 +12,8 @@ function fmtCost(cents) { return `¥${(cents / 100).toFixed(2)}` }
 function fmtNum(n)      { return n.toLocaleString() }
 function fmtDate(iso)   { return new Date(iso).toLocaleDateString('zh-CN') }
 
+const USER_ROLE_LABEL = { admin: '管理员', user: '普通用户' }
+
 export default function UsersIndex() {
   const { url, props } = usePage()
   const { users, total, page, per_page, q, sort } = props
@@ -55,15 +57,15 @@ export default function UsersIndex() {
           <Table highlightOnHover stickyHeader>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>ID</Table.Th>
+                <Table.Th>编号</Table.Th>
                 <Table.Th>姓名</Table.Th>
                 <Table.Th>邮箱</Table.Th>
                 <Table.Th>角色</Table.Th>
-                <SortHeader sort={sort} col="created" label="注册" setSort={setSort} />
-                <Table.Th>Tour 数</Table.Th>
-                <SortHeader sort={sort} col="messages" label="30d 消息" setSort={setSort} />
-                <SortHeader sort={sort} col="tokens"   label="30d token" setSort={setSort} />
-                <SortHeader sort={sort} col="cost"     label="30d 成本" setSort={setSort} />
+                <SortHeader sort={sort} col="created" label="注册时间" setSort={setSort} />
+                <Table.Th>旅程数</Table.Th>
+                <SortHeader sort={sort} col="messages" label="近30天消息" setSort={setSort} />
+                <SortHeader sort={sort} col="tokens"   label="近30天用量" setSort={setSort} />
+                <SortHeader sort={sort} col="cost"     label="近30天花费" setSort={setSort} />
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -76,7 +78,7 @@ export default function UsersIndex() {
                   <Table.Td>{u.email}</Table.Td>
                   <Table.Td>
                     <Badge color={u.role === 'admin' ? 'red' : 'gray'} variant="light">
-                      {u.role}
+                      {USER_ROLE_LABEL[u.role] || u.role}
                     </Badge>
                   </Table.Td>
                   <Table.Td>{fmtDate(u.created_at)}</Table.Td>

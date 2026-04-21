@@ -20,9 +20,9 @@ function renderWithShell(ui, { currentPath = '/admin' } = {}) {
 describe('AdminShell', () => {
   it('renders all three nav items', () => {
     renderWithShell(<div>child</div>)
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    expect(screen.getByText('概览')).toBeInTheDocument()
     expect(screen.getByText('用户')).toBeInTheDocument()
-    expect(screen.getByText('Tour')).toBeInTheDocument()
+    expect(screen.getByText('旅程')).toBeInTheDocument()
   })
 
   it('renders children', () => {
@@ -30,18 +30,18 @@ describe('AdminShell', () => {
     expect(screen.getByTestId('child')).toBeInTheDocument()
   })
 
-  it('renders "Admin" badge in header', () => {
+  it('renders admin badge in header', () => {
     renderWithShell(<div />)
-    expect(screen.getByText('Admin')).toBeInTheDocument()
+    expect(screen.getByText('管理员')).toBeInTheDocument()
   })
 
-  it('highlights Dashboard nav when currentPath is /admin', () => {
+  it('highlights the overview nav when currentPath is /admin', () => {
     renderWithShell(<div />, { currentPath: '/admin' })
-    const dashLink = screen.getByText('Dashboard').closest('a')
+    const dashLink = screen.getByText('概览').closest('a')
     expect(dashLink).toHaveAttribute('data-active', 'true')
   })
 
-  it('highlights Users nav when currentPath starts with /admin/users', () => {
+  it('highlights the users nav when currentPath starts with /admin/users', () => {
     renderWithShell(<div />, { currentPath: '/admin/users/42' })
     const usersLink = screen.getByText('用户').closest('a')
     expect(usersLink).toHaveAttribute('data-active', 'true')

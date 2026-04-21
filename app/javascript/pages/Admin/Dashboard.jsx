@@ -44,7 +44,7 @@ export default function Dashboard() {
       <Container size="lg" px={0}>
         <Stack gap="lg">
           <Group justify="space-between">
-            <Title order={2}>Dashboard</Title>
+            <Title order={2}>概览</Title>
             <Tabs value={range} onChange={onRangeChange} variant="pills">
               <Tabs.List>
                 {RANGES.map((r) => (
@@ -55,18 +55,18 @@ export default function Dashboard() {
           </Group>
 
           <SimpleGrid cols={{ base: 2, sm: 3 }} spacing="md">
-            <KpiCard icon={IconUserPlus}     label="新增用户" value={kpis.new_users} />
-            <KpiCard icon={IconUsersGroup}   label="活跃用户" value={kpis.active_users} />
-            <KpiCard icon={IconMapPlus}      label="新增 Tour" value={kpis.new_tours} />
-            <KpiCard icon={IconMap}          label="活跃 Tour" value={kpis.active_tours} />
-            <KpiCard icon={IconMessageDots}  label="LLM 消息" value={kpis.llm_messages} />
-            <KpiCard icon={IconCurrencyYen}  label="LLM 成本" value={fmtCost(kpis.llm_cost_cents)} />
+            <KpiCard icon={IconUserPlus}     label="新增用户"  value={kpis.new_users} />
+            <KpiCard icon={IconUsersGroup}   label="活跃用户"  value={kpis.active_users} />
+            <KpiCard icon={IconMapPlus}      label="新增旅程"  value={kpis.new_tours} />
+            <KpiCard icon={IconMap}          label="活跃旅程"  value={kpis.active_tours} />
+            <KpiCard icon={IconMessageDots}  label="AI 对话消息" value={kpis.llm_messages} />
+            <KpiCard icon={IconCurrencyYen}  label="AI 对话花费" value={fmtCost(kpis.llm_cost_cents)} />
           </SimpleGrid>
 
           <Card withBorder padding="md" radius="md">
             <Group justify="space-between" mb="md">
               <Text fw={600}>趋势</Text>
-              <Text size="sm" c="dimmed">消息数（左）· 成本 ¥（右）</Text>
+              <Text size="sm" c="dimmed">消息数（左）· 花费 ¥（右）</Text>
             </Group>
             {trend.length === 0 ? (
               <Text c="dimmed" ta="center" py="xl">本时段暂无数据</Text>
@@ -80,7 +80,7 @@ export default function Dashboard() {
                 dataKey="date"
                 series={[
                   { name: 'messages',  label: '消息数', color: 'blue.6',   yAxisId: 'left'  },
-                  { name: 'cost_yuan', label: '成本¥',  color: 'orange.6', yAxisId: 'right' },
+                  { name: 'cost_yuan', label: '花费¥',  color: 'orange.6', yAxisId: 'right' },
                 ]}
                 withRightYAxis
                 curveType="monotone"

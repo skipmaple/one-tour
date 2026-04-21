@@ -9,9 +9,9 @@ import {
 } from '@tabler/icons-react'
 
 const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/admin',        icon: IconLayoutDashboard, match: (p) => p === '/admin' },
-  { label: '用户',       href: '/admin/users',  icon: IconUsers,           match: (p) => p.startsWith('/admin/users') },
-  { label: 'Tour',       href: '/admin/tours',  icon: IconMap,             match: (p) => p.startsWith('/admin/tours') },
+  { label: '概览', href: '/admin',       icon: IconLayoutDashboard, match: (p) => p === '/admin' },
+  { label: '用户', href: '/admin/users', icon: IconUsers,           match: (p) => p.startsWith('/admin/users') },
+  { label: '旅程', href: '/admin/tours', icon: IconMap,             match: (p) => p.startsWith('/admin/tours') },
 ]
 
 export default function AdminShell({ children, currentPath = '' }) {
@@ -28,7 +28,7 @@ export default function AdminShell({ children, currentPath = '' }) {
           <Group>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             <Text fw={700}>One Tour</Text>
-            <Badge color="red" variant="light">Admin</Badge>
+            <Badge color="red" variant="light">管理员</Badge>
           </Group>
           <Group gap="xs">
             <Link href="/" as="a">

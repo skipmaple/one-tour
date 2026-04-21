@@ -37,7 +37,7 @@ export default function ToursIndex() {
     <AdminShell currentPath={url.split('?')[0]}>
       <Container size="xl" px={0}>
         <Stack gap="md">
-          <Title order={2}>Tour</Title>
+          <Title order={2}>旅程</Title>
           <TextInput
             leftSection={<IconSearch size={16} />}
             placeholder="搜索标题"
@@ -47,13 +47,13 @@ export default function ToursIndex() {
           <Table highlightOnHover stickyHeader>
             <Table.Thead>
               <Table.Tr>
-                <Table.Th>ID</Table.Th>
+                <Table.Th>编号</Table.Th>
                 <Table.Th>标题</Table.Th>
                 <Table.Th>作者</Table.Th>
                 <Table.Th>成员数</Table.Th>
-                <Table.Th>Day 数</Table.Th>
-                <Table.Th>Activity 数</Table.Th>
-                <Table.Th>创建</Table.Th>
+                <Table.Th>天数</Table.Th>
+                <Table.Th>行数</Table.Th>
+                <Table.Th>创建时间</Table.Th>
                 <Table.Th>最近更新</Table.Th>
               </Table.Tr>
             </Table.Thead>
