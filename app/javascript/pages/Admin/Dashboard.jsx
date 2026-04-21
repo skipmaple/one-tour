@@ -1,4 +1,4 @@
-import { usePage, router } from '@inertiajs/react'
+import { usePage, router, Head } from '@inertiajs/react'
 import {
   Container, SimpleGrid, Card, Group, Text, Title, Tabs, Stack,
 } from '@mantine/core'
@@ -7,7 +7,6 @@ import {
   IconUserPlus, IconUsersGroup, IconMapPlus, IconMap,
   IconMessageDots, IconCurrencyYen,
 } from '@tabler/icons-react'
-import AdminShell from '../../components/admin/AdminShell'
 
 const RANGES = [
   { value: 'today', label: '今天' },
@@ -32,7 +31,7 @@ function fmtCost(cents) {
 }
 
 export default function Dashboard() {
-  const { url, props } = usePage()
+  const { props } = usePage()
   const { range, kpis, trend } = props
 
   const onRangeChange = (value) => {
@@ -40,7 +39,8 @@ export default function Dashboard() {
   }
 
   return (
-    <AdminShell currentPath={url.split('?')[0]}>
+    <>
+      <Head title="概览" />
       <Container fluid px="md">
         <Stack gap="lg">
           <Group justify="space-between">
@@ -95,6 +95,6 @@ export default function Dashboard() {
           </Card>
         </Stack>
       </Container>
-    </AdminShell>
+    </>
   )
 }

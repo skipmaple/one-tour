@@ -1,10 +1,9 @@
-import { usePage, Link } from '@inertiajs/react'
+import { usePage, Link, Head } from '@inertiajs/react'
 import {
   Container, Stack, Title, Card, Group, Text, Badge, SimpleGrid,
   Tabs, Table, Avatar, Anchor,
 } from '@mantine/core'
 import { IconArrowLeft } from '@tabler/icons-react'
-import AdminShell from '../../components/admin/AdminShell'
 
 function fmtCost(cents) {
   if (cents == null) return '—'
@@ -31,7 +30,8 @@ export default function UsersShow() {
   const { profile, lifetime_stats, authored_tours, joined_tours, recent_messages } = props
 
   return (
-    <AdminShell currentPath="/admin/users">
+    <>
+      <Head title={profile.name} />
       <Container size="lg" px="md">
         <Stack gap="md">
           <Anchor component={Link} href="/admin/users">
@@ -117,7 +117,7 @@ export default function UsersShow() {
           </Card>
         </Stack>
       </Container>
-    </AdminShell>
+    </>
   )
 }
 
