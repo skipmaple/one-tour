@@ -127,6 +127,16 @@ RSpec.describe "Tours", type: :request do
       expect(response).to have_http_status(:ok)
       expect(response.body).to include('"conversation_empty":false')
     end
+
+    it "includes a `summary` Inertia prop shaped like Tour::TimelineSummary.for" do
+      tour = create(:tour, author: user)
+      login_as(user)
+      get "/tours/#{tour.id}"
+      expect(response).to have_http_status(:ok)
+      page = inertia_page_from(response.body)
+      expect(page["props"]).to have_key("summary")
+      expect(page["props"]["summary"]).to eq(Tour::TimelineSummary.for(tour).deep_stringify_keys)
+    end
   end
 
   describe "GET /tours/:id — participant_user_ids on activities" do

@@ -16,7 +16,8 @@ class ToursController < ApplicationController
 
   def show
     head :not_found and return unless @tour.visible_to?(current_user)
-    tour_violations = Tour::ConstitutionCheck.for(@tour).map(&:to_h)
+    tour_violation_structs = Tour::ConstitutionCheck.for(@tour)
+    tour_violations = tour_violation_structs.map(&:to_h)
     conv = @tour.conversations.find_by(user: current_user)
     render inertia: "Tour/Show", props: {
       tour: @tour.as_json.merge("editable_by_current_user" => @tour.editable_by?(current_user)),
@@ -48,7 +49,8 @@ class ToursController < ApplicationController
         name: @tour.author.name,
         avatar_url: @tour.author.display_avatar_url
       },
-      conversation_empty: !conv || !conv.messages.exists?
+      conversation_empty: !conv || !conv.messages.exists?,
+      summary: Tour::TimelineSummary.for(@tour, violations: tour_violation_structs)
     }
   end
 
