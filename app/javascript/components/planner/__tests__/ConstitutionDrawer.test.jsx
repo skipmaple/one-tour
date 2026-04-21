@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
@@ -59,6 +59,7 @@ function renderDrawer(overrides = {}) {
     defaults: { max_daily_driving_minutes: 360 },
     overrides: [],
     initialDaysCount: 1,
+    canEdit: true,
     width: 400,
     onWidthChange: vi.fn(),
     onClose: vi.fn(),
@@ -92,12 +93,6 @@ describe('ConstitutionDrawer — onboarding mode', () => {
     expect(screen.getByText(/第 1 步/)).toBeInTheDocument()
   })
 
-  it('does NOT render autosave status line in onboarding mode', () => {
-    renderDrawer()
-    expect(screen.queryByText(/已保存/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/自动保存/)).not.toBeInTheDocument()
-  })
-
   it('renders tour metadata inputs (程名 / 日期范围 / 人数 / 天数)', () => {
     renderDrawer()
     expect(screen.getByLabelText(/程名/)).toBeInTheDocument()
@@ -112,26 +107,35 @@ describe('ConstitutionDrawer — onboarding mode', () => {
     ]})
     expect(screen.queryByText('行程超过每日上限')).not.toBeInTheDocument()
   })
+
+  it('hides close (×) button in onboarding — no escape hatch until accept', () => {
+    renderDrawer()
+    expect(screen.queryByRole('button', { name: /关闭|close/i })).not.toBeInTheDocument()
+  })
 })
 
-describe('ConstitutionDrawer — edit mode', () => {
-  it('renders when constitution_accepted is true', () => {
+describe('ConstitutionDrawer — edit mode (Review)', () => {
+  it('renders Review state by default when accepted', () => {
     renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
+    // Review shows the full-text doc + 修宪 button; step indicator absent.
     expect(screen.queryByText(/第 1 步/)).not.toBeInTheDocument()
+    expect(screen.getByTestId('red-doc')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '修宪' })).toBeInTheDocument()
   })
 
-  it('renders when localStorage marker is set (even if constitution_accepted is false)', () => {
+  it('renders when localStorage marker set (even if constitution_accepted is false)', () => {
     localStorage.setItem('onboarded:tour:42', '1')
     renderDrawer()
     expect(screen.queryByText(/第 1 步/)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '修宪' })).toBeInTheDocument()
   })
 
-  it('shows persistent autosave hint before any save', () => {
-    renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
-    expect(screen.getByText('所有更改将自动保存')).toBeInTheDocument()
+  it('hides 修宪 button for read-only users', () => {
+    renderDrawer({ tour: { ...baseTour, constitution_accepted: true }, canEdit: false })
+    expect(screen.queryByRole('button', { name: '修宪' })).not.toBeInTheDocument()
   })
 
-  it('shows violation list in edit mode', () => {
+  it('shows violations in Review state', () => {
     renderDrawer({
       tour: { ...baseTour, constitution_accepted: true },
       violations: [{ level: 'hard', message: '行程超过每日上限', rule: 'max_tier_one_per_day' }],
@@ -139,27 +143,59 @@ describe('ConstitutionDrawer — edit mode', () => {
     expect(screen.getByText('行程超过每日上限')).toBeInTheDocument()
   })
 
-  it('debounces PATCH on field change', async () => {
+  it('close button (×) is present in edit mode', () => {
+    renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
+    expect(screen.getByRole('button', { name: /关闭|close/i })).toBeInTheDocument()
+  })
+})
+
+describe('ConstitutionDrawer — edit mode (Editing sub-state after 修宪)', () => {
+  it('clicking 修宪 swaps to params editor + 取消/保存 buttons', async () => {
     const user = userEvent.setup()
-    localStorage.setItem('onboarded:tour:42', '1')
-    renderDrawer()
+    renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
+    await user.click(screen.getByRole('button', { name: '修宪' }))
+    expect(screen.getByTestId('param-input')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '取消' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '保存' })).toBeInTheDocument()
+    // Review body hidden while editing
+    expect(screen.queryByRole('button', { name: '修宪' })).not.toBeInTheDocument()
+  })
+
+  it('保存 button is disabled when no changes made', async () => {
+    const user = userEvent.setup()
+    renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
+    await user.click(screen.getByRole('button', { name: '修宪' }))
+    expect(screen.getByRole('button', { name: '保存' })).toBeDisabled()
+  })
+
+  it('保存 fires explicit PATCH on click', async () => {
+    const user = userEvent.setup()
+    renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
+    await user.click(screen.getByRole('button', { name: '修宪' }))
     const input = screen.getByTestId('param-input')
     await user.clear(input)
     await user.type(input, '400')
-    await waitFor(
-      () => expect(patchMock).toHaveBeenCalled(),
-      { timeout: 2000 },
-    )
+    await user.click(screen.getByRole('button', { name: '保存' }))
+    expect(patchMock).toHaveBeenCalledTimes(1)
     expect(patchMock.mock.calls[0][0]).toBe('/tours/42/constitution')
   })
-})
 
-describe('ConstitutionDrawer — close', () => {
-  it('calls onClose when close button clicked', async () => {
+  it('取消 returns to Review state (does NOT fire PATCH)', async () => {
     const user = userEvent.setup()
-    const { props } = renderDrawer()
-    await user.click(screen.getByRole('button', { name: /关闭|close/i }))
-    expect(props.onClose).toHaveBeenCalled()
+    renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
+    await user.click(screen.getByRole('button', { name: '修宪' }))
+    const input = screen.getByTestId('param-input')
+    await user.clear(input)
+    await user.type(input, '400')
+    await user.click(screen.getByRole('button', { name: '取消' }))
+    expect(patchMock).not.toHaveBeenCalled()
+    // Back in Review state
+    expect(screen.getByRole('button', { name: '修宪' })).toBeInTheDocument()
+  })
+
+  it('does NOT render autosave hint anywhere', () => {
+    renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
+    expect(screen.queryByText(/已保存/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/自动保存/)).not.toBeInTheDocument()
   })
 })
-

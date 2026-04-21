@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Stack, Group, ActionIcon, Text, Title, Button, Paper, TextInput, NumberInput,
-  Drawer as MantineDrawer, ScrollArea, Box,
+  Drawer as MantineDrawer, ScrollArea,
 } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
 import { useMediaQuery } from '@mantine/hooks'
@@ -9,7 +9,6 @@ import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { IconX, IconAlertOctagonFilled, IconAlertTriangleFilled } from '@tabler/icons-react'
 import { router } from '@inertiajs/react'
-import debounce from 'lodash.debounce'
 import * as Sentry from '@sentry/react'
 import ParameterEditor from './ParameterEditor'
 import RedHeaderDocument from './RedHeaderDocument'
@@ -20,7 +19,6 @@ import {
 
 const DRAWER_MIN = 320
 const DRAWER_MAX = 640
-const SAVE_DEBOUNCE_MS = 500
 const MOBILE_QUERY = '(max-width: 48em)'
 
 // Keep in sync with ParameterEditor's "关键约束" section.
@@ -38,11 +36,17 @@ function isOnboarded(tour) {
 
 export default function ConstitutionDrawer({
   tour, violations, defaults, overrides = [], initialDaysCount = 1,
+  canEdit = true,
   width, onWidthChange, onClose, onFix, onAcknowledge,
 }) {
   const onboarded = isOnboarded(tour)
   const isMobile = useMediaQuery(MOBILE_QUERY)
   const drawerRef = useRef(null)
+
+  // Onboarding mode forbids dismissal until the user completes "同意并开始
+  // 规划" — the drawer hides its × button, ignores ESC, and Mantine Drawer
+  // (mobile) disables its own closeOn* shortcuts.
+  const canDismiss = onboarded
 
   // Constitution params state.
   const [c, setC] = useState({ ...tour.constitution })
@@ -55,11 +59,15 @@ export default function ConstitutionDrawer({
   const [tourTeamSize, setTourTeamSize] = useState(tour.team_size || '')
   const [tourDays, setTourDays] = useState(initialDaysCount || 1)
 
-  // Step and save state.
+  // Setup / review state.
   const [setupStep, setSetupStep] = useState(1)
   const [isSaving, setIsSaving] = useState(false)
   const [isAccepting, setIsAccepting] = useState(false)
-  const [lastSavedAt, setLastSavedAt] = useState(null)
+  // Edit-mode sub-state: false = Review (read-only 《本程宪法》 + 修宪 button),
+  // true = Editing (params editable + 取消/保存 explicit). Modeled after the
+  // original Tour/Constitution review flow — saving the constitution is a
+  // deliberate, ritualized act, not a background autosave.
+  const [editing, setEditing] = useState(false)
 
   // Date/days conflict confirmation modal (matches old Constitution page).
   const askConflict = ({ implied, current, onUseRange, onUseDays }) => {
@@ -136,42 +144,20 @@ export default function ConstitutionDrawer({
     })
   }
 
-  // Edit-mode debounced auto-save.
-  const debouncedPatchRef = useRef(null)
-  useEffect(() => {
-    debouncedPatchRef.current = debounce((constitution) => {
-      router.patch(`/tours/${tour.id}/constitution`, { constitution }, {
-        preserveScroll: true,
-        onSuccess: () => setLastSavedAt(new Date()),
-      })
-    }, SAVE_DEBOUNCE_MS)
-    return () => debouncedPatchRef.current?.cancel?.()
-  }, [tour.id])
-
-  const isInitialRender = useRef(true)
-  useEffect(() => {
-    if (!onboarded) return
-    if (isInitialRender.current) {
-      isInitialRender.current = false
-      return
-    }
-    debouncedPatchRef.current?.(c)
-  }, [c, onboarded])
-
-  // ESC closes — scoped to the drawer element so a nested Select's dropdown
-  // gets first dibs on the key (prevents closing the whole drawer when the
-  // user only wanted to dismiss a dropdown).
+  // ESC — scoped to drawer element so nested Select dropdowns get first
+  // dibs on the key. Onboarding mode ignores ESC (canDismiss=false).
   useEffect(() => {
     const el = drawerRef.current
     if (!el) return
     const handler = (e) => {
       if (e.key !== 'Escape') return
       if (e.defaultPrevented) return
+      if (!canDismiss) return
       onClose()
     }
     el.addEventListener('keydown', handler)
     return () => el.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, [onClose, canDismiss])
 
   const onResizeStart = (e) => {
     e.preventDefault()
@@ -254,7 +240,25 @@ export default function ConstitutionDrawer({
     })
   }
 
+  // Review → Editing: enter editing sub-state.
+  // Editing → Review: either save (explicit PATCH + exit editing) or cancel
+  // (reset `c` back to saved snapshot + exit editing). There is no autosave.
+  const saveEdits = () => {
+    router.patch(`/tours/${tour.id}/constitution`, { constitution: c }, {
+      preserveScroll: true,
+      onSuccess: () => {
+        setEditing(false)
+        notifications.show({ message: '宪法已更新', color: 'green', autoClose: 3000 })
+      },
+    })
+  }
+  const cancelEdits = () => {
+    setC({ ...tour.constitution })
+    setEditing(false)
+  }
+
   const dirty = Object.keys(defaults || {}).some(k => String(c[k]) !== String(defaults[k]))
+  const constitutionDirty = JSON.stringify(c) !== JSON.stringify(tour.constitution)
   const resetToDefaults = () => {
     if (!dirty) return
     const changedCount = Object.keys(defaults)
@@ -275,15 +279,19 @@ export default function ConstitutionDrawer({
   const header = (
     <Group justify="space-between" px="md" py="xs" style={{ borderBottom: '1px solid #eee' }}>
       <Title order={5}>{onboarded ? '宪法' : '设置这次旅程'}</Title>
-      <ActionIcon onClick={onClose} variant="subtle" aria-label="关闭">
-        <IconX size={18} />
-      </ActionIcon>
+      {canDismiss && (
+        <ActionIcon onClick={onClose} variant="subtle" aria-label="关闭">
+          <IconX size={18} />
+        </ActionIcon>
+      )}
     </Group>
   )
 
-  // Violations list — hidden in onboarding mode (user hasn't accepted yet,
-  // warnings would be premature and noisy).
-  const violationList = onboarded && violations.length > 0 && (
+  // Violations list — hidden in onboarding (premature before accept); also
+  // hidden while the user is actively editing constitution params (the
+  // violations are computed against the SAVED constitution, not the draft,
+  // so the list would be misleading during edit).
+  const violationList = onboarded && !editing && violations.length > 0 && (
     <Stack gap="xs">
       {violations.map((v, i) => {
         const isHard = v.level === 'hard'
@@ -324,16 +332,35 @@ export default function ConstitutionDrawer({
     </Stack>
   )
 
-  const editModeBody = (
-    <ParameterEditor
-      c={c}
-      setC={setC}
-      dirty={dirty}
-      advancedOpen={advancedOpen}
-      setAdvancedOpen={setAdvancedOpen}
-      advancedCount={advancedCount}
-      resetToDefaults={resetToDefaults}
-    />
+  const reviewBody = (
+    <>
+      <RedHeaderDocument>
+        <ConstitutionFullText constitution={tour.constitution} defaults={defaults} />
+      </RedHeaderDocument>
+      {canEdit && (
+        <Group justify="center">
+          <Button variant="light" color="red" onClick={() => setEditing(true)}>修宪</Button>
+        </Group>
+      )}
+    </>
+  )
+
+  const editingBody = (
+    <>
+      <ParameterEditor
+        c={c}
+        setC={setC}
+        dirty={dirty}
+        advancedOpen={advancedOpen}
+        setAdvancedOpen={setAdvancedOpen}
+        advancedCount={advancedCount}
+        resetToDefaults={resetToDefaults}
+      />
+      <Group justify="flex-end">
+        <Button variant="default" onClick={cancelEdits}>取消</Button>
+        <Button onClick={saveEdits} disabled={!constitutionDirty}>保存</Button>
+      </Group>
+    </>
   )
 
   const onboardingStep1 = (
@@ -409,18 +436,10 @@ export default function ConstitutionDrawer({
   const bodyContent = (
     <Stack gap="md" p="md">
       {violationList}
-      {onboarded ? editModeBody : setupStep === 1 ? onboardingStep1 : onboardingStep2}
+      {onboarded
+        ? (editing ? editingBody : reviewBody)
+        : (setupStep === 1 ? onboardingStep1 : onboardingStep2)}
     </Stack>
-  )
-
-  const footer = onboarded && (
-    <Box style={{ borderTop: '1px solid #eee' }}>
-      <Text size="xs" c="dimmed" ta="center" py={4}>
-        {lastSavedAt
-          ? `已保存 · ${lastSavedAt.toLocaleTimeString('zh-CN')}`
-          : '所有更改将自动保存'}
-      </Text>
-    </Box>
   )
 
   // Mobile: render as floating Mantine Drawer (push would squash planner).
@@ -433,12 +452,13 @@ export default function ConstitutionDrawer({
         size="90%"
         withCloseButton={false}
         padding={0}
+        closeOnEscape={canDismiss}
+        closeOnClickOutside={canDismiss}
         data-testid="constitution-drawer-mobile"
       >
         <div ref={drawerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {header}
           <ScrollArea style={{ flex: 1 }}>{bodyContent}</ScrollArea>
-          {footer}
         </div>
       </MantineDrawer>
     )
@@ -468,7 +488,6 @@ export default function ConstitutionDrawer({
     >
       {header}
       <ScrollArea style={{ flex: 1 }}>{bodyContent}</ScrollArea>
-      {footer}
       <div
         onMouseDown={onResizeStart}
         style={{

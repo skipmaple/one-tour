@@ -221,8 +221,11 @@ export default function Show({
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // First-visit auto-open constitution drawer.
+  // First-visit auto-open constitution drawer. Only for users who can edit;
+  // a read-only viewer landing on an unaccepted tour shouldn't be forced
+  // through onboarding they can't complete.
   useEffect(() => {
+    if (!canEdit) return
     const key = `onboarded:tour:${tour.id}`
     const onboarded = localStorage.getItem(key) === '1' || !!tour.constitution_accepted
     if (!onboarded) openConst()
@@ -251,7 +254,7 @@ export default function Show({
 
   return (
     <div>
-      <Head title={tour.title} />
+      <Head title={tour.title || '未命名旅程'} />
       <DndContext
         sensors={sensors}
         collisionDetection={hybridCollisionDetection}
@@ -276,6 +279,7 @@ export default function Show({
               defaults={defaults}
               overrides={overrides}
               initialDaysCount={days.length || 1}
+              canEdit={canEdit}
               width={constWidth}
               onWidthChange={setConstWidth}
               onClose={closeConst}
