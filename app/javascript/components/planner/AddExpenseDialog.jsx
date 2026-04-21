@@ -195,7 +195,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
       ...v,
       participantIds: [ ...v.participantIds ].sort(),
     })
-  }, [opened, expense?.id])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [opened, expense?.id, initialActivityId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Revoke preview object URLs on unmount — reads from the ref so we see the
   // current list, not the one captured at mount.

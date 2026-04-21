@@ -68,14 +68,16 @@ function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) 
           <Group gap="xs" wrap="nowrap">
             {isBacklog ? (
               <Tooltip label="候选池活动无法记账，请先排入某一天">
-                <Button
-                  size="xs"
-                  variant="filled"
-                  leftSection={<IconPlus size={14} />}
-                  disabled
-                >
-                  记一笔
-                </Button>
+                <span>
+                  <Button
+                    size="xs"
+                    variant="filled"
+                    leftSection={<IconPlus size={14} />}
+                    disabled
+                  >
+                    记一笔
+                  </Button>
+                </span>
               </Tooltip>
             ) : (
               <Button
@@ -278,15 +280,17 @@ function DetailExpensesSection({ activity, expenses, author, members, canEdit, o
         {canEdit && (
           isBacklog ? (
             <Tooltip label="候选池活动无法记账，请先排入某一天">
-              <Button
-                data-testid="detail-expenses-add-btn"
-                fullWidth
-                variant="filled"
-                leftSection={<IconPlus size={14} />}
-                disabled
-              >
-                记一笔
-              </Button>
+              <span style={{ display: 'block' }}>
+                <Button
+                  data-testid="detail-expenses-add-btn"
+                  fullWidth
+                  variant="filled"
+                  leftSection={<IconPlus size={14} />}
+                  disabled
+                >
+                  记一笔
+                </Button>
+              </span>
             </Tooltip>
           ) : (
             <Button

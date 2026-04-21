@@ -136,6 +136,11 @@ export default function Show({ tour, days, activities, activity_images, expenses
 
   // New: cards now route here instead of directly to the edit drawer.
   const openDetail = (activityId) => {
+    // Mutex: ensure editor is closed before opening detail — cards are the
+    // ingress; they should never end up stacked on an already-open editor.
+    if (editor.open) {
+      closeEditor()
+    }
     setDetailViewer({ open: true, activityId })
   }
 
@@ -159,7 +164,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
   // with that expense focused for editing.
   const openExpenseById = (expenseId) => {
     setDetailViewer({ open: false, activityId: null })
-    setInitialExpenseActivityId(null)
+    setQuickExpenseActivityId(null)
     setInitialExpenseId(expenseId)
     setExpenseDrawerOpen(true)
   }
@@ -386,7 +391,7 @@ export default function Show({ tour, days, activities, activity_images, expenses
         onClose={closeDetail}
         tour={tour}
         days={days}
-        activity={detailViewer.activityId ? activities.find((a) => a.id === detailViewer.activityId) : null}
+        activity={detailViewer.activityId ? displayActivities.find((a) => a.id === detailViewer.activityId) : null}
         activityImages={activity_images || []}
         author={author || { user_id: tour.author_id, name: '', email: '', avatar_url: null }}
         members={members || []}
