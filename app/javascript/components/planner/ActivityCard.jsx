@@ -180,6 +180,13 @@ export default function ActivityCard({
     if (onClick) onClick(activity.id)
   }
 
+  const handleKeyDown = (e) => {
+    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault()
+      onClick(activity.id)
+    }
+  }
+
   const extra = [
     isDragging ? 'ac-dragging' : '',
     readOnly && onClick ? 'ac-readonly' : '',
@@ -200,6 +207,10 @@ export default function ActivityCard({
       data-day-color={dayColorName}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onKeyDown={onClick ? handleKeyDown : undefined}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-label={onClick ? activity.name : undefined}
       {...dragAttributes}
       {...dragListeners}
     >
