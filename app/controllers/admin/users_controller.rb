@@ -152,8 +152,11 @@ module Admin
     end
 
     def authored_tours(user)
-      user.tours.order(updated_at: :desc).limit(20).map do |t|
-        { id: t.id, title: t.title, day_count: t.days.count, updated_at: t.updated_at.iso8601 }
+      # includes(:days) + .size avoids N+1: with includes the days
+      # collection is preloaded, so .size reads from the loaded array
+      # instead of issuing a COUNT(*) per tour.
+      user.tours.includes(:days).order(updated_at: :desc).limit(20).map do |t|
+        { id: t.id, title: t.title, day_count: t.days.size, updated_at: t.updated_at.iso8601 }
       end
     end
 

@@ -22,7 +22,11 @@ module Admin
     end
 
     def show
-      tour = Tour.includes(:author, :days, :activities, tour_memberships: :user, conversations: :messages).find(params[:id])
+      # Don't eager-load conversations.messages — the messages collection
+      # on a heavily-used tour can be huge, and conversation_stats queries
+      # it separately via Message.billable scope anyway. Loading every
+      # message body just to count them wastes memory.
+      tour = Tour.includes(:author, :days, :activities, :conversations, tour_memberships: :user).find(params[:id])
 
       render inertia: "Admin/ToursShow", props: {
         tour:               serialize_tour(tour),
@@ -58,13 +62,16 @@ module Admin
     end
 
     def serialize_row(t)
+      # Count author + non-author memberships distinctly (see members_list
+      # comment — author can hold a membership row on their own tour).
+      non_author_memberships = t.tour_memberships.reject { |m| m.user_id == t.author_id }.size
       {
         id:             t.id,
         title:          t.title,
         author_name:    t.author.name,
         author_email:   t.author.email,
         author_id:      t.author.id,
-        members_count:  1 + t.tour_memberships.size,
+        members_count:  1 + non_author_memberships,
         day_count:      t.days.size,
         activity_count: t.activities.size,
         created_at:     t.created_at.iso8601,
@@ -89,13 +96,19 @@ module Admin
     end
 
     def members_list(t)
+      # TourMembership uniqueness is only scoped to (tour_id, user_id), so
+      # nothing at the DB level stops the author from also holding a
+      # membership row on their own tour. Filter the author out of the
+      # memberships list before prepending the author row, otherwise they
+      # appear twice and inflate members_count-style UI.
+      other_memberships = t.tour_memberships.reject { |m| m.user_id == t.author_id }
       [ {
         user_id:   t.author.id,
         name:      t.author.name,
         email:     t.author.email,
         role:      "author",
         joined_at: t.created_at.iso8601
-      } ] + t.tour_memberships.map do |m|
+      } ] + other_memberships.map do |m|
         {
           user_id:   m.user.id,
           name:      m.user.name,
