@@ -40,7 +40,7 @@ describe('AppShell', () => {
 
   it('renders business nav item', () => {
     renderShell()
-    expect(screen.getByText('旅程')).toBeInTheDocument()
+    expect(screen.getByText('全部旅程')).toBeInTheDocument()
   })
 
   it('renders header title from document.title', () => {

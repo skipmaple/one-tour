@@ -22,9 +22,9 @@ function renderNav({ currentPath = '/tours', isAdmin = false } = {}) {
 }
 
 describe('SidebarNav', () => {
-  it('renders business item "旅程" for any user', () => {
+  it('renders business item "全部旅程" for any user', () => {
     renderNav({ isAdmin: false })
-    expect(screen.getByText('旅程')).toBeInTheDocument()
+    expect(screen.getByText('全部旅程')).toBeInTheDocument()
   })
 
   it('hides admin section + label for non-admin users', () => {
@@ -39,13 +39,14 @@ describe('SidebarNav', () => {
     expect(screen.getByText('管理')).toBeInTheDocument()
     expect(screen.getByText('概览')).toBeInTheDocument()
     expect(screen.getByText('用户')).toBeInTheDocument()
-    // Two "旅程" entries: business + admin
-    expect(screen.getAllByText('旅程')).toHaveLength(2)
+    // Business nav is "全部旅程"; admin still has "旅程" as its entry — distinct labels.
+    expect(screen.getByText('全部旅程')).toBeInTheDocument()
+    expect(screen.getByText('旅程')).toBeInTheDocument()
   })
 
-  it('marks business "旅程" active when currentPath starts with /tours', () => {
+  it('marks business "全部旅程" active when currentPath starts with /tours', () => {
     renderNav({ currentPath: '/tours/42', isAdmin: false })
-    const link = screen.getByText('旅程').closest('a')
+    const link = screen.getByText('全部旅程').closest('a')
     expect(link).toHaveAttribute('data-active', 'true')
   })
 

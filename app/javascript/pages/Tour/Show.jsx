@@ -209,9 +209,14 @@ export default function Show({
   // On mount, auto-start AI onboarding when this is a fresh tour.
   // Conditions: user can edit (reader can't — AI would try to mutate) +
   // backlog is empty (user hasn't started) +
-  // conversation has no messages (avoid re-triggering on refresh).
+  // conversation has no messages (avoid re-triggering on refresh) +
+  // constitution has been accepted (otherwise the AI welcome collides with
+  // the ConstitutionDrawer onboarding flow — two "welcomes" at once).
   useEffect(() => {
-    if (canEdit && activities.length === 0 && conversation_empty) {
+    const alreadyOnboardedLocally = typeof window !== 'undefined'
+      && localStorage.getItem(`onboarded:tour:${tour.id}`) === '1'
+    const constitutionDone = tour.constitution_accepted || alreadyOnboardedLocally
+    if (canEdit && constitutionDone && activities.length === 0 && conversation_empty) {
       setPendingChatPrompt(ONBOARDING_SENTINEL)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

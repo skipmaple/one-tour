@@ -79,7 +79,7 @@ vi.mock('../../../components/planner/ChatPanel', () => ({
 }))
 
 const props = {
-  tour: { id: 1, title: '伊犁', constitution: { max_daily_driving_minutes: 420, max_tier_one_per_day: 3 } },
+  tour: { id: 1, title: '伊犁', constitution_accepted: true, constitution: { max_daily_driving_minutes: 420, max_tier_one_per_day: 3 } },
   days: [ { id: 10, day_index: 1, date: '2026-06-10' }, { id: 11, day_index: 2, date: '2026-06-11' } ],
   activities: [
     { id: 100, tour_id: 1, day_id: 10, name: '赛里木湖', kind: 'scenic', citizen_level: 'tier_one', details: {} },
@@ -125,7 +125,7 @@ test('triggers onboarding when activities empty + conversation_empty=true + canE
   render(
     <MantineProvider>
       <Show
-        tour={{ id: 1, title: 'x', constitution: {}, editable_by_current_user: true }}
+        tour={{ id: 1, title: 'x', constitution: {}, constitution_accepted: true, editable_by_current_user: true }}
         days={[]}
         activities={[]}
         violations={[]}

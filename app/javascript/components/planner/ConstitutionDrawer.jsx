@@ -204,9 +204,10 @@ export default function ConstitutionDrawer({
       const e = formatDateISO(endDate)
       const dateRangeStr = (s && e) ? `${s} ~ ${e}` : null
 
+      const newTitle = tourTitle.trim()
       await postJson(`/tours/${tour.id}`, 'PATCH', {
         tour: {
-          title: tourTitle.trim(),
+          title: newTitle,
           date_range: dateRangeStr,
           team_size: tourTeamSize || null,
         },
@@ -218,6 +219,11 @@ export default function ConstitutionDrawer({
       for (let i = currentDayCount + 1; i <= targetDayCount; i++) {
         await postJson(`/tours/${tour.id}/days`, 'POST', { day: { day_index: i } })
       }
+
+      // Sync browser title immediately — saveStep1 uses fetch (not Inertia)
+      // so tour props aren't reloaded; the AppShell header observes <title>
+      // mutations to keep its display fresh.
+      if (typeof document !== 'undefined') document.title = newTitle
 
       setSetupStep(2)
     } catch (err) {

@@ -6,7 +6,7 @@ import {
 import UserSection from './UserSection'
 
 const BUSINESS_ITEMS = [
-  { label: '旅程', href: '/tours', icon: IconMap, match: (p) => p.startsWith('/tours') },
+  { label: '全部旅程', href: '/tours', icon: IconMap, match: (p) => p.startsWith('/tours') },
 ]
 
 const ADMIN_ITEMS = [
