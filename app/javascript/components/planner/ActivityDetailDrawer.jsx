@@ -48,6 +48,7 @@ function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) 
   const day = days.find((d) => d.id === activity.day_id)
   const dayLabel = day ? `D${day.day_index}` : '候选池'
   const duration = formatDuration(activity.planned_duration_min)
+  const isBacklog = activity.day_id == null
   return (
     <Stack gap={6} data-testid="detail-header">
       <Group justify="space-between" wrap="nowrap" align="flex-start">
@@ -57,14 +58,27 @@ function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) 
         </Text>
         {canEdit && (
           <Group gap="xs" wrap="nowrap">
-            <Button
-              size="xs"
-              variant="filled"
-              leftSection={<IconPlus size={14} />}
-              onClick={() => onAddExpense(activity.id)}
-            >
-              记一笔
-            </Button>
+            {isBacklog ? (
+              <Tooltip label="候选池活动无法记账，请先排入某一天">
+                <Button
+                  size="xs"
+                  variant="filled"
+                  leftSection={<IconPlus size={14} />}
+                  disabled
+                >
+                  记一笔
+                </Button>
+              </Tooltip>
+            ) : (
+              <Button
+                size="xs"
+                variant="filled"
+                leftSection={<IconPlus size={14} />}
+                onClick={() => onAddExpense(activity.id)}
+              >
+                记一笔
+              </Button>
+            )}
             <Button
               size="xs"
               variant="subtle"

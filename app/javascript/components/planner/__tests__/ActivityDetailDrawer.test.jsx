@@ -140,6 +140,13 @@ describe('ActivityDetailDrawer – header meta + actions', () => {
     fireEvent.click(screen.getByRole('button', { name: /编辑/ }))
     expect(onEdit).toHaveBeenCalledWith(10)
   })
+
+  test('header [+ 记一笔] is disabled on backlog activity', () => {
+    renderDrawer({ canEdit: true, activity: makeActivity({ day_id: null }) })
+    const headerBtns = within(screen.getByTestId('detail-header'))
+      .getAllByRole('button', { name: /记一笔/ })
+    expect(headerBtns[0]).toBeDisabled()
+  })
 })
 
 describe('ActivityDetailDrawer – location', () => {
