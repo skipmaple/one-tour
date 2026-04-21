@@ -50,7 +50,10 @@ class ToursController < ApplicationController
         avatar_url: @tour.author.display_avatar_url
       },
       conversation_empty: !conv || !conv.messages.exists?,
-      summary: Tour::TimelineSummary.for(@tour, violations: tour_violation_structs)
+      summary: Tour::TimelineSummary.for(@tour, violations: tour_violation_structs),
+      constitution: @tour.constitution,
+      defaults: Constitution::DEFAULTS.deep_stringify_keys,
+      overrides: @tour.constraint_overrides
     }
   end
 

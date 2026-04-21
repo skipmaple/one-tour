@@ -137,6 +137,15 @@ RSpec.describe "Tours", type: :request do
       expect(page["props"]).to have_key("summary")
       expect(page["props"]["summary"]).to eq(Tour::TimelineSummary.for(tour).deep_stringify_keys)
     end
+
+    it "includes constitution, defaults, overrides in show props" do
+      tour = create(:tour, author: user)
+      login_as(user)
+      get "/tours/#{tour.id}"
+      expect(response).to have_http_status(:ok)
+      page = inertia_page_from(response.body)
+      expect(page["props"]).to include("constitution", "defaults", "overrides")
+    end
   end
 
   describe "GET /tours/:id — participant_user_ids on activities" do

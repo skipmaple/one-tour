@@ -35,6 +35,24 @@ vi.mock('@dnd-kit/core', () => ({
   useSensors: (...args) => args,
 }))
 
+vi.mock('../../../layouts/HeaderSlot', () => ({
+  useInjectHeaderRight: () => {},
+  useHeaderRightSlot: () => null,
+  HeaderSlotProvider: ({ children }) => <>{children}</>,
+}))
+
+vi.mock('../../../components/planner/PlannerHeaderRight', () => ({
+  default: () => <div data-testid="planner-header-right-stub" />,
+}))
+
+vi.mock('../../../components/planner/ConstitutionDrawer', () => ({
+  default: () => <div data-testid="constitution-drawer-stub" />,
+}))
+
+vi.mock('../../../components/planner/TimelineOverlay', () => ({
+  default: () => <div data-testid="timeline-overlay-stub" />,
+}))
+
 vi.mock('@mantine/notifications', () => ({
   notifications: { show: vi.fn() },
 }))
@@ -67,7 +85,11 @@ const props = {
     { id: 100, tour_id: 1, day_id: 10, name: '赛里木湖', kind: 'scenic', citizen_level: 'tier_one', details: {} },
     { id: 101, tour_id: 1, day_id: null, name: '那拉提', kind: 'scenic', citizen_level: 'tier_one', details: {} }
   ],
-  violations: []
+  violations: [],
+  summary: {},
+  constitution: {},
+  defaults: {},
+  overrides: [],
 }
 
 test('renders planner four-panel layout', () => {

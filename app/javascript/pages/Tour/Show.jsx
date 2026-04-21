@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
-import { Button, Group, Text } from '@mantine/core'
+import { Text } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks'
 import { DndContext, DragOverlay, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
@@ -11,8 +12,6 @@ import PlannerMap from '../../components/planner/PlannerMap'
 import ChatPanel from '../../components/planner/ChatPanel'
 import DayPanel from '../../components/planner/DayPanel'
 import ResizeHandle from '../../components/planner/PanelLayout/ResizeHandle'
-import ConstitutionChip from '../../components/planner/ConstitutionChip'
-import TourTabs from '../../components/tour/TourTabs'
 import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 import MembershipDrawer from '../../components/planner/MembershipDrawer'
@@ -21,6 +20,10 @@ import TourSettingsModal from '../../components/planner/TourSettingsModal'
 import ExpenseDrawer from '../../components/planner/ExpenseDrawer'
 import AddExpenseDialog from '../../components/planner/AddExpenseDialog'
 import ActivityDetailDrawer from '../../components/planner/ActivityDetailDrawer'
+import PlannerHeaderRight from '../../components/planner/PlannerHeaderRight'
+import ConstitutionDrawer from '../../components/planner/ConstitutionDrawer'
+import TimelineOverlay from '../../components/planner/TimelineOverlay'
+import { useInjectHeaderRight } from '../../layouts/HeaderSlot'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
@@ -38,7 +41,12 @@ function hybridCollisionDetection(args) {
   return rectIntersection(args)
 }
 
-export default function Show({ tour, days, activities, activity_images, expenses, expenses_summary, tour_budgets, settlements, route_legs, violations, members, author, conversation_empty }) {
+export default function Show({
+  tour, days, activities, activity_images, expenses, expenses_summary,
+  tour_budgets, settlements, route_legs, violations, members, author,
+  conversation_empty,
+  summary, constitution, defaults, overrides,
+}) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
   const layout = usePlannerLayout(tour.id)
@@ -114,6 +122,13 @@ export default function Show({ tour, days, activities, activity_images, expenses
 
   // Expense drawer state
   const [expenseDrawerOpen, setExpenseDrawerOpen] = useState(false)
+
+  // Constitution drawer state
+  const [constOpen, { open: openConst, close: closeConst }] = useDisclosure(false)
+  const [constWidth, setConstWidth] = useState(400)
+
+  // Timeline overlay state
+  const [timelineOpen, { open: openTimeline, close: closeTimeline }] = useDisclosure(false)
 
   // Activity editor state
   const [editor, setEditor] = useState({ open: false, mode: 'create', activityId: null, targetDayId: null })
@@ -202,6 +217,27 @@ export default function Show({ tour, days, activities, activity_images, expenses
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // First-visit auto-open constitution drawer.
+  useEffect(() => {
+    const key = `onboarded:tour:${tour.id}`
+    const onboarded = localStorage.getItem(key) === '1' || !!tour.constitution_accepted
+    if (!onboarded) openConst()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tour.id])
+
+  // Inject memoized PlannerHeaderRight into AppShell header slot.
+  // useMemo is mandatory — without it, a new JSX element every render
+  // triggers setRight → re-render → new element → infinite loop.
+  const headerRight = useMemo(() => (
+    <PlannerHeaderRight
+      violations={violations}
+      onOpenConst={openConst}
+      onOpenTimeline={openTimeline}
+      onOpenExpense={() => setExpenseDrawerOpen(true)}
+      onOpenMembers={() => setMembersDrawerOpen(true)}
+    />
+  ), [violations, openConst, openTimeline])
+  useInjectHeaderRight(headerRight)
 
   return (
     <div>
@@ -216,61 +252,48 @@ export default function Show({ tour, days, activities, activity_images, expenses
         autoScroll={{ acceleration: 10, threshold: { x: 0.15, y: 0.15 } }}
       >
         <div style={{ padding: 10 }}>
-          <TourTabs tour={tour} active="planner" />
-          <Group justify="space-between" mb="xs" mt="sm">
-            <Group gap="xs" wrap="nowrap">
-              <div
-                onClick={() => canEdit && setSettingsOpen(true)}
-                style={{ cursor: canEdit ? 'pointer' : 'default' }}
-                className={canEdit ? 'tour-title-editable' : undefined}
-              >
-                <Text fw={700} size="lg" className="tour-title-text">{tour.title}</Text>
-                {canEdit && (
-                  <Text fw={700} size="lg" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none', alignItems: 'center', gap: 4 }}>
-                    <IconPencil size={16} stroke={2} />
-                    编辑
-                  </Text>
-                )}
-                {canEdit && (
-                  <style>{`
-                    .tour-title-editable:hover .tour-title-text { display: none; }
-                    .tour-title-editable:hover .tour-title-edit-hint { display: inline-flex !important; }
-                  `}</style>
-                )}
-              </div>
-              <ConstitutionChip
-                violations={violations}
-                onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
-                onAcknowledge={(v) => setAcknowledgingViolation(v)}
-                onDismiss={() => {}}
-                readOnly={!canEdit}
-              />
-            </Group>
-            <Group gap="xs">
-              <Button
-                size="compact-xs"
-                variant="default"
-                onClick={() => setExpenseDrawerOpen(true)}
-              >
-                账单
-              </Button>
-              <Button
-                size="compact-xs"
-                variant="default"
-                onClick={() => setMembersDrawerOpen(true)}
-              >
-                成员
-              </Button>
-            </Group>
-          </Group>
+          <div style={{ marginBottom: 8, marginTop: 4 }}>
+            <div
+              onClick={() => canEdit && setSettingsOpen(true)}
+              style={{ cursor: canEdit ? 'pointer' : 'default', display: 'inline-block' }}
+              className={canEdit ? 'tour-title-editable' : undefined}
+            >
+              <Text fw={700} size="lg" className="tour-title-text">{tour.title}</Text>
+              {canEdit && (
+                <Text fw={700} size="lg" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none', alignItems: 'center', gap: 4 }}>
+                  <IconPencil size={16} stroke={2} />
+                  编辑
+                </Text>
+              )}
+              {canEdit && (
+                <style>{`
+                  .tour-title-editable:hover .tour-title-text { display: none; }
+                  .tour-title-editable:hover .tour-title-edit-hint { display: inline-flex !important; }
+                `}</style>
+              )}
+            </div>
+          </div>
         </div>
         <div ref={containerRef} style={{
           display: 'flex',
           alignItems: 'stretch',
           gap: 0,
           padding: 10,
-          height: 'calc(100vh - 200px)',
+          height: 'calc(100vh - 56px - 20px)',
         }}>
+          {constOpen && (
+            <ConstitutionDrawer
+              tour={tour}
+              violations={violations}
+              defaults={defaults}
+              overrides={overrides}
+              width={constWidth}
+              onWidthChange={setConstWidth}
+              onClose={closeConst}
+              onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
+              onAcknowledge={(v) => setAcknowledgingViolation(v)}
+            />
+          )}
           <BacklogList
             activities={backlog}
             onAddActivity={canEdit ? openCreate : undefined}
@@ -444,6 +467,16 @@ export default function Show({ tour, days, activities, activity_images, expenses
         opened={settingsOpen}
         onClose={() => setSettingsOpen(false)}
       />
+
+      <TimelineOverlay
+        opened={timelineOpen}
+        onClose={closeTimeline}
+        tour={tour}
+        days={days}
+        activities={activities}
+        violations={violations}
+        summary={summary}
+      />
     </div>
   )
 
@@ -564,6 +597,3 @@ const ASK_AI_BACKLOG_PROMPT = '请帮我再列一些候选 activity 到 backlog'
 function fixPromptFor(v) {
   return `请分析 ${v.message} 的硬违反，给我 3 个修正方案，每个说明原因、对其他日的影响，以及整程天数/体验是否变化。`
 }
-
-Show.layout = (page) => page
-
