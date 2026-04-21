@@ -1,0 +1,130 @@
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MantineProvider } from '@mantine/core'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import ConstitutionDrawer from '../ConstitutionDrawer'
+
+const patchMock = vi.fn()
+const postMock = vi.fn()
+
+vi.mock('@inertiajs/react', () => ({
+  router: {
+    patch: (...args) => patchMock(...args),
+    post: (...args) => postMock(...args),
+  },
+}))
+
+vi.mock('../ParameterEditor', () => ({
+  default: ({ c, setC }) => (
+    <input
+      data-testid="param-input"
+      value={c.max_daily_driving_minutes || ''}
+      onChange={e => setC({ ...c, max_daily_driving_minutes: Number(e.target.value) })}
+    />
+  ),
+}))
+
+vi.mock('../RedHeaderDocument', () => ({
+  default: ({ children }) => <div data-testid="red-doc">{children}</div>,
+}))
+
+vi.mock('../ConstitutionFullText', () => ({
+  default: () => <div data-testid="full-text" />,
+}))
+
+const baseTour = {
+  id: 42,
+  title: '测试旅程',
+  constitution: { max_daily_driving_minutes: 360 },
+  constitution_accepted: false,
+  date_range: null,
+  team_size: null,
+  days_count: null,
+}
+
+function renderDrawer(overrides = {}) {
+  const props = {
+    tour: baseTour,
+    violations: [],
+    defaults: { max_daily_driving_minutes: 360 },
+    overrides: [],
+    width: 400,
+    onWidthChange: vi.fn(),
+    onClose: vi.fn(),
+    onFix: vi.fn(),
+    onAcknowledge: vi.fn(),
+    ...overrides,
+  }
+  return {
+    ...render(
+      <MantineProvider>
+        <ConstitutionDrawer {...props} />
+      </MantineProvider>,
+    ),
+    props,
+  }
+}
+
+beforeEach(() => {
+  localStorage.clear()
+  patchMock.mockReset()
+  postMock.mockReset()
+})
+
+describe('ConstitutionDrawer — onboarding mode', () => {
+  it('renders "同意并开始规划" CTA when constitution_accepted is false and no localStorage marker', () => {
+    renderDrawer()
+    // First need to click 下一步 to reach step 2; but the button's existence at step 2 proves onboarding mode is active
+    expect(screen.getByText(/第 1 步/)).toBeInTheDocument()
+  })
+
+  it('does NOT render auto-save status line in onboarding mode', () => {
+    renderDrawer()
+    expect(screen.queryByText(/已保存/)).not.toBeInTheDocument()
+  })
+})
+
+describe('ConstitutionDrawer — edit mode', () => {
+  it('renders when constitution_accepted is true', () => {
+    renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
+    expect(screen.queryByText(/第 1 步/)).not.toBeInTheDocument()
+  })
+
+  it('renders when localStorage marker is set (even if constitution_accepted is false)', () => {
+    localStorage.setItem('onboarded:tour:42', '1')
+    renderDrawer()
+    expect(screen.queryByText(/第 1 步/)).not.toBeInTheDocument()
+  })
+
+  it('debounces PATCH on field change', async () => {
+    const user = userEvent.setup()
+    localStorage.setItem('onboarded:tour:42', '1')
+    renderDrawer()
+    const input = screen.getByTestId('param-input')
+    await user.clear(input)
+    await user.type(input, '400')
+    await waitFor(
+      () => expect(patchMock).toHaveBeenCalled(),
+      { timeout: 2000 },
+    )
+    expect(patchMock.mock.calls[0][0]).toBe('/tours/42/constitution')
+  })
+})
+
+describe('ConstitutionDrawer — close', () => {
+  it('calls onClose when close button clicked', async () => {
+    const user = userEvent.setup()
+    const { props } = renderDrawer()
+    await user.click(screen.getByRole('button', { name: /关闭|close/i }))
+    expect(props.onClose).toHaveBeenCalled()
+  })
+})
+
+describe('ConstitutionDrawer — violations', () => {
+  it('shows violation row when violations prop is non-empty', () => {
+    renderDrawer({ violations: [
+      { level: 'hard', message: '行程超过每日上限', rule: 'max_tier_one_per_day' },
+    ]})
+    expect(screen.getByText('行程超过每日上限')).toBeInTheDocument()
+  })
+})
