@@ -37,4 +37,36 @@ RSpec.describe "Admin::ToursController", type: :request do
       expect(ids.index(newer.id)).to be < ids.index(older.id)
     end
   end
+
+  describe "GET /admin/tours/:id" do
+    it "returns tour profile + members + days + conversation stats" do
+      author = create(:user, name: "Alex")
+      tour   = create(:tour, author: author, title: "T1")
+      member = create(:user, name: "Bob")
+      create(:tour_membership, tour: tour, user: member, role: :editor)
+      # Tour#after_create_commit :seed_first_day auto-creates Day 1; use that.
+      day1 = tour.days.find_by!(day_index: 1)
+      create(:activity, tour: tour, day: day1)
+      conv   = create(:conversation, tour: tour, user: author)
+      create(:message, conversation: conv, role: :assistant,
+                        tokens_in: 10, tokens_out: 20, cost_cents: 5)
+
+      get "/admin/tours/#{tour.id}", headers: inertia_headers
+      props = JSON.parse(response.body).fetch("props")
+
+      expect(props["tour"]).to include("id" => tour.id, "title" => "T1")
+      expect(props["tour"]["author"]).to include("name" => "Alex")
+      expect(props["members"].map { |m| m["name"] }).to include("Bob")
+      expect(props["days"].size).to eq(1)
+      expect(props["days"].first["activity_count"]).to eq(1)
+      expect(props["conversation_stats"]).to include(
+        "total_messages" => 1, "total_cost_cents" => 5
+      )
+    end
+
+    it "returns 404 for non-existent tour" do
+      get "/admin/tours/999999", headers: inertia_headers
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end
