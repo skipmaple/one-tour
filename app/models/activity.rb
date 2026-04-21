@@ -48,7 +48,7 @@ class Activity < ApplicationRecord
   def effective_participant_ids
     explicit = activity_participants.loaded? ? activity_participants.map(&:user_id) : activity_participants.pluck(:user_id)
     return explicit if explicit.any?
-    [ tour.author_id, *tour.tour_memberships.pluck(:user_id) ]
+    tour.member_user_ids
   end
 
   private

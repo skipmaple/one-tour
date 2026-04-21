@@ -10,7 +10,7 @@ class ActivityParticipant < ApplicationRecord
       tour = activity&.tour
       return unless tour && user_id
 
-      allowed = [ tour.author_id, *tour.tour_memberships.pluck(:user_id) ]
+      allowed = tour.member_user_ids
       errors.add(:user_id, "不属于本行程成员") unless allowed.include?(user_id)
     end
 end
