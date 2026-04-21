@@ -5,7 +5,8 @@ class ApplicationController < ActionController::Base
     current_user.as_json(only: [ :id, :name, :email ])
                 .merge(
                   "avatar_url"        => current_user.display_avatar_url,
-                  "has_custom_avatar" => current_user.has_custom_avatar?
+                  "has_custom_avatar" => current_user.has_custom_avatar?,
+                  "is_admin"          => current_user.admin?
                 )
   }
   # Expose AMAP Web JS credentials to the frontend. AMAP 2.0 requires BOTH
