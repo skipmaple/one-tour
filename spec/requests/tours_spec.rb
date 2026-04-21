@@ -16,7 +16,6 @@ RSpec.describe "Tours", type: :request do
   let(:user) { create(:user) }
 
   describe "inertia_share current_user (BUG #1)" do
-
     it "embeds current_user into the Inertia page props so the nav layout can read it" do
       login_as(user)
       get "/tours"
@@ -162,7 +161,7 @@ RSpec.describe "Tours", type: :request do
       activities = page.dig("props", "activities")
       with_act    = activities.find { |a| a["id"] == activity_with.id }
       without_act = activities.find { |a| a["id"] == activity_without.id }
-      expect(with_act["participant_user_ids"]).to eq([member.id])
+      expect(with_act["participant_user_ids"]).to eq([ member.id ])
       expect(without_act["participant_user_ids"]).to eq([])
     end
   end
