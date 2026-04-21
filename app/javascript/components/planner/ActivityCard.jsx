@@ -225,19 +225,19 @@ export default function ActivityCard({
           <span className="ac-name">{activity.name}</span>
         </div>
         <MetaGrid activity={activity} />
-        {hasUserCtx && !isFullTrip && participantUsers.length > 0 && (
-          <Avatar.Group spacing="xs" data-testid="activity-participants">
-            {participantUsers.slice(0, 3).map((u) => (
-              <Tooltip key={u.user_id} label={u.name}>
-                <Avatar src={u.avatar_url} size="xs" radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
-              </Tooltip>
-            ))}
-            {participantUsers.length > 3 && (
-              <Avatar size="xs" radius="xl">+{participantUsers.length - 3}</Avatar>
-            )}
-          </Avatar.Group>
-        )}
       </div>
+      {hasUserCtx && !isFullTrip && participantUsers.length > 0 && (
+        <Avatar.Group className="ac-participants" spacing="xs" data-testid="activity-participants">
+          {participantUsers.slice(0, 3).map((u) => (
+            <Tooltip key={u.user_id} label={u.name}>
+              <Avatar src={u.avatar_url} size={16} radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
+            </Tooltip>
+          ))}
+          {participantUsers.length > 3 && (
+            <Avatar size={16} radius="xl">+{participantUsers.length - 3}</Avatar>
+          )}
+        </Avatar.Group>
+      )}
     </div>
   )
 }
@@ -265,19 +265,19 @@ export function ActivityCardOverlay({ activity, author, members }) {
           <span className="ac-name">{activity.name}</span>
         </div>
         <MetaGrid activity={activity} />
-        {hasUserCtx && !isFullTrip && participantUsers.length > 0 && (
-          <Avatar.Group spacing="xs" data-testid="activity-participants">
-            {participantUsers.slice(0, 3).map((u) => (
-              <Tooltip key={u.user_id} label={u.name}>
-                <Avatar src={u.avatar_url} size="xs" radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
-              </Tooltip>
-            ))}
-            {participantUsers.length > 3 && (
-              <Avatar size="xs" radius="xl">+{participantUsers.length - 3}</Avatar>
-            )}
-          </Avatar.Group>
-        )}
       </div>
+      {hasUserCtx && !isFullTrip && participantUsers.length > 0 && (
+        <Avatar.Group className="ac-participants" spacing="xs" data-testid="activity-participants">
+          {participantUsers.slice(0, 3).map((u) => (
+            <Tooltip key={u.user_id} label={u.name}>
+              <Avatar src={u.avatar_url} size={16} radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
+            </Tooltip>
+          ))}
+          {participantUsers.length > 3 && (
+            <Avatar size={16} radius="xl">+{participantUsers.length - 3}</Avatar>
+          )}
+        </Avatar.Group>
+      )}
     </div>
   )
 }

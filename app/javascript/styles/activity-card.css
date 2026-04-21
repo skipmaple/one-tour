@@ -151,6 +151,17 @@
   color: #c89100;
 }
 
+/* participant avatar group — pinned bottom-right above thumb gradient.
+   Uses the same right:60px shift as .ac-tier-badge when a thumb is present
+   to avoid overlap with the cover image. */
+.ac-participants {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  z-index: 3;
+}
+.ac-card.ac-has-thumb .ac-participants { right: 60px; }
+
 /* tier1 circular badge */
 .ac-tier-badge {
   position: absolute;
