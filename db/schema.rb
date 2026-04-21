@@ -184,11 +184,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_20_175530) do
     t.jsonb "metadata"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "tokens_in"
-    t.integer "tokens_out"
-    t.integer "cost_cents"
     t.index ["conversation_id"], name: "index_messages_on_conversation_id"
-    t.index ["created_at"], name: "index_messages_on_created_at"
   end
 
   create_table "oauth_identities", force: :cascade do |t|
@@ -292,9 +288,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_20_175530) do
     t.string "avatar_url"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "role", default: 0, null: false
     t.index ["email"], name: "index_users_on_email", unique: true
-    t.index ["role"], name: "index_users_on_role"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
