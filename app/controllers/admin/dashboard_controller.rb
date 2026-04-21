@@ -51,7 +51,7 @@ module Admin
                            Arel.sql("COUNT(*)"),
                            Arel.sql("COALESCE(SUM(cost_cents), 0)"))
 
-      by_date = rows.to_h { |date, cnt, cost| [date.to_date, { count: cnt, cost: cost }] }
+      by_date = rows.to_h { |date, cnt, cost| [ date.to_date, { count: cnt, cost: cost } ] }
       days_in_range = ((range.begin.to_date)..(range.end.to_date)).to_a
 
       days_in_range.map do |d|

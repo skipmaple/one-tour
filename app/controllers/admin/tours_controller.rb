@@ -3,7 +3,7 @@ module Admin
     PER_PAGE = 25
 
     def index
-      page = [params[:page].to_i, 1].max
+      page = [ params[:page].to_i, 1 ].max
       q    = params[:q].to_s.strip
       sort = params[:sort].presence || "updated_desc"
 
@@ -89,13 +89,13 @@ module Admin
     end
 
     def members_list(t)
-      [{
+      [ {
         user_id:   t.author.id,
         name:      t.author.name,
         email:     t.author.email,
         role:      "author",
         joined_at: t.created_at.iso8601
-      }] + t.tour_memberships.map do |m|
+      } ] + t.tour_memberships.map do |m|
         {
           user_id:   m.user.id,
           name:      m.user.name,

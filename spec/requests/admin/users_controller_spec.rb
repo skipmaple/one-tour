@@ -30,7 +30,7 @@ RSpec.describe "Admin::UsersController", type: :request do
     it "sorts by cost_desc by default" do
       high = create(:user)
       low  = create(:user)
-      [[high, 100], [low, 10]].each do |u, cost|
+      [ [ high, 100 ], [ low, 10 ] ].each do |u, cost|
         tour = create(:tour, author: u)
         conv = create(:conversation, tour: tour, user: u)
         create(:message, conversation: conv, role: :assistant,

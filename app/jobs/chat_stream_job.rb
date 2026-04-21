@@ -55,7 +55,7 @@ class ChatStreamJob < ApplicationJob
         broadcast(channel, type: "assistant_text", delta: text)
       end
 
-      [full_text, final_response]
+      [ full_text, final_response ]
     end
 
     def attach_tool_callbacks(chat, channel)

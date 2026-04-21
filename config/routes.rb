@@ -58,8 +58,8 @@ Rails.application.routes.draw do
   # Admin namespace
   namespace :admin do
     root to: "dashboard#show"
-    resources :users, only: [:index, :show]
-    resources :tours, only: [:index, :show]
+    resources :users, only: [ :index, :show ]
+    resources :tours, only: [ :index, :show ]
   end
 
   # Login page

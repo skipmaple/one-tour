@@ -4,7 +4,7 @@ module Admin
     RANGE_30D = 30.days
 
     def index
-      page  = [params[:page].to_i, 1].max
+      page  = [ params[:page].to_i, 1 ].max
       q     = params[:q].to_s.strip
       sort  = params[:sort].presence || "cost_desc"
 
@@ -50,7 +50,7 @@ module Admin
       # Do NOT join users → tours AND users → conversations → messages in
       # the same query — that creates a cartesian product (tour_count ×
       # message_count) that multiplies SUM/COUNT aggregates.
-      message_stats_sql = ActiveRecord::Base.sanitize_sql_array([<<~SQL.squish, cutoff])
+      message_stats_sql = ActiveRecord::Base.sanitize_sql_array([ <<~SQL.squish, cutoff ])
         SELECT
           c.user_id,
           COUNT(DISTINCT m.id) AS messages_30d,
