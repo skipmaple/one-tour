@@ -144,7 +144,7 @@ function DetailGallerySection({ activity, activityImages }) {
                 backgroundImage: `url(${img.url})`, backgroundSize: 'cover', backgroundPosition: 'center',
                 borderRadius: 4, flexShrink: 0,
               }}
-              aria-label={`Image ${idx + 1}`}
+              aria-label={`图片 ${idx + 1}`}
             />
           ))}
         </Group>
