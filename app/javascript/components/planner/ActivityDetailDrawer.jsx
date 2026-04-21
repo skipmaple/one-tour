@@ -68,7 +68,7 @@ function DetailLocationSection({ activity }) {
     .map((f) => {
       const raw = activity.details?.[f.key]
       if (raw == null || raw === '') return null
-      const suffix = f.suffix ? `${f.suffix}` : ''
+      const suffix = f.suffix ?? ''
       return { key: f.key, label: f.label, text: `${raw}${suffix}` }
     })
     .filter(Boolean)
@@ -78,13 +78,13 @@ function DetailLocationSection({ activity }) {
       <Group gap="xs" wrap="nowrap" align="flex-start">
         <IconMapPin size={14} style={{ marginTop: 3, flexShrink: 0 }} />
         <Text size="sm">
-          {activity.address || '（未定位）'}
+          {activity.address}
           {hasCoords ? (
             <Text component="span" size="xs" c="dimmed" ml="xs">
               {activity.lat.toFixed(4)}, {activity.lng.toFixed(4)}
             </Text>
           ) : (
-            <Text component="span" size="xs" c="dimmed" ml="xs">
+            <Text component="span" size="xs" c="dimmed" ml={activity.address ? 'xs' : 0}>
               （未定位）
             </Text>
           )}

@@ -162,4 +162,12 @@ describe('ActivityDetailDrawer – location', () => {
     const loc = screen.getByTestId('detail-location')
     expect(loc).toHaveTextContent('（未定位）')
   })
+
+  test('shows a single "（未定位）" when both address and coords are missing', () => {
+    renderDrawer({ activity: makeActivity({ address: null, lat: null, lng: null }) })
+    const loc = screen.getByTestId('detail-location')
+    // Match occurrences — there should be exactly one "（未定位）"
+    const occurrences = (loc.textContent.match(/（未定位）/g) || []).length
+    expect(occurrences).toBe(1)
+  })
 })
