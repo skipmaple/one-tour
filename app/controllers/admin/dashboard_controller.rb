@@ -1,6 +1,11 @@
 module Admin
   class DashboardController < BaseController
-    RANGES = { "today" => 1.day, "7d" => 7.days, "30d" => 30.days }.freeze
+    # Number of **calendar days** a range covers, inclusive of today.
+    # Previously this was a sliding N×24h window which, when bucketed by
+    # `created_at.to_date` in compute_trend, produced N+1 buckets (e.g.
+    # "近 7 天" rendered 8 points). Aligning to calendar-day boundaries
+    # makes the bucket count match the UI label.
+    RANGES = { "today" => 1, "7d" => 7, "30d" => 30 }.freeze
 
     def show
       range = resolve_range
@@ -19,7 +24,9 @@ module Admin
     end
 
     def resolve_range
-      (Time.current - RANGES.fetch(range_key))..Time.current
+      days = RANGES.fetch(range_key)
+      start_time = (days - 1).days.ago.in_time_zone.beginning_of_day
+      start_time..Time.current
     end
 
     def compute_kpis(range)

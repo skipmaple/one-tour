@@ -15,8 +15,12 @@ class LlmPricing
 
     private
 
+    # safe_load_file refuses to deserialize arbitrary Ruby objects —
+    # our pricing YAML only has strings and integers, so an empty
+    # permitted_classes list is correct. Belt-and-suspenders even for
+    # a trusted config file.
     def pricing
-      @pricing ||= YAML.load_file(CONFIG_PATH)
+      @pricing ||= YAML.safe_load_file(CONFIG_PATH, permitted_classes: [], aliases: false) || {}
     end
   end
 end

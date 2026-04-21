@@ -64,10 +64,19 @@ module Admin
         GROUP BY c.user_id
       SQL
 
+      # COUNT(DISTINCT tour_id) over UNION of authored + joined, so a user
+      # who only joins tours (never authors) still gets a non-zero count —
+      # consistent with UsersShow#lifetime_stats which sums user.tours +
+      # user.tour_memberships. Note: authored + joined rarely overlap (a
+      # user doesn't normally hold a TourMembership on their own tour),
+      # but DISTINCT makes the count correct even if they do.
       tours_count_sql = <<~SQL.squish
-        SELECT author_id AS user_id, COUNT(*) AS tours_count
-        FROM tours
-        GROUP BY author_id
+        SELECT user_id, COUNT(DISTINCT tour_id) AS tours_count FROM (
+          SELECT id AS tour_id, author_id AS user_id FROM tours
+          UNION ALL
+          SELECT tour_id, user_id FROM tour_memberships
+        ) t
+        GROUP BY user_id
       SQL
 
       base = User
@@ -125,11 +134,21 @@ module Admin
     def lifetime_stats(user)
       msgs = Message.billable.joins(conversation: :user).where(users: { id: user.id })
       {
-        total_tours:      user.tours.count + user.tour_memberships.count,
+        total_tours:      distinct_tours_count(user),
         total_messages:   msgs.count,
         total_tokens:     msgs.sum("COALESCE(tokens_in,0) + COALESCE(tokens_out,0)").to_i,
         total_cost_cents: msgs.sum(:cost_cents).to_i
       }
+    end
+
+    # DISTINCT tour ids across authored + joined, so the detail page stat
+    # matches the list-page "旅程数" column (which uses the same logic in
+    # build_scope) even when author and membership rows overlap on the
+    # same tour.
+    def distinct_tours_count(user)
+      authored = Tour.where(author_id: user.id).pluck(:id)
+      joined   = TourMembership.where(user_id: user.id).pluck(:tour_id)
+      (authored + joined).uniq.size
     end
 
     def authored_tours(user)
