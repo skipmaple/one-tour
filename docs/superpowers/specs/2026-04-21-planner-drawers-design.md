@@ -181,8 +181,8 @@ const [timelineOpen, { open: openTimeline, close: closeTimeline }] = useDisclosu
 - `×` button at top-right of drawer header.
 - **Not** closable via click-outside (push style; planner clicks should never dismiss).
 
-**Modes:** the drawer reads `tour.constitution?.accepted_at`:
-- **Onboarding mode** (`accepted_at` is null OR `localStorage.onboarded:tour:${tour.id}` is missing): renders a wizard-like layout — `"设置这次旅程"` header, field sections with explanatory copy, bottom CTA `[保存设置]` → `[同意并开始规划]` (2-step, current setup flow). Close button `×` is still enabled — user may dismiss, but will see onboarding again next open until they complete `accept`. After `accept`, `localStorage.setItem('onboarded:tour:${id}', '1')` and the backend sets `accepted_at`.
+**Modes:** the drawer reads `tour.constitution_accepted`:
+- **Onboarding mode** (`constitution_accepted === false` AND `localStorage.onboarded:tour:${tour.id}` is missing): renders a wizard-like layout — `"设置这次旅程"` header, field sections with explanatory copy, bottom CTA `[保存设置]` → `[同意并开始规划]` (2-step, current setup flow). Close button `×` is still enabled — user may dismiss, but will see onboarding again next open until they complete `accept`. After `accept`, `localStorage.setItem('onboarded:tour:${id}', '1')` and the backend sets `constitution_accepted = true` via `POST /tours/:id/constitution/accept`.
 - **Edit mode** (accepted): renders fields as live editable. Each field change triggers debounced (500ms) `router.patch(...)` to `/tours/:id/constitution`. A subtle "已保存 · HH:MM:SS" indicator appears at the drawer footer. No explicit save button.
 
 Both modes share:
@@ -220,7 +220,7 @@ On planner mount:
 useEffect(() => {
   const key = `onboarded:tour:${tour.id}`
   const hasOnboarded = localStorage.getItem(key) === '1'
-  const acceptedOnServer = !!tour.constitution?.accepted_at
+  const acceptedOnServer = !!tour.constitution_accepted // boolean on Tour model (see db/schema.rb:283)
   if (!hasOnboarded && !acceptedOnServer) {
     openConst()
   }
@@ -259,7 +259,7 @@ The one cost here: `tours#show` now computes `TimelineSummary` on every planner 
 
 - Controlled width via `width` + `onWidthChange` (parent owns state).
 - Renders violation list at top, constitution form fields below.
-- Switches between onboarding and edit mode based on `tour.constitution?.accepted_at` and `localStorage`.
+- Switches between onboarding and edit mode based on `tour.constitution_accepted` and `localStorage`.
 - Calls `router.patch('/tours/:id/constitution', ...)` on field change (edit mode, debounced) or on "保存设置" click (onboarding mode).
 - Calls `POST /tours/:id/constitution/accept` on "同意并开始规划"; on success, writes localStorage marker and calls `onClose`.
 - Does NOT own open/close state — parent does.
@@ -287,12 +287,12 @@ The one cost here: `tours#show` now computes `TimelineSummary` on every planner 
 - **`HeaderSlot.test.js`**: injecting content shows it; unmounting clears; two pages mounting in sequence reset cleanly.
 - **`PlannerHeaderRight.test.jsx`**: renders 4 buttons; 宪法 button shows Indicator with correct color/count when violations present; no Indicator when empty.
 - **`ConstitutionDrawer.test.jsx`**:
-  - Onboarding mode: renders when `tour.constitution.accepted_at` is null AND no localStorage marker; shows "同意并开始规划" CTA.
+  - Onboarding mode: renders when `tour.constitution_accepted === false` AND no localStorage marker; shows "同意并开始规划" CTA.
   - Edit mode: renders when accepted; field change triggers debounced PATCH.
   - Violation list shows "帮我修正 →" for hard, "知道了" for soft.
 - **`TimelineOverlay.test.jsx`**: renders timeline content when open; closes on Esc.
 - **Planner integration `Tour/Show.test.jsx`**:
-  - First visit (no localStorage, no `accepted_at`) → drawer auto-opens.
+  - First visit (no localStorage, `constitution_accepted === false`) → drawer auto-opens.
   - After accept, reload → drawer does NOT auto-open.
   - 宪法 button click toggles drawer.
   - Resize handle updates `constWidth` state.
@@ -319,5 +319,5 @@ The one cost here: `tours#show` now computes `TimelineSummary` on every planner 
 - **TimelineSummary cost on every planner load.** If `Tour::TimelineSummary.for(@tour)` is expensive, this spec adds latency even for users who never open 总览. Measure before optimizing; fallback is Inertia partial reload on overlay open.
 - **Slot memoization footgun.** If `Tour/Show.jsx` forgets `useMemo` around `PlannerHeaderRight`, the slot resets on every parent render, potentially blanking the header mid-render. Mitigated by the context's stable setter ref + the injected element being a stable-shape component; but a test must cover "header content doesn't flicker during parent re-renders."
 - **Mobile (< sm).** On narrow viewports, the push drawer behavior becomes harsh (40% of a 400px screen is ~160px of planner left). Proposed: below `sm` breakpoint, the constitution drawer becomes a Mantine Drawer (float from left, 85% width overlay). Decide during implementation; not spec-critical if desktop is the primary surface.
-- **Onboarding marker is browser-scoped.** A user who completes onboarding on device A and opens the tour on device B will see onboarding again — but because the backend `accepted_at` is also checked, the drawer opens in **edit mode**, not onboarding mode. Effective behavior: only "repeat the acceptance ritual" is browser-scoped; the core accept is server-scoped. This is the intended balance.
+- **Onboarding marker is browser-scoped.** A user who completes onboarding on device A and opens the tour on device B will see onboarding again — but because the backend `constitution_accepted` is also checked, the drawer opens in **edit mode**, not onboarding mode. Effective behavior: only "repeat the acceptance ritual" is browser-scoped; the core accept is server-scoped. This is the intended balance.
 - **ResizeHandle reuse.** The planner's existing `ResizeHandle` was designed for internal panel split resizing; may need minor adjustment to live on the drawer's right edge. Verify during implementation.
