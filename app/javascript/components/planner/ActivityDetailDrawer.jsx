@@ -42,8 +42,9 @@ const CATEGORY_LABELS = {
 }
 
 function formatYuan(cents) {
-  const yuan = Math.round(cents / 100)
-  return `¥${yuan.toLocaleString('zh-CN')}`
+  const sign = cents < 0 ? '-' : ''
+  const yuan = Math.round(Math.abs(cents) / 100)
+  return `${sign}¥${yuan.toLocaleString('zh-CN')}`
 }
 
 function usersById(author, members) {

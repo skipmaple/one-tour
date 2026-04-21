@@ -348,4 +348,18 @@ describe('ActivityDetailDrawer – expenses', () => {
     fireEvent.click(screen.getByTestId('detail-expense-row-501'))
     expect(onFocusExpense).toHaveBeenCalledWith(501)
   })
+
+  test('renders negative expense amounts as "-¥N" (refunds)', () => {
+    const refund = {
+      id: 701, scope: 'activity', activity_id: 10,
+      amount_cents: -5000, category: 'refund',
+      paid_by_id: 1, split_strategy: 'individual',
+      splits: [],
+    }
+    renderDrawer({ expenses: [ refund ] })
+    const row = screen.getByTestId('detail-expense-row-701')
+    expect(row).toHaveTextContent('-¥50')
+    // And the summary total should also be negative
+    expect(screen.getByTestId('detail-expenses')).toHaveTextContent('-¥50')
+  })
 })

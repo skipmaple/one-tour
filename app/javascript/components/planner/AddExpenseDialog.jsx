@@ -167,9 +167,10 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           strategy: 'equal',
           note: '',
           participantIds: (() => {
-            const firstActivity = nonBacklogActivities[0]
-            if (!firstActivity) return allUsers.map((u) => u.user_id)
-            return effectiveParticipants(firstActivity, { author, members })
+            const targetId = initialActivityId ? Number(initialActivityId) : nonBacklogActivities[0]?.id
+            const targetActivity = targetId ? activities.find((a) => a.id === targetId) : null
+            if (!targetActivity) return allUsers.map((u) => u.user_id)
+            return effectiveParticipants(targetActivity, { author, members })
           })(),
           externalCount: 0,
           externalAttributedToId: String(author.user_id),

@@ -60,6 +60,16 @@ export default function ExpenseDrawer({
       setDialogOpen(true)
     }
   }, [opened, initialExpenseId, initialActivityId])
+
+  // Reset nested dialog state when the drawer closes — otherwise re-opening
+  // the drawer would find dialogOpen still true from a stale session.
+  useEffect(() => {
+    if (!opened) {
+      setDialogOpen(false)
+      setEditingExpenseId(null)
+    }
+  }, [opened])
+
   const [rowLightbox, setRowLightbox] = useState({ receipts: [], index: null })
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
   const [manualSettlementOpen, setManualSettlementOpen] = useState(false)
