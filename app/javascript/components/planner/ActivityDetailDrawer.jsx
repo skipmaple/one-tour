@@ -1,4 +1,5 @@
-import { Drawer, Stack } from '@mantine/core'
+import { Drawer, Stack, Group, Text, Button } from '@mantine/core'
+import { IconPlus, IconPencil } from '@tabler/icons-react'
 
 // Read-only detail view for a single Activity. Unified entry point for all
 // roles when clicking an activity card — author/editor see [+ 记一笔] and
@@ -15,6 +16,49 @@ import { Drawer, Stack } from '@mantine/core'
 // All data comes from props supplied by Tour/Show.jsx — zero network calls
 // in this component. "记一笔" and "编辑" delegate to callback props; the
 // parent wires them to AddExpenseDialog / ActivityDrawer.
+
+function formatDuration(min) {
+  if (min == null) return null
+  if (min >= 60 && min % 30 === 0) return `${min / 60}h`
+  return `${min}分`
+}
+
+function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) {
+  const day = days.find((d) => d.id === activity.day_id)
+  const dayLabel = day ? `D${day.day_index}` : '候选池'
+  const duration = formatDuration(activity.planned_duration_min)
+  return (
+    <Stack gap={6} data-testid="detail-header">
+      <Group justify="space-between" wrap="nowrap" align="flex-start">
+        <Text size="xs" c="dimmed" component="div">
+          {[ dayLabel, activity.kind, activity.citizen_level, activity.planned_start_at, duration ]
+            .filter(Boolean).join(' · ')}
+        </Text>
+        {canEdit && (
+          <Group gap="xs" wrap="nowrap">
+            <Button
+              size="xs"
+              variant="filled"
+              leftSection={<IconPlus size={14} />}
+              onClick={() => onAddExpense(activity.id)}
+            >
+              记一笔
+            </Button>
+            <Button
+              size="xs"
+              variant="subtle"
+              leftSection={<IconPencil size={14} />}
+              onClick={() => onEdit(activity.id)}
+            >
+              编辑
+            </Button>
+          </Group>
+        )}
+      </Group>
+    </Stack>
+  )
+}
+
 export default function ActivityDetailDrawer({
   opened, onClose,
   tour, days, activity, activityImages, author, members, expenses,
@@ -34,7 +78,14 @@ export default function ActivityDetailDrawer({
     >
       {activity && (
         <Stack gap="md">
-          {/* Sections plugged in by Tasks 4-8 */}
+          <DetailHeaderSection
+            activity={activity}
+            days={days}
+            canEdit={canEdit}
+            onEdit={onEdit}
+            onAddExpense={onAddExpense}
+          />
+          {/* Sections plugged in by Tasks 5-9 */}
         </Stack>
       )}
     </Drawer>

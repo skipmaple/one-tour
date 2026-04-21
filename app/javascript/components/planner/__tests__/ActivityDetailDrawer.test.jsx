@@ -87,3 +87,48 @@ describe('ActivityDetailDrawer – shell', () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull()
   })
 })
+
+describe('ActivityDetailDrawer – header meta + actions', () => {
+  test('renders meta line with D-label, kind, tier, time, duration', () => {
+    renderDrawer()
+    const header = screen.getByTestId('detail-header')
+    expect(header).toHaveTextContent('D1')
+    expect(header).toHaveTextContent('scenic')
+    expect(header).toHaveTextContent('tier_two')
+    expect(header).toHaveTextContent('14:00')
+    expect(header).toHaveTextContent('2h')
+  })
+
+  test('backlog activity (day_id null) shows "候选池" instead of Dn', () => {
+    renderDrawer({ activity: makeActivity({ day_id: null }) })
+    const header = screen.getByTestId('detail-header')
+    expect(header).toHaveTextContent('候选池')
+    expect(header).not.toHaveTextContent(/^D\d/)
+  })
+
+  test('canEdit=true renders [+ 记一笔] and [编辑] header buttons', () => {
+    renderDrawer({ canEdit: true })
+    expect(screen.getByRole('button', { name: /记一笔/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /编辑/ })).toBeInTheDocument()
+  })
+
+  test('canEdit=false hides [+ 记一笔] and [编辑] header buttons', () => {
+    renderDrawer({ canEdit: false })
+    expect(screen.queryByRole('button', { name: /记一笔/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /编辑/ })).toBeNull()
+  })
+
+  test('clicking [+ 记一笔] calls onAddExpense with activity id', () => {
+    const onAddExpense = vi.fn()
+    renderDrawer({ onAddExpense })
+    fireEvent.click(screen.getByRole('button', { name: /记一笔/ }))
+    expect(onAddExpense).toHaveBeenCalledWith(10)
+  })
+
+  test('clicking [编辑] calls onEdit with activity id', () => {
+    const onEdit = vi.fn()
+    renderDrawer({ onEdit })
+    fireEvent.click(screen.getByRole('button', { name: /编辑/ }))
+    expect(onEdit).toHaveBeenCalledWith(10)
+  })
+})
