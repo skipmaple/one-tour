@@ -113,9 +113,22 @@ function DetailLocationSection({ activity }) {
   const detailEntries = kindFields
     .map((f) => {
       const raw = activity.details?.[f.key]
-      if (raw == null || raw === '') return null
-      const suffix = f.suffix ?? ''
-      return { key: f.key, label: f.label, text: `${raw}${suffix}` }
+      if (raw == null || raw === '' || raw === false) return null
+      let text
+      switch (f.type) {
+        case 'checkbox':
+          text = '是'
+          break
+        case 'number_with_suffix':
+          text = `${raw}${f.suffix ?? ''}`
+          break
+        case 'select':
+        case 'autocomplete':
+        case 'text':
+        default:
+          text = String(raw)
+      }
+      return { key: f.key, label: f.label, text }
     })
     .filter(Boolean)
 

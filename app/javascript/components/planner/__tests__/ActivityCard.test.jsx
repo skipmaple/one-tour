@@ -232,6 +232,19 @@ test('renders avatar group with overflow when 4 explicit participants', () => {
   expect(screen.getByText('+1')).toBeInTheDocument()
 })
 
+test('click on thumb area (outside .ac-body) still opens detail', () => {
+  const onClick = vi.fn()
+  const { container } = renderInDnd(
+    <ActivityCard activity={baseActivity} readOnly={true} onClick={onClick} />
+  )
+  // Click directly on the outer .ac-card (the thumb area is part of the card
+  // but outside ac-body). The previous onClick-on-.ac-body would have missed
+  // this path.
+  const card = container.querySelector('.ac-card')
+  fireEvent.click(card)
+  expect(onClick).toHaveBeenCalledWith(1)
+})
+
 test('readOnly card has button role and is keyboard-accessible', () => {
   const onClick = vi.fn()
   renderInDnd(<ActivityCard activity={baseActivity} readOnly={true} onClick={onClick} />)

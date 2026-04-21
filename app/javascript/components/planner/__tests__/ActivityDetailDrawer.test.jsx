@@ -195,6 +195,29 @@ describe('ActivityDetailDrawer – location', () => {
     const occurrences = (loc.textContent.match(/（未定位）/g) || []).length
     expect(occurrences).toBe(1)
   })
+
+  test('renders checkbox-type kind fields as "是" when true, omits when false', () => {
+    // scenic kind has `need_reservation` as a checkbox field in KIND_SCHEMA
+    renderDrawer({
+      activity: makeActivity({
+        details: { altitude: 2073, need_reservation: true, ticket_info: 70 },
+      }),
+    })
+    const loc = screen.getByTestId('detail-location')
+    expect(loc).toHaveTextContent('需要预约: 是')  // label from detailsSchema + "是"
+    expect(loc).not.toHaveTextContent('true')       // raw bool suppressed
+  })
+
+  test('omits checkbox-type kind fields when false or unset', () => {
+    renderDrawer({
+      activity: makeActivity({
+        details: { altitude: 2073, need_reservation: false },
+      }),
+    })
+    const loc = screen.getByTestId('detail-location')
+    expect(loc).not.toHaveTextContent('需要预约')  // falsy → omitted entirely
+    expect(loc).not.toHaveTextContent('false')
+  })
 })
 
 describe('ActivityDetailDrawer – description', () => {
