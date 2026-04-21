@@ -11,6 +11,7 @@ import {
   IconClock,
 } from '@tabler/icons-react'
 import { Avatar, Tooltip } from '@mantine/core'
+import { isFullRoster } from '../../lib/effectiveParticipants'
 import '../../styles/activity-card.css'
 
 const KIND_ICONS = {
@@ -162,21 +163,6 @@ export default function ActivityCard({
   author,
   members,
 }) {
-  const participantUserIds = activity.participant_user_ids || []
-  const isFullTrip = participantUserIds.length === 0
-  // Null-safe: existing call sites (tests, some planner contexts) may not yet
-  // pass author/members — render nothing rather than crash.
-  const hasUserCtx = author && Array.isArray(members)
-  const allUsers = hasUserCtx
-    ? [
-        { user_id: author.user_id, name: author.name, avatar_url: author.avatar_url },
-        ...members.map((m) => ({ user_id: m.user_id, name: m.name, avatar_url: m.avatar_url })),
-      ]
-    : []
-  const participantUsers = participantUserIds
-    .map((id) => allUsers.find((u) => u.user_id === id))
-    .filter(Boolean)
-
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } =
     useDraggable({ id: `activity-${activity.id}` })
   const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -226,36 +212,12 @@ export default function ActivityCard({
         </div>
         <MetaGrid activity={activity} />
       </div>
-      {hasUserCtx && !isFullTrip && participantUsers.length > 0 && (
-        <Avatar.Group className="ac-participants" spacing="xs" data-testid="activity-participants">
-          {participantUsers.slice(0, 3).map((u) => (
-            <Tooltip key={u.user_id} label={u.name}>
-              <Avatar src={u.avatar_url} size={16} radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
-            </Tooltip>
-          ))}
-          {participantUsers.length > 3 && (
-            <Avatar size={16} radius="xl">+{participantUsers.length - 3}</Avatar>
-          )}
-        </Avatar.Group>
-      )}
+      <ParticipantAvatarGroup activity={activity} author={author} members={members} />
     </div>
   )
 }
 
 export function ActivityCardOverlay({ activity, author, members }) {
-  const participantUserIds = activity.participant_user_ids || []
-  const isFullTrip = participantUserIds.length === 0
-  const hasUserCtx = author && Array.isArray(members)
-  const allUsers = hasUserCtx
-    ? [
-        { user_id: author.user_id, name: author.name, avatar_url: author.avatar_url },
-        ...members.map((m) => ({ user_id: m.user_id, name: m.name, avatar_url: m.avatar_url })),
-      ]
-    : []
-  const participantUsers = participantUserIds
-    .map((id) => allUsers.find((u) => u.user_id === id))
-    .filter(Boolean)
-
   return (
     <div className={cardClasses(activity, 'ac-overlay')}>
       <ThumbAndBadge activity={activity} />
@@ -266,18 +228,39 @@ export function ActivityCardOverlay({ activity, author, members }) {
         </div>
         <MetaGrid activity={activity} />
       </div>
-      {hasUserCtx && !isFullTrip && participantUsers.length > 0 && (
-        <Avatar.Group className="ac-participants" spacing="xs" data-testid="activity-participants">
-          {participantUsers.slice(0, 3).map((u) => (
-            <Tooltip key={u.user_id} label={u.name}>
-              <Avatar src={u.avatar_url} size={16} radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
-            </Tooltip>
-          ))}
-          {participantUsers.length > 3 && (
-            <Avatar size={16} radius="xl">+{participantUsers.length - 3}</Avatar>
-          )}
-        </Avatar.Group>
-      )}
+      <ParticipantAvatarGroup activity={activity} author={author} members={members} />
     </div>
+  )
+}
+
+// Shared across ActivityCard + ActivityCardOverlay. Null-safe: when `author`
+// or `members` is missing (e.g. older call sites, tests), renders nothing
+// rather than crashing. When `participant_user_ids` is empty (= 默认全员 per
+// the feature's single-source semantics, see effectiveParticipants.js),
+// also renders nothing — cards stay visually calm in the default case.
+function ParticipantAvatarGroup({ activity, author, members }) {
+  if (!author || !Array.isArray(members)) return null
+  if (isFullRoster(activity)) return null
+
+  const roster = [
+    { user_id: author.user_id, name: author.name, avatar_url: author.avatar_url },
+    ...members.map((m) => ({ user_id: m.user_id, name: m.name, avatar_url: m.avatar_url })),
+  ]
+  const users = activity.participant_user_ids
+    .map((id) => roster.find((u) => u.user_id === id))
+    .filter(Boolean)
+  if (users.length === 0) return null
+
+  return (
+    <Avatar.Group className="ac-participants" spacing="xs" data-testid="activity-participants">
+      {users.slice(0, 3).map((u) => (
+        <Tooltip key={u.user_id} label={u.name}>
+          <Avatar src={u.avatar_url} size={16} radius="xl">{(u.name || '?').slice(0, 1)}</Avatar>
+        </Tooltip>
+      ))}
+      {users.length > 3 && (
+        <Avatar size={16} radius="xl">+{users.length - 3}</Avatar>
+      )}
+    </Avatar.Group>
   )
 }

@@ -10,6 +10,7 @@ import CommonFields from './CommonFields'
 import ActivityGalleryTab from './ActivityGalleryTab'
 import ActivityRouteTab from './ActivityRouteTab'
 import UserLabel from '../planner/UserLabel'
+import { isFullRoster } from '../../lib/effectiveParticipants'
 
 const EMPTY_FORM_VALUES = {
   name: '',
@@ -352,9 +353,10 @@ function ParticipantsTab({ activity, author, members, canEdit }) {
       user_id: m.user_id, name: m.name, avatar_url: m.avatar_url, email: m.email, isAuthor: false,
     })),
   ]
-  const explicit = activity.participant_user_ids || []
-  const isFullTrip = explicit.length === 0
-  const selected = new Set(explicit)
+  // isFullRoster encodes the "empty = 默认全员" convention shared with
+  // effectiveParticipants + ActivityCard. Don't reinvent the check inline.
+  const isFullTrip = isFullRoster(activity)
+  const selected = new Set(activity.participant_user_ids || [])
 
   const persist = (userIdsNext) => {
     router.put(`/activities/${activity.id}/participants`, { user_ids: userIdsNext }, {

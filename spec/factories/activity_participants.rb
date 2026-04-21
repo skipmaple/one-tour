@@ -1,11 +1,11 @@
 FactoryBot.define do
   factory :activity_participant do
     activity
-    user
+    user { activity.tour.author }
 
-    # When used with `create(:activity_participant, activity: some_activity)`,
-    # the default factory generates a fresh User that is NOT in the tour. The
-    # model validator rejects this — callers should either add the user to
-    # the tour first, or pass an explicit `user:` already in the membership set.
+    # Default `user` = the activity's tour author so `create(:activity_participant)`
+    # builds a row that actually satisfies the tour-membership validator. When a
+    # caller needs a different user they must pass `user:` AND ensure the user
+    # is a TourMembership on the same tour (or is the author).
   end
 end
