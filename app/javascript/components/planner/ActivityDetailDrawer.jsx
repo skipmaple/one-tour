@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Drawer, Stack, Group, Text, Button, Divider } from '@mantine/core'
 import { IconPlus, IconPencil, IconMapPin } from '@tabler/icons-react'
 import ActivityMiniMap from './ActivityMiniMap'
+import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import { KIND_SCHEMA } from '../activity-editor/detailsSchema'
 
 // Read-only detail view for a single Activity. Unified entry point for all
@@ -119,6 +121,43 @@ function DetailDescSection({ activity }) {
   )
 }
 
+function DetailGallerySection({ activity, activityImages }) {
+  const images = (activityImages || []).filter((img) => img.activity_id === activity.id)
+  const [ lightboxIndex, setLightboxIndex ] = useState(null)
+
+  if (images.length === 0) return null
+
+  return (
+    <>
+      <Divider />
+      <Stack gap={6}>
+        <Text size="xs" c="dimmed">图集 · {images.length}</Text>
+        <Group gap="xs" wrap="nowrap" style={{ overflowX: 'auto' }}>
+          {images.map((img, idx) => (
+            <button
+              key={img.id}
+              type="button"
+              data-testid={`detail-thumb-${idx}`}
+              onClick={() => setLightboxIndex(idx)}
+              style={{
+                width: 80, height: 80, border: 0, padding: 0, cursor: 'pointer',
+                backgroundImage: `url(${img.url})`, backgroundSize: 'cover', backgroundPosition: 'center',
+                borderRadius: 4, flexShrink: 0,
+              }}
+              aria-label={`Image ${idx + 1}`}
+            />
+          ))}
+        </Group>
+      </Stack>
+      <ActivityGalleryLightbox
+        images={images}
+        initialIndex={lightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+      />
+    </>
+  )
+}
+
 export default function ActivityDetailDrawer({
   opened, onClose,
   tour, days, activity, activityImages, author, members, expenses,
@@ -147,7 +186,8 @@ export default function ActivityDetailDrawer({
           />
           <DetailLocationSection activity={activity} />
           <DetailDescSection activity={activity} />
-          {/* Sections plugged in by Tasks 7-9 */}
+          <DetailGallerySection activity={activity} activityImages={activityImages} />
+          {/* Sections plugged in by Tasks 8-9 */}
         </Stack>
       )}
     </Drawer>

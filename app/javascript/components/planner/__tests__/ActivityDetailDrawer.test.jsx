@@ -17,6 +17,13 @@ vi.mock('../ActivityMiniMap', () => ({
   default: ({ lat, lng }) => <div data-testid="mock-mini-map" data-lat={lat} data-lng={lng} />,
 }))
 
+vi.mock('../../activity-editor/ActivityGalleryLightbox', () => ({
+  default: ({ images, initialIndex, onClose }) =>
+    initialIndex != null
+      ? <div data-testid="mock-lightbox" data-count={images.length} data-index={initialIndex} onClick={onClose} />
+      : null,
+}))
+
 const AUTHOR  = { user_id: 1, name: 'Alice', email: 'a@x', avatar_url: null }
 const MEMBERS = [
   { user_id: 2, name: 'Bob',   email: 'b@x', avatar_url: null, role: 'editor' },
@@ -192,5 +199,40 @@ describe('ActivityDetailDrawer – description', () => {
   test('does not render section when desc is null', () => {
     renderDrawer({ activity: makeActivity({ desc: null }) })
     expect(screen.queryByTestId('detail-desc')).toBeNull()
+  })
+})
+
+describe('ActivityDetailDrawer – gallery', () => {
+  const IMAGES = [
+    { id: 1, activity_id: 10, url: '/storage/1.jpg', caption: null, position: 1 },
+    { id: 2, activity_id: 10, url: '/storage/2.jpg', caption: null, position: 2 },
+  ]
+
+  test('renders thumbnails when images present', () => {
+    renderDrawer({ activityImages: IMAGES })
+    const thumbs = screen.getAllByTestId(/^detail-thumb-/)
+    expect(thumbs).toHaveLength(2)
+  })
+
+  test('does not render section when images is empty', () => {
+    renderDrawer({ activityImages: [] })
+    expect(screen.queryByTestId(/^detail-thumb-/)).toBeNull()
+  })
+
+  test('clicking a thumbnail opens lightbox at that index', () => {
+    renderDrawer({ activityImages: IMAGES })
+    fireEvent.click(screen.getByTestId('detail-thumb-1'))
+    const box = screen.getByTestId('mock-lightbox')
+    expect(box).toHaveAttribute('data-count', '2')
+    expect(box).toHaveAttribute('data-index', '1')
+  })
+
+  test('only images for this activity are shown (filter by activity_id)', () => {
+    const mixed = [
+      ...IMAGES,
+      { id: 99, activity_id: 999, url: '/storage/other.jpg', caption: null, position: 1 },
+    ]
+    renderDrawer({ activityImages: mixed })
+    expect(screen.getAllByTestId(/^detail-thumb-/)).toHaveLength(2)
   })
 })
