@@ -8,6 +8,24 @@ export default defineConfig({
   build: {
     sourcemap: true,
   },
+  // Prevent duplicate copies of React / Mantine when a new dep (e.g.
+  // @mantine/charts) triggers Vite to re-bundle and produces a second
+  // Mantine bundle — symptom: "MantineProvider was not found" +
+  // "Invalid hook call" from charts at runtime.
+  resolve: {
+    dedupe: ['react', 'react-dom', '@mantine/core', '@mantine/hooks'],
+  },
+  optimizeDeps: {
+    include: [
+      '@mantine/core',
+      '@mantine/hooks',
+      '@mantine/charts',
+      '@mantine/dates',
+      '@mantine/notifications',
+      '@mantine/modals',
+      'recharts',
+    ],
+  },
   plugins: [
     inertia(),
     react(),
