@@ -9,7 +9,7 @@ export default function Index({ tours }) {
       <Head title="我的旅程" />
       <Group justify="space-between">
         <Title order={2}>我的旅程</Title>
-        <Button onClick={createTour}>+ 新建程</Button>
+        <Button onClick={createTour}>+ 新建旅程</Button>
       </Group>
 
       <Table striped highlightOnHover>
@@ -53,7 +53,7 @@ export default function Index({ tours }) {
       </Table>
 
       {tours.length === 0 && (
-        <Text c="dimmed" ta="center" py="xl">还没有旅程。点"+ 新建程"开始。</Text>
+        <Text c="dimmed" ta="center" py="xl">还没有旅程。点"+ 新建旅程"开始。</Text>
       )}
     </Stack>
   )

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { Modal, Stack } from '@mantine/core'
+import { Modal, Stack, Text, Paper } from '@mantine/core'
+import { IconListDetails } from '@tabler/icons-react'
 import TourSummaryBar from '../timeline/TourSummaryBar'
 import RhythmBar from '../timeline/RhythmBar'
 import TimelineDayColumn from '../timeline/TimelineDayColumn'
@@ -46,20 +47,29 @@ export default function TimelineOverlay({
           selectedDayId={selectedDayId}
           onSlotClick={handleSlotClick}
         />
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', alignItems: 'stretch', paddingBottom: 6 }}>
-          {days.map(d => (
-            <TimelineDayColumn
-              key={d.id}
-              day={d}
-              activities={byDay[d.id] || []}
-              constitution={tour.constitution}
-              tourId={tour.id}
-              selected={selectedDayId === d.id}
-              onSelect={setSelectedDayId}
-              columnRef={(el) => { dayColumnRefs.current[d.id] = el }}
-            />
-          ))}
-        </div>
+        {activities.length === 0 ? (
+          <Paper withBorder p="xl" style={{ textAlign: 'center' }}>
+            <IconListDetails size={32} stroke={1.2} color="#bbb" />
+            <Text size="sm" c="dimmed" mt="sm">
+              还没有任何行程。回到规划页，从"候选池"把景点拖到右侧日即可。
+            </Text>
+          </Paper>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', alignItems: 'stretch', paddingBottom: 6 }}>
+            {days.map(d => (
+              <TimelineDayColumn
+                key={d.id}
+                day={d}
+                activities={byDay[d.id] || []}
+                constitution={tour.constitution}
+                tourId={tour.id}
+                selected={selectedDayId === d.id}
+                onSelect={setSelectedDayId}
+                columnRef={(el) => { dayColumnRefs.current[d.id] = el }}
+              />
+            ))}
+          </div>
+        )}
         <DayDetailPanel
           day={selectedDay}
           activities={selectedDayActivities}

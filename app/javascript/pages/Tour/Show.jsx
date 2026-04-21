@@ -5,7 +5,6 @@ import { useDisclosure } from '@mantine/hooks'
 import { DndContext, DragOverlay, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
-import { IconPencil } from '@tabler/icons-react'
 import { ActivityCardOverlay } from '../../components/planner/ActivityCard'
 import BacklogList from '../../components/planner/BacklogList'
 import PlannerMap from '../../components/planner/PlannerMap'
@@ -235,9 +234,15 @@ export default function Show({
       onOpenTimeline={openTimeline}
       onOpenExpense={() => setExpenseDrawerOpen(true)}
       onOpenMembers={() => setMembersDrawerOpen(true)}
+      onOpenSettings={canEdit ? () => setSettingsOpen(true) : undefined}
     />
-  ), [violations, openConst, openTimeline])
+  ), [violations, openConst, openTimeline, canEdit])
   useInjectHeaderRight(headerRight)
+
+  // True only during "first visit" onboarding — lets the planner dim itself
+  // behind the drawer so the map / chat / backlog don't distract.
+  const inOnboarding = constOpen && !tour.constitution_accepted
+    && (typeof window !== 'undefined' && localStorage.getItem(`onboarded:tour:${tour.id}`) !== '1')
 
   return (
     <div>
@@ -251,35 +256,13 @@ export default function Show({
         onDragCancel={() => { setActiveId(null); setDragWarning(null) }}
         autoScroll={{ acceleration: 10, threshold: { x: 0.15, y: 0.15 } }}
       >
-        <div style={{ padding: 10 }}>
-          <div style={{ marginBottom: 8, marginTop: 4 }}>
-            <div
-              onClick={() => canEdit && setSettingsOpen(true)}
-              style={{ cursor: canEdit ? 'pointer' : 'default', display: 'inline-block' }}
-              className={canEdit ? 'tour-title-editable' : undefined}
-            >
-              <Text fw={700} size="lg" className="tour-title-text">{tour.title}</Text>
-              {canEdit && (
-                <Text fw={700} size="lg" c="gray.5" className="tour-title-edit-hint" style={{ display: 'none', alignItems: 'center', gap: 4 }}>
-                  <IconPencil size={16} stroke={2} />
-                  编辑
-                </Text>
-              )}
-              {canEdit && (
-                <style>{`
-                  .tour-title-editable:hover .tour-title-text { display: none; }
-                  .tour-title-editable:hover .tour-title-edit-hint { display: inline-flex !important; }
-                `}</style>
-              )}
-            </div>
-          </div>
-        </div>
         <div ref={containerRef} style={{
           display: 'flex',
           alignItems: 'stretch',
           gap: 0,
           padding: 10,
           height: 'calc(100vh - 56px - 20px)',
+          position: 'relative',
         }}>
           {constOpen && (
             <ConstitutionDrawer
@@ -287,11 +270,28 @@ export default function Show({
               violations={violations}
               defaults={defaults}
               overrides={overrides}
+              initialDaysCount={days.length || 1}
               width={constWidth}
               onWidthChange={setConstWidth}
               onClose={closeConst}
               onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
               onAcknowledge={(v) => setAcknowledgingViolation(v)}
+            />
+          )}
+          {inOnboarding && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: constWidth + 10,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(255, 255, 255, 0.5)',
+                zIndex: 5,
+                pointerEvents: 'auto',
+                cursor: 'not-allowed',
+              }}
+              data-testid="onboarding-backdrop"
             />
           )}
           <BacklogList

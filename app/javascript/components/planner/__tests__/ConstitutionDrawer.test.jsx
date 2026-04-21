@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
+import { ModalsProvider } from '@mantine/modals'
+import { DatesProvider } from '@mantine/dates'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import ConstitutionDrawer from '../ConstitutionDrawer'
 
@@ -12,6 +14,14 @@ vi.mock('@inertiajs/react', () => ({
     patch: (...args) => patchMock(...args),
     post: (...args) => postMock(...args),
   },
+}))
+
+vi.mock('@mantine/notifications', () => ({
+  notifications: { show: vi.fn() },
+}))
+
+vi.mock('@sentry/react', () => ({
+  captureException: vi.fn(),
 }))
 
 vi.mock('../ParameterEditor', () => ({
@@ -48,6 +58,7 @@ function renderDrawer(overrides = {}) {
     violations: [],
     defaults: { max_daily_driving_minutes: 360 },
     overrides: [],
+    initialDaysCount: 1,
     width: 400,
     onWidthChange: vi.fn(),
     onClose: vi.fn(),
@@ -58,7 +69,11 @@ function renderDrawer(overrides = {}) {
   return {
     ...render(
       <MantineProvider>
-        <ConstitutionDrawer {...props} />
+        <DatesProvider settings={{}}>
+          <ModalsProvider>
+            <ConstitutionDrawer {...props} />
+          </ModalsProvider>
+        </DatesProvider>
       </MantineProvider>,
     ),
     props,
@@ -72,15 +87,30 @@ beforeEach(() => {
 })
 
 describe('ConstitutionDrawer — onboarding mode', () => {
-  it('renders "同意并开始规划" CTA when constitution_accepted is false and no localStorage marker', () => {
+  it('shows step indicator when constitution_accepted is false and no localStorage marker', () => {
     renderDrawer()
-    // First need to click 下一步 to reach step 2; but the button's existence at step 2 proves onboarding mode is active
     expect(screen.getByText(/第 1 步/)).toBeInTheDocument()
   })
 
-  it('does NOT render auto-save status line in onboarding mode', () => {
+  it('does NOT render autosave status line in onboarding mode', () => {
     renderDrawer()
     expect(screen.queryByText(/已保存/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/自动保存/)).not.toBeInTheDocument()
+  })
+
+  it('renders tour metadata inputs (程名 / 日期范围 / 人数 / 天数)', () => {
+    renderDrawer()
+    expect(screen.getByLabelText(/程名/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/日期范围/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/人数/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/天数/)).toBeInTheDocument()
+  })
+
+  it('hides violation list in onboarding mode', () => {
+    renderDrawer({ violations: [
+      { level: 'hard', message: '行程超过每日上限', rule: 'max_tier_one_per_day' },
+    ]})
+    expect(screen.queryByText('行程超过每日上限')).not.toBeInTheDocument()
   })
 })
 
@@ -94,6 +124,19 @@ describe('ConstitutionDrawer — edit mode', () => {
     localStorage.setItem('onboarded:tour:42', '1')
     renderDrawer()
     expect(screen.queryByText(/第 1 步/)).not.toBeInTheDocument()
+  })
+
+  it('shows persistent autosave hint before any save', () => {
+    renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
+    expect(screen.getByText('所有更改将自动保存')).toBeInTheDocument()
+  })
+
+  it('shows violation list in edit mode', () => {
+    renderDrawer({
+      tour: { ...baseTour, constitution_accepted: true },
+      violations: [{ level: 'hard', message: '行程超过每日上限', rule: 'max_tier_one_per_day' }],
+    })
+    expect(screen.getByText('行程超过每日上限')).toBeInTheDocument()
   })
 
   it('debounces PATCH on field change', async () => {
@@ -120,11 +163,3 @@ describe('ConstitutionDrawer — close', () => {
   })
 })
 
-describe('ConstitutionDrawer — violations', () => {
-  it('shows violation row when violations prop is non-empty', () => {
-    renderDrawer({ violations: [
-      { level: 'hard', message: '行程超过每日上限', rule: 'max_tier_one_per_day' },
-    ]})
-    expect(screen.getByText('行程超过每日上限')).toBeInTheDocument()
-  })
-})

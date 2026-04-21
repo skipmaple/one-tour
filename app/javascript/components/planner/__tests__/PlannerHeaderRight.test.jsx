@@ -22,12 +22,26 @@ function renderHeader(props = {}) {
 }
 
 describe('PlannerHeaderRight', () => {
-  it('renders four icon buttons with accessible names', () => {
+  it('renders the four always-present icon buttons', () => {
     renderHeader()
     expect(screen.getByRole('button', { name: '宪法' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '总览' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '账单' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '成员' })).toBeInTheDocument()
+  })
+
+  it('hides 旅程设置 button when onOpenSettings is not provided (read-only user)', () => {
+    renderHeader()
+    expect(screen.queryByRole('button', { name: '旅程设置' })).not.toBeInTheDocument()
+  })
+
+  it('renders 旅程设置 button when onOpenSettings is provided', async () => {
+    const user = userEvent.setup()
+    const onOpenSettings = vi.fn()
+    renderHeader({ onOpenSettings })
+    const btn = screen.getByRole('button', { name: '旅程设置' })
+    await user.click(btn)
+    expect(onOpenSettings).toHaveBeenCalledTimes(1)
   })
 
   it('calls the matching handler on click', async () => {

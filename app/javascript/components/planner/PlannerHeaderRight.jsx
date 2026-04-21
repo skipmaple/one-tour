@@ -4,6 +4,7 @@ import {
   IconListDetails,
   IconCoin,
   IconUsers,
+  IconSettings,
 } from '@tabler/icons-react'
 
 function severityColor(violations) {
@@ -17,6 +18,7 @@ export default function PlannerHeaderRight({
   onOpenTimeline,
   onOpenExpense,
   onOpenMembers,
+  onOpenSettings,
 }) {
   const color = severityColor(violations)
 
@@ -53,6 +55,14 @@ export default function PlannerHeaderRight({
           <IconUsers size={20} />
         </ActionIcon>
       </Tooltip>
+
+      {onOpenSettings && (
+        <Tooltip label="旅程设置" withArrow>
+          <ActionIcon onClick={onOpenSettings} variant="subtle" size="md" aria-label="旅程设置">
+            <IconSettings size={20} />
+          </ActionIcon>
+        </Tooltip>
+      )}
     </Group>
   )
 }
