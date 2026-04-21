@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Drawer, Button, Group, Stack, Tabs } from '@mantine/core'
+import { Alert, Checkbox, Drawer, Button, Group, Stack, Tabs } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
@@ -9,6 +9,7 @@ import { KIND_SCHEMA } from './detailsSchema'
 import CommonFields from './CommonFields'
 import ActivityGalleryTab from './ActivityGalleryTab'
 import ActivityRouteTab from './ActivityRouteTab'
+import UserLabel from '../planner/UserLabel'
 
 const EMPTY_FORM_VALUES = {
   name: '',
@@ -22,7 +23,7 @@ const EMPTY_FORM_VALUES = {
   desc: '',
 }
 
-export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId, images, allActivities, days, routeLegs, canEdit }) {
+export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId, images, allActivities, days, routeLegs, canEdit, author, members }) {
   const isEdit = mode === 'edit'
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('basic')
@@ -273,6 +274,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
             <Tabs.Tab value="basic">基础</Tabs.Tab>
             {isEdit && <Tabs.Tab value="images">图片{images?.length > 0 && ` (${images.length})`}</Tabs.Tab>}
             {isEdit && <Tabs.Tab value="route">路线</Tabs.Tab>}
+            {isEdit && <Tabs.Tab value="participants">参与人</Tabs.Tab>}
           </Tabs.List>
 
           <Tabs.Panel value="basic" pt="md">
@@ -307,6 +309,17 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
               />
             </Tabs.Panel>
           )}
+
+          {isEdit && (
+            <Tabs.Panel value="participants" pt="md">
+              <ParticipantsTab
+                activity={activity}
+                author={author}
+                members={members}
+                canEdit={canEdit}
+              />
+            </Tabs.Panel>
+          )}
         </Tabs>
 
         <Group justify="space-between" mt="md" pt="md" style={{ borderTop: '1px solid #eee' }}>
@@ -330,4 +343,64 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
 
 function csrfToken() {
   return document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
+}
+
+function ParticipantsTab({ activity, author, members, canEdit }) {
+  const candidates = [
+    { user_id: author.user_id, name: author.name, avatar_url: author.avatar_url, email: author.email, isAuthor: true },
+    ...members.map((m) => ({
+      user_id: m.user_id, name: m.name, avatar_url: m.avatar_url, email: m.email, isAuthor: false,
+    })),
+  ]
+  const explicit = activity.participant_user_ids || []
+  const isFullTrip = explicit.length === 0
+  const selected = new Set(explicit)
+
+  const persist = (userIdsNext) => {
+    router.put(`/activities/${activity.id}/participants`, { user_ids: userIdsNext }, {
+      preserveScroll: true,
+      only: ['activities'],
+    })
+  }
+
+  const toggle = (userId, checked) => {
+    let next
+    if (isFullTrip && !checked) {
+      next = candidates.map((c) => c.user_id).filter((id) => id !== userId)
+    } else if (!isFullTrip && checked) {
+      next = [ ...selected, userId ]
+    } else if (!isFullTrip && !checked) {
+      next = [ ...selected ].filter((id) => id !== userId)
+    } else {
+      return
+    }
+    if (next.length === candidates.length) next = []
+    persist(next)
+  }
+
+  return (
+    <Stack gap="sm">
+      {isFullTrip && (
+        <Alert color="blue" variant="light">
+          默认全员参与。取消勾选某人即切换为"仅列出成员参与"模式。
+        </Alert>
+      )}
+      {candidates.map((c) => {
+        const checked = isFullTrip || selected.has(c.user_id)
+        return (
+          <Checkbox
+            key={c.user_id}
+            checked={checked}
+            disabled={!canEdit}
+            onChange={(e) => toggle(c.user_id, e.currentTarget.checked)}
+            label={
+              <Group gap="xs" wrap="nowrap">
+                <UserLabel user={c} isAuthor={c.isAuthor} size={22} fz="sm" />
+              </Group>
+            }
+          />
+        )
+      })}
+    </Stack>
+  )
 }

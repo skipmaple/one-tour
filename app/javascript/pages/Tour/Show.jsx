@@ -321,6 +321,8 @@ export default function Show({ tour, days, activities, activity_images, expenses
         days={days}
         routeLegs={route_legs || []}
         canEdit={canEdit}
+        author={author || { user_id: tour.author_id, email: '' }}
+        members={members || []}
       />
 
       <AcknowledgeModal
