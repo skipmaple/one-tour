@@ -1,6 +1,6 @@
 # Activity 参与人（ActivityParticipant）
 
-**Status**: Design approved 2026-04-21 · awaiting implementation plan
+**Status**: Design approved 2026-04-21 · implementation plan at `docs/superpowers/plans/2026-04-21-activity-participants.md`
 **Scope**: 每个 activity 可关联参与成员，由 author + editor 通过 ActivityDrawer "参与人" tab 增删查改；分账和 UI 展示联动；废弃 `TourMembership#participating_day_ids`
 
 ---
