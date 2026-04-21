@@ -1,7 +1,7 @@
 # Planner as Canonical Tour View — Design
 
 **Date:** 2026-04-21
-**Status:** Spec, ready for review
+**Status:** Implemented. Revised 2026-04-22 to reflect PM-feedback deltas applied during rollout (see §PM-feedback deltas).
 **Supersedes in part:** [`2026-04-21-unified-sidebar-design.md`](./2026-04-21-unified-sidebar-design.md) — specifically the Task 6 opt-out of `Tour/Show` from `AppShell` is reverted.
 
 ## Goal
@@ -31,7 +31,7 @@ The planner becomes the only page under `/tours/:id`. It re-enters `AppShell` (t
 - **Constitution** → left-push drawer that lives **inside** the planner's main area. Opening it shrinks the planner's panel group. Violations indicator on the 宪法 icon button.
 - **Timeline** → full-screen overlay covering everything except `AppShell.Header`. Modal semantics (ESC / backdrop / X to close).
 
-The `AppShell.Header` gains a "right slot" that pages can inject custom content into. The planner injects four icon buttons: 宪法 / 总览 / 账单 / 成员 — the first two are new, the last two replace what today lives in the planner's own sub-header.
+The `AppShell.Header` gains a "right slot" that pages can inject custom content into. The planner injects **five** icon buttons: 宪法 / 总览 / 账单 / 成员 / 旅程设置 — the first two are new, 账单 and 成员 replace what today lives in the planner's own sub-header, and 旅程设置 replaces the in-body hover-to-edit affordance (see §PM-feedback deltas).
 
 ### File structure
 
@@ -70,15 +70,16 @@ Single row, 56px (AppShell default). Left-to-right:
 ```
 
 - **Sidebar toggle** — unchanged; comes from `AppShell.Header` itself.
-- **Tour title** — comes from `document.title` (`<Head title={tour.title} />` on planner). Hover behavior: title text swaps with a `IconPencil + 编辑` label, click opens `TourSettingsModal` (existing). `canEdit` gated (read-only users don't get the hover affordance). `document.title` takes precedence; we do **not** render tour title separately in the page body.
-- **Right slot** — `PlannerHeaderRight` component, 4 `ActionIcon` buttons:
+- **Tour title** — comes from `document.title` (`<Head title={tour.title} />` on planner). Rendered as plain, non-interactive text. `canEdit` users reach `TourSettingsModal` via the 旅程设置 button (right slot, see below); non-editors see a read-only title. We do **not** render the tour title separately in the page body. (Previous revision called for a hover-to-edit affordance on the title itself; dropped in favor of an explicit button — see §PM-feedback deltas.)
+- **Right slot** — `PlannerHeaderRight` component, 5 `ActionIcon` buttons:
 
-| # | Icon | Tabler | Tooltip | Opens |
-|---|---|---|---|---|
-| 1 | 📖 | `IconBook2` | 宪法 | `ConstitutionDrawer` (push from left, 400px default, resizable) |
-| 2 | 📋 | `IconListDetails` | 总览 | `TimelineOverlay` (full-screen overlay) |
-| 3 | 💰 | `IconCoin` | 账单 | `ExpenseDrawer` (existing) |
-| 4 | 👥 | `IconUsers` | 成员 | `MembershipDrawer` (existing) |
+| # | Icon | Tabler | Tooltip | Opens | Visibility |
+|---|---|---|---|---|---|
+| 1 | 📖 | `IconBook2` | 宪法 | `ConstitutionDrawer` (push from left, 400px default, resizable) | always |
+| 2 | 📋 | `IconListDetails` | 总览 | `TimelineOverlay` (full-screen overlay) | always |
+| 3 | 💰 | `IconCoin` | 账单 | `ExpenseDrawer` (existing) | always |
+| 4 | 👥 | `IconUsers` | 成员 | `MembershipDrawer` (existing) | always |
+| 5 | ⚙️ | `IconSettings` | 旅程设置 | `TourSettingsModal` (existing) | `canEdit` only |
 
 All `ActionIcon variant="subtle" size="md"`. Button 1 is wrapped in a Mantine `Indicator` that reflects violation severity:
 
@@ -174,7 +175,7 @@ const [timelineOpen, { open: openTimeline, close: closeTimeline }] = useDisclosu
 </div>
 ```
 
-**Resize:** `ConstitutionDrawer` renders a `ResizeHandle` on its right edge (same component planner uses internally for panels). Width is clamped to `[320, 640]` px. Not persisted — resets to `400px` on next open.
+**Resize:** `ConstitutionDrawer` renders a plain `<div onMouseDown>` handle on its right edge. Width is clamped to `[320, 640]` px. Not persisted — resets to `400px` on next open. The aside itself uses `flexShrink: 0` so the declared width is respected even when planner panels compete for horizontal space. (The planner's internal `ResizeHandle` component was not reused — it carries too much panel-split-specific state; sharing was noted as a nice-to-have in spec risks but deferred.)
 
 **Close:**
 - `Esc` key — bound via `useHotkeys`.
@@ -182,12 +183,10 @@ const [timelineOpen, { open: openTimeline, close: closeTimeline }] = useDisclosu
 - **Not** closable via click-outside (push style; planner clicks should never dismiss).
 
 **Modes:** the drawer reads `tour.constitution_accepted`:
-- **Onboarding mode** (`constitution_accepted === false` AND `localStorage.onboarded:tour:${tour.id}` is missing): renders a wizard-like layout — `"设置这次旅程"` header, field sections with explanatory copy, bottom CTA `[保存设置]` → `[同意并开始规划]` (2-step, current setup flow). Close button `×` is still enabled — user may dismiss, but will see onboarding again next open until they complete `accept`. After `accept`, `localStorage.setItem('onboarded:tour:${id}', '1')` and the backend sets `constitution_accepted = true` via `POST /tours/:id/constitution/accept`.
-- **Edit mode** (accepted): renders fields as live editable. Each field change triggers debounced (500ms) `router.patch(...)` to `/tours/:id/constitution`. A subtle "已保存 · HH:MM:SS" indicator appears at the drawer footer. No explicit save button.
+- **Onboarding mode** (`constitution_accepted === false` AND `localStorage.onboarded:tour:${tour.id}` is missing): renders a wizard — `"设置这次旅程"` header + tour-metadata inputs (程名 / 日期范围 / 人数 / 天数) + constitution `ParameterEditor` + bottom CTA `[下一步 →]` → step 2 full-text review `[← 返回修改] [同意并开始规划 →]`. Close button `×` is still enabled — user may dismiss, but will see onboarding again next open until they complete `accept`. After `accept`, `localStorage.setItem('onboarded:tour:${id}', '1')` and the backend sets `constitution_accepted = true` via `POST /tours/:id/constitution/accept`.
+- **Edit mode** (accepted): renders constitution fields as live editable (no tour metadata — that lives in `TourSettingsModal`). Each field change triggers debounced (500ms) `router.patch(...)` to `/tours/:id/constitution`. Footer shows "所有更改将自动保存" before any save, swaps to "已保存 · HH:MM:SS" after first successful save. No explicit save button.
 
-Both modes share:
-- Violation list at the top of the drawer (above fields), folded from `ConstitutionChip`'s popover. Hard violations show `[帮我修正 →] [承认此违反]`; soft show `[知道了]` (same as today).
-- `onFix` fills the planner's `ChatPanel` with the prepared prompt, same as the current `ConstitutionChip` integration.
+**Violation list** — rendered at the top of the drawer (above fields) in **edit mode only**. During onboarding the user has not yet accepted; surfacing violations at that moment gives the impression of being corrected before they start (`整程 0 个机动日` on a brand-new tour with `days_count=0` was the canonical offender). Hard violations show `[帮我修正 →] [承认此违反]`; soft show `[知道了]` (same as today). `onFix` fills the planner's `ChatPanel` with the prepared prompt.
 
 ### TimelineOverlay
 
@@ -270,9 +269,9 @@ The one cost here: `tours#show` now computes `TimelineSummary` on every planner 
 - Renders the existing timeline UI (`TourSummaryBar`, `RhythmBar`, `TimelineDayColumn`, `DayDetailPanel`).
 - No data fetching; consumes props.
 
-### `PlannerHeaderRight({ violations, onOpenConst, onOpenTimeline, onOpenExpense, onOpenMembers })`
+### `PlannerHeaderRight({ violations, onOpenConst, onOpenTimeline, onOpenExpense, onOpenMembers, onOpenSettings })`
 
-- Pure presentational; 4 `ActionIcon` buttons with tooltips.
+- Pure presentational; 4 always-visible `ActionIcon` buttons + 1 optional 旅程设置 button gated by `onOpenSettings` being provided.
 - Constitution button wraps in `Indicator` reflecting violation severity + count.
 
 ### `HeaderSlotProvider` / `useInjectHeaderRight` / `useHeaderRightSlot`
@@ -314,10 +313,19 @@ The one cost here: `tours#show` now computes `TimelineSummary` on every planner 
 7. Delete `/tours/:id/constitution` GET and `/tours/:id/timeline` routes + controller actions. Delete `pages/Tour/Constitution.jsx` and `pages/Tour/Timeline.jsx`. Delete `components/tour/TourTabs.jsx`.
 8. Manual QA + Playwright E2E: navigate `/tours`, open a tour, verify drawer opens on first visit, resize, accept, reopen (edit mode auto-save), open timeline, close, verify navigation back to `/tours` via sidebar.
 
+## PM-feedback deltas (2026-04-22)
+
+Four spec-level deltas landed during the first PM review pass. Each is an **intentional deviation** from the earlier draft (this document has been rewritten above to match the shipped implementation; this section records the reasoning).
+
+- **Tour title in header is not hover-to-edit.** The earlier draft proposed that hovering the AppShell header's tour title swapped in an `IconPencil + 编辑` label and clicked to open `TourSettingsModal`. Shipped instead as a dedicated `⚙️ 旅程设置` button in the `PlannerHeaderRight` slot (5th icon, `canEdit`-gated). Reasons: the hover affordance was invisible on touch; the explicit button is more discoverable; and it also works in mobile (where hover does not exist). Accepting the cost of one extra icon in the header.
+- **Header has 5 icons, not 4.** Follows directly from the previous item — the 旅程设置 button brings the count from 4 to 5. Read-only users still see 4 (settings hidden for them).
+- **Onboarding step 1 CTA is "下一步 →", not "保存设置".** Preserves the phrasing users already knew from the pre-refactor `Tour/Constitution.jsx` setup flow; functionally identical (the click does save + advance).
+- **Violation list hidden during onboarding.** The earlier draft said both modes render the violation list. A brand-new tour often has "整程 0 个机动日（建议 ≥ 1）" as a soft violation — showing it before the user has accepted the constitution came across as scolding new users at the moment of first setup. Violations are suppressed in onboarding mode; they appear as soon as the user enters edit mode. Backend computation is unchanged; only the drawer-level rendering is gated.
+
 ## Risks & open questions
 
 - **TimelineSummary cost on every planner load.** If `Tour::TimelineSummary.for(@tour)` is expensive, this spec adds latency even for users who never open 总览. Measure before optimizing; fallback is Inertia partial reload on overlay open.
 - **Slot memoization footgun.** If `Tour/Show.jsx` forgets `useMemo` around `PlannerHeaderRight`, the slot resets on every parent render, potentially blanking the header mid-render. Mitigated by the context's stable setter ref + the injected element being a stable-shape component; but a test must cover "header content doesn't flicker during parent re-renders."
 - **Mobile (< sm).** On narrow viewports, the push drawer behavior becomes harsh (40% of a 400px screen is ~160px of planner left). Proposed: below `sm` breakpoint, the constitution drawer becomes a Mantine Drawer (float from left, 85% width overlay). Decide during implementation; not spec-critical if desktop is the primary surface.
 - **Onboarding marker is browser-scoped.** A user who completes onboarding on device A and opens the tour on device B will see onboarding again — but because the backend `constitution_accepted` is also checked, the drawer opens in **edit mode**, not onboarding mode. Effective behavior: only "repeat the acceptance ritual" is browser-scoped; the core accept is server-scoped. This is the intended balance.
-- **ResizeHandle reuse.** The planner's existing `ResizeHandle` was designed for internal panel split resizing; may need minor adjustment to live on the drawer's right edge. Verify during implementation.
+- **ResizeHandle reuse — resolved as not-reused.** The drawer uses an inline `<div onMouseDown>` handle rather than the planner's internal `ResizeHandle` component. Reason: `ResizeHandle` is coupled to the flex-panel split model (neighbor-flex-basis math, auto-fit toggle, hover hint against sibling panel) and a standalone drag-to-resize handle is simpler. Share this code in a future pass if a third drag-to-resize surface lands.

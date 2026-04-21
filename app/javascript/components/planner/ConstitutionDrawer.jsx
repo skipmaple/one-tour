@@ -445,6 +445,9 @@ export default function ConstitutionDrawer({
   }
 
   // Desktop: push-style aside (flex sibling of planner panels).
+  // flexShrink: 0 pins the width to `width`; without it the flex container
+  // would shrink the aside below its declared width when panels compete for
+  // space — we observed drawer width=400 rendering as ~332px at 1440vw.
   return (
     <aside
       ref={drawerRef}
@@ -452,6 +455,7 @@ export default function ConstitutionDrawer({
         width,
         minWidth: DRAWER_MIN,
         maxWidth: DRAWER_MAX,
+        flexShrink: 0,
         borderRight: '1px solid #e0e0e0',
         background: '#fff',
         display: 'flex',
