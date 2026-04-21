@@ -171,3 +171,26 @@ describe('ActivityDetailDrawer – location', () => {
     expect(occurrences).toBe(1)
   })
 })
+
+describe('ActivityDetailDrawer – description', () => {
+  test('renders desc text when present', () => {
+    renderDrawer()
+    expect(screen.getByTestId('detail-desc')).toHaveTextContent('湖光山色，风景绝美。')
+  })
+
+  test('preserves newlines via white-space: pre-wrap', () => {
+    renderDrawer({ activity: makeActivity({ desc: 'line1\nline2' }) })
+    const el = screen.getByTestId('detail-desc')
+    expect(el).toHaveStyle({ whiteSpace: 'pre-wrap' })
+  })
+
+  test('does not render section when desc is empty', () => {
+    renderDrawer({ activity: makeActivity({ desc: '' }) })
+    expect(screen.queryByTestId('detail-desc')).toBeNull()
+  })
+
+  test('does not render section when desc is null', () => {
+    renderDrawer({ activity: makeActivity({ desc: null }) })
+    expect(screen.queryByTestId('detail-desc')).toBeNull()
+  })
+})

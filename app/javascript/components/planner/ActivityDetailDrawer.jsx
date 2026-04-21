@@ -1,4 +1,4 @@
-import { Drawer, Stack, Group, Text, Button } from '@mantine/core'
+import { Drawer, Stack, Group, Text, Button, Divider } from '@mantine/core'
 import { IconPlus, IconPencil, IconMapPin } from '@tabler/icons-react'
 import ActivityMiniMap from './ActivityMiniMap'
 import { KIND_SCHEMA } from '../activity-editor/detailsSchema'
@@ -104,6 +104,21 @@ function DetailLocationSection({ activity }) {
   )
 }
 
+function DetailDescSection({ activity }) {
+  if (!activity.desc) return null
+  return (
+    <>
+      <Divider />
+      <Stack gap={6}>
+        <Text size="xs" c="dimmed">介绍</Text>
+        <Text size="sm" data-testid="detail-desc" style={{ whiteSpace: 'pre-wrap' }}>
+          {activity.desc}
+        </Text>
+      </Stack>
+    </>
+  )
+}
+
 export default function ActivityDetailDrawer({
   opened, onClose,
   tour, days, activity, activityImages, author, members, expenses,
@@ -131,7 +146,8 @@ export default function ActivityDetailDrawer({
             onAddExpense={onAddExpense}
           />
           <DetailLocationSection activity={activity} />
-          {/* Sections plugged in by Tasks 6-9 */}
+          <DetailDescSection activity={activity} />
+          {/* Sections plugged in by Tasks 7-9 */}
         </Stack>
       )}
     </Drawer>
