@@ -3,7 +3,7 @@ import { Drawer, Stack, Group, Text, Button, Divider, Tooltip } from '@mantine/c
 import { IconPlus, IconPencil, IconMapPin } from '@tabler/icons-react'
 import ActivityMiniMap from './ActivityMiniMap'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
-import { KIND_SCHEMA } from '../activity-editor/detailsSchema'
+import { KIND_SCHEMA, KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS } from '../activity-editor/detailsSchema'
 import UserLabel from './UserLabel'
 import { effectiveParticipants, isFullRoster } from '../../lib/effectiveParticipants'
 
@@ -22,6 +22,14 @@ import { effectiveParticipants, isFullRoster } from '../../lib/effectiveParticip
 // All data comes from props supplied by Tour/Show.jsx — zero network calls
 // in this component. "记一笔" and "编辑" delegate to callback props; the
 // parent wires them to AddExpenseDialog / ActivityDrawer.
+
+function kindLabel(kind) {
+  return KIND_OPTIONS.find((o) => o.value === kind)?.label || kind
+}
+
+function citizenLevelLabel(level) {
+  return CITIZEN_LEVEL_OPTIONS.find((o) => o.value === level)?.label || level
+}
 
 function formatDuration(min) {
   if (min == null) return null
@@ -53,7 +61,7 @@ function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) 
     <Stack gap={6} data-testid="detail-header">
       <Group justify="space-between" wrap="nowrap" align="flex-start">
         <Text size="xs" c="dimmed" component="div">
-          {[ dayLabel, activity.kind, activity.citizen_level, activity.planned_start_at, duration ]
+          {[ dayLabel, kindLabel(activity.kind), citizenLevelLabel(activity.citizen_level), activity.planned_start_at, duration ]
             .filter(Boolean).join(' · ')}
         </Text>
         {canEdit && (
