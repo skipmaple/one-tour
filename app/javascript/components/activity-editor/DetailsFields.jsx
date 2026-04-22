@@ -1,4 +1,4 @@
-import { TextInput, NumberInput, Checkbox, Select, Autocomplete, Group, Stack, Title } from '@mantine/core'
+import { TextInput, NumberInput, Checkbox, Select, Autocomplete, Group, Stack } from '@mantine/core'
 import { KIND_SCHEMA } from './detailsSchema'
 import PresetChips from './PresetChips'
 
@@ -91,7 +91,6 @@ export default function DetailsFields({ kind, details, onChange }) {
 
   return (
     <Stack gap="sm">
-      <Title order={6} c="dimmed">类型细节</Title>
       {groups.map((group, idx) => {
         if (group.row) {
           return (

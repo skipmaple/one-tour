@@ -85,6 +85,138 @@ RSpec.describe "Activities", type: :request do
     end
   end
 
+  describe "PATCH update with user_ids" do
+    let(:editor) { create(:user) }
+    let(:reader) { create(:user) }
+
+    before do
+      create(:tour_membership, tour: tour, user: editor, role: :editor)
+      create(:tour_membership, tour: tour, user: reader, role: :reader)
+    end
+
+    it "replaces participant set on update" do
+      a = create(:activity, tour: tour)
+      create(:activity_participant, activity: a, user: editor)
+      login_as(author)
+      patch activity_path(a), params: {
+        activity: { name: "新名" },
+        user_ids: [ reader.id ]
+      }
+      a.reload
+      expect(a.name).to eq("新名")
+      expect(a.activity_participants.pluck(:user_id)).to eq([ reader.id ])
+    end
+
+    it "leaves participants untouched when user_ids is absent" do
+      a = create(:activity, tour: tour)
+      create(:activity_participant, activity: a, user: editor)
+      login_as(author)
+      patch activity_path(a), params: {
+        activity: { name: "仅改名" }
+      }
+      expect(a.reload.activity_participants.pluck(:user_id)).to eq([ editor.id ])
+    end
+
+    it "clears participants when user_ids is empty" do
+      a = create(:activity, tour: tour)
+      create(:activity_participant, activity: a, user: editor)
+      login_as(author)
+      patch activity_path(a), params: {
+        activity: { name: a.name },
+        user_ids: []
+      }
+      expect(a.reload.activity_participants).to be_empty
+    end
+  end
+
+  describe "POST create with user_ids" do
+    let(:editor)   { create(:user) }
+    let(:reader)   { create(:user) }
+    let(:bystander) { create(:user) }
+
+    before do
+      create(:tour_membership, tour: tour, user: editor, role: :editor)
+      create(:tour_membership, tour: tour, user: reader, role: :reader)
+    end
+
+    it "assigns participants atomically when creating in a day" do
+      day = create(:day, tour: tour, day_index: 2)
+      login_as(author)
+      post tour_day_activities_path(tour, day), params: {
+        activity: { name: "午餐", kind: "food", citizen_level: "tier_two" },
+        user_ids: [ editor.id, reader.id ]
+      }
+      a = Activity.last
+      expect(a.activity_participants.pluck(:user_id)).to contain_exactly(editor.id, reader.id)
+    end
+
+    it "creates with no participants (默认全员) when user_ids is absent" do
+      day = create(:day, tour: tour, day_index: 2)
+      login_as(author)
+      post tour_day_activities_path(tour, day), params: {
+        activity: { name: "加油", kind: "fuel", citizen_level: "tier_three" }
+      }
+      expect(Activity.last.activity_participants).to be_empty
+    end
+
+    it "creates with no participants when user_ids is an empty array" do
+      login_as(author)
+      post tour_backlog_activities_path(tour), params: {
+        activity: { name: "待定", kind: "scenic", citizen_level: "tier_three" },
+        user_ids: []
+      }
+      expect(Activity.last.activity_participants).to be_empty
+    end
+
+    it "silently drops non-member user_ids" do
+      login_as(author)
+      post tour_backlog_activities_path(tour), params: {
+        activity: { name: "待定", kind: "scenic", citizen_level: "tier_three" },
+        user_ids: [ editor.id, bystander.id ]
+      }
+      expect(Activity.last.activity_participants.pluck(:user_id)).to eq([ editor.id ])
+    end
+  end
+
+  it "PATCH rejects desc exceeding the byte limit with 422 (fetch / non-Inertia)" do
+    a = create(:activity, tour: tour)
+    login_as(author)
+    patch activity_path(a), params: {
+      activity: { desc: "x" * (Activity::DESC_MAX_BYTES + 1) }
+    }
+    expect(response).to have_http_status(:unprocessable_content)
+    body = JSON.parse(response.body)
+    expect(body["errors"].first).to match(/备注过长/)
+  end
+
+  it "PATCH Inertia caller redirects with flash[:alert] on validation error" do
+    a = create(:activity, tour: tour)
+    login_as(author)
+    patch activity_path(a),
+      params: { activity: { desc: "x" * (Activity::DESC_MAX_BYTES + 1) } },
+      headers: { "X-Inertia" => "true" }
+
+    # Inertia requires 303 See Other after PATCH so it re-issues as GET.
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to include(tour_path(tour))
+    expect(flash[:alert]).to match(/备注过长/)
+  end
+
+  it "POST rolls back AP inserts when activity validation fails" do
+    day = create(:day, tour: tour, day_index: 2)
+    editor = create(:user)
+    create(:tour_membership, tour: tour, user: editor, role: :editor)
+    login_as(author)
+    expect {
+      post tour_day_activities_path(tour, day), params: {
+        activity: { name: "", kind: "scenic", citizen_level: "tier_one" },
+        user_ids: [ editor.id ]
+      }
+    }.not_to change(ActivityParticipant, :count)
+    # Fetch path → 422 JSON (not raised, not an HTML error page)
+    expect(response).to have_http_status(:unprocessable_content)
+  end
+
   describe "POST /activities/:id/clone" do
     it "editor clones and returns JSON { id, position }" do
       day = create(:day, tour: tour, day_index: 2)

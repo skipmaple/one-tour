@@ -1,5 +1,6 @@
 class Activity < ApplicationRecord
   DETAILS_MAX_BYTES = 10_000
+  DESC_MAX_BYTES = 50_000
 
   # Non-negative numeric detail fields — kept in sync with the frontend
   # detailsSchema (`type: 'number_with_suffix'`) so the server rejects
@@ -31,6 +32,7 @@ class Activity < ApplicationRecord
   validates :position, presence: true
   validate  :details_is_hash
   validate  :details_size_within_limit
+  validate  :desc_size_within_limit
   validate  :details_numeric_bounds
 
   # Override default `as_json` so the `time`-typed `planned_start_at` column
@@ -49,6 +51,40 @@ class Activity < ApplicationRecord
     explicit = activity_participants.loaded? ? activity_participants.map(&:user_id) : activity_participants.pluck(:user_id)
     return explicit if explicit.any?
     tour.member_user_ids
+  end
+
+  # Replace this activity's participant set with the given user_ids. Pass `nil`
+  # or `[]` to clear (restores 默认全员 via isFullRoster convention).
+  #
+  # Concurrency: SELECT FOR UPDATE on the activity row serializes concurrent
+  # writers on the same activity — otherwise two concurrent PUTs could each
+  # delete_all + insert, producing a union rather than a last-writer-wins.
+  # Freshly re-reads member_user_ids (via Tour.find, not tour.reload, to bypass
+  # per-instance memoization) inside the lock to narrow the
+  # whitelist-read → upsert-commit race window.
+  #
+  # A vanishingly small window remains: if a TourMembership is destroyed
+  # after the fresh read but before upsert, a stale AP could point at a
+  # non-member. Self-heals via TourMembership#after_destroy cleanup; frontend
+  # also filters orphans via the `members` prop.
+  def assign_participants!(requested_user_ids)
+    with_lock do
+      fresh_member_ids = Tour.find(tour_id).member_user_ids
+      ids = Array(requested_user_ids).map(&:to_i).uniq & fresh_member_ids
+
+      activity_participants.delete_all
+      unless ids.empty?
+        now = Time.current
+        rows = ids.map { |uid|
+          { activity_id: id, user_id: uid, created_at: now, updated_at: now }
+        }
+        ActivityParticipant.upsert_all(rows, unique_by: %i[activity_id user_id])
+      end
+      # upsert_all bypasses the association cache; delete_all leaves it
+      # marked-loaded-but-empty. Force a re-query so callers reading
+      # activity_participants on the same instance see fresh DB state.
+      activity_participants.reset
+    end
   end
 
   # Creates a copy of this activity at `position + 1` in the same (tour, day)
@@ -123,5 +159,11 @@ class Activity < ApplicationRecord
           errors.add(:details, "#{key} 不能超过 #{max}")
         end
       end
+    end
+
+    def desc_size_within_limit
+      return if desc.blank?
+      return if desc.bytesize <= DESC_MAX_BYTES
+      errors.add(:desc, "备注过长（上限 #{DESC_MAX_BYTES} 字节）")
     end
 end

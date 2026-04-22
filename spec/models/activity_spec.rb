@@ -119,6 +119,32 @@ RSpec.describe Activity do
     end
   end
 
+  describe "desc size validation" do
+    let(:activity) { build(:activity, tour: create(:tour)) }
+
+    it "is valid when desc is blank" do
+      activity.desc = ""
+      expect(activity).to be_valid
+    end
+
+    it "is valid at the byte limit" do
+      activity.desc = "x" * Activity::DESC_MAX_BYTES
+      expect(activity).to be_valid
+    end
+
+    it "is invalid when desc exceeds the byte limit" do
+      activity.desc = "x" * (Activity::DESC_MAX_BYTES + 1)
+      expect(activity).not_to be_valid
+      expect(activity.errors[:desc].join).to match(/上限/)
+    end
+
+    it "counts bytes (not characters) for CJK" do
+      # 中 is 3 bytes in UTF-8; 20_000 chars = 60_000 bytes > 50_000
+      activity.desc = "中" * 20_000
+      expect(activity).not_to be_valid
+    end
+  end
+
   describe "#effective_participant_ids" do
     let(:tour)     { create(:tour) }
     let(:member1)  { create(:user) }
@@ -175,6 +201,54 @@ RSpec.describe Activity do
       expect(assoc.macro).to eq(:has_many)
       expect(assoc.options[:through]).to eq(:activity_participants)
       expect(assoc.options[:source]).to eq(:user)
+    end
+  end
+
+  describe "#assign_participants!" do
+    let(:author) { create(:user) }
+    let(:editor) { create(:user) }
+    let(:reader) { create(:user) }
+    let(:bystander) { create(:user) }
+    let(:tour)   { create(:tour, author: author) }
+    let(:activity) { create(:activity, tour: tour) }
+
+    before do
+      create(:tour_membership, tour: tour, user: editor, role: :editor)
+      create(:tour_membership, tour: tour, user: reader, role: :reader)
+    end
+
+    it "creates ActivityParticipant rows for given tour members" do
+      activity.assign_participants!([ editor.id, reader.id ])
+      expect(activity.activity_participants.pluck(:user_id))
+        .to contain_exactly(editor.id, reader.id)
+    end
+
+    it "replaces existing participants (not additive)" do
+      create(:activity_participant, activity: activity, user: editor)
+      activity.assign_participants!([ reader.id ])
+      expect(activity.activity_participants.pluck(:user_id)).to eq([ reader.id ])
+    end
+
+    it "clears participants when given an empty array" do
+      create(:activity_participant, activity: activity, user: editor)
+      activity.assign_participants!([])
+      expect(activity.activity_participants).to be_empty
+    end
+
+    it "silently drops user_ids that are not tour members" do
+      activity.assign_participants!([ editor.id, bystander.id ])
+      expect(activity.activity_participants.pluck(:user_id)).to contain_exactly(editor.id)
+    end
+
+    it "deduplicates user_ids" do
+      activity.assign_participants!([ editor.id, editor.id ])
+      expect(activity.activity_participants.pluck(:user_id)).to contain_exactly(editor.id)
+    end
+
+    it "accepts nil (same as empty — clears the set)" do
+      create(:activity_participant, activity: activity, user: editor)
+      activity.assign_participants!(nil)
+      expect(activity.activity_participants).to be_empty
     end
   end
 
