@@ -73,22 +73,36 @@ Rendering:
 
 ## Testing
 
+Two-part setup: a global clipboard stub in `app/javascript/test/setup.js` so Mantine's `useClipboard` (which gates on `'clipboard' in navigator` at call time) has something to resolve against, and a per-test spy that asserts the arguments.
+
+Add to `app/javascript/test/setup.js` alongside the other jsdom polyfills:
+
+```js
+if (typeof navigator !== 'undefined' && !('clipboard' in navigator)) {
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: () => Promise.resolve() },
+    writable: true,
+    configurable: true,
+  })
+}
+```
+
+Why this can't live inside the test: `vi.stubGlobal('navigator', …)` replaces `globalThis.navigator` *after* the hook module has already resolved its `navigator` binding, so the hook keeps seeing the original (clipboard-less) navigator and its `if ('clipboard' in navigator)` check returns false — `writeText` is never called. Defining the property on the existing navigator instance at setup time avoids this.
+
 Add one test to `UserSection.test.jsx`:
 
 ```js
-it('copies email to clipboard and flashes 已复制', async () => {
-  const writeText = vi.fn().mockResolvedValue(undefined)
-  Object.assign(navigator, { clipboard: { writeText } })
+it('copies email to clipboard and flashes 已复制 on click', async () => {
+  const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
   const user = userEvent.setup()
   renderWithProvider(<UserSection />)
   await user.click(screen.getByText('张三'))
-  await user.click(screen.getByRole('button', { name: /复制邮箱/ }))
+  await user.click(screen.getByRole('button', { name: /复制邮箱 zhang@example.com/ }))
   expect(writeText).toHaveBeenCalledWith('zhang@example.com')
   expect(await screen.findByText('已复制')).toBeInTheDocument()
+  writeText.mockRestore()
 })
 ```
-
-jsdom has no native `navigator.clipboard`; stubbing per test (as above) is sufficient — no global setup change.
 
 Keep the prior two tests (render name, open menu shows 个人设置/退出) and the overflow style test unchanged.
 

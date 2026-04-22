@@ -14,27 +14,44 @@
 
 - **Modify** [`app/javascript/layouts/sidebar/UserSection.jsx`](../../../app/javascript/layouts/sidebar/UserSection.jsx) — replace the email's `Menu.Label` with a click-to-copy `UnstyledButton`.
 - **Modify** [`app/javascript/layouts/sidebar/__tests__/UserSection.test.jsx`](../../../app/javascript/layouts/sidebar/__tests__/UserSection.test.jsx) — add one test case covering the copy flow.
+- **Modify** [`app/javascript/test/setup.js`](../../../app/javascript/test/setup.js) — add a jsdom `navigator.clipboard` stub so Mantine's `useClipboard` (which gates on `'clipboard' in navigator`) works under test. See Task 1 rationale.
+- **Create** `docs/superpowers/specs/2026-04-22-sidebar-email-copy-design.md` — spec committed alongside the implementation.
+- **Create** `docs/superpowers/plans/2026-04-22-sidebar-email-copy.md` — this plan, committed alongside the implementation.
 
-No new files, no deleted files. The overflow-wrap fix already present on this branch stays untouched and is bundled into the same final commit per user preference.
+No deleted files. The overflow-wrap fix already present on this branch stays untouched and is bundled into the same final commit per user preference.
 
 ---
 
 ## Task 1: Add failing click-to-copy test
 
 **Files:**
-- Modify: `app/javascript/layouts/sidebar/__tests__/UserSection.test.jsx`
+- Modify: `app/javascript/test/setup.js` — add a default `navigator.clipboard` stub so Mantine's `useClipboard` sees a clipboard object at module-evaluation time.
+- Modify: `app/javascript/layouts/sidebar/__tests__/UserSection.test.jsx` — add the failing test, spying on the now-existing stub's `writeText`.
 
-- [ ] **Step 1: Add the failing test at the bottom of the `describe` block**
+- [ ] **Step 1a: Add the global clipboard stub in the Vitest setup file**
+
+In `app/javascript/test/setup.js`, append this block next to the other jsdom polyfills:
+
+```js
+// jsdom lacks navigator.clipboard; Mantine useClipboard gates on its presence.
+if (typeof navigator !== 'undefined' && !('clipboard' in navigator)) {
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: () => Promise.resolve() },
+    writable: true,
+    configurable: true,
+  })
+}
+```
+
+Why this lives in setup (not per-test): Mantine's `useClipboard` checks `'clipboard' in navigator` at call time. In jsdom 29 this is false by default. Setting the property via `vi.stubGlobal('navigator', …)` inside a test replaces `globalThis.navigator` with a new object, but the hook's module was resolved before the stub and its `navigator` binding still points at the original — so the `in`-check returns false and `writeText` is never invoked. Defining the `clipboard` property on the *same* navigator instance before any module loads avoids the captured-reference problem.
+
+- [ ] **Step 1b: Add the failing test at the bottom of the `describe` block**
 
 In `app/javascript/layouts/sidebar/__tests__/UserSection.test.jsx`, add this test immediately after the existing `allows long email addresses to wrap…` test, inside the same `describe('UserSection', …)` block:
 
 ```js
   it('copies email to clipboard and flashes 已复制 on click', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText },
-      configurable: true,
-    })
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined)
     const user = userEvent.setup()
     renderWithProvider(<UserSection />)
     await user.click(screen.getByText('张三'))
@@ -44,10 +61,11 @@ In `app/javascript/layouts/sidebar/__tests__/UserSection.test.jsx`, add this tes
 
     expect(writeText).toHaveBeenCalledWith('zhang@example.com')
     expect(await screen.findByText('已复制')).toBeInTheDocument()
+    writeText.mockRestore()
   })
 ```
 
-Why `Object.defineProperty` instead of `Object.assign`: `navigator.clipboard` in jsdom is a read-only getter, and `Object.assign` silently no-ops on it. `defineProperty` with `configurable: true` makes the stub reliably overwrite.
+`vi.spyOn` works here because Step 1a guarantees `navigator.clipboard` exists — the spy replaces `writeText` on the existing stub rather than defining a new one. `mockRestore()` at the end keeps the no-op default intact for subsequent tests.
 
 - [ ] **Step 2: Run the new test to verify it fails**
 
