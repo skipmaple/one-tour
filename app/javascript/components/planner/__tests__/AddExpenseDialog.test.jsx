@@ -60,7 +60,7 @@ function renderDialog(props = {}) {
 // in this dialog share labels with other elements — find the activity combobox
 // by its distinctive placeholder.
 function switchActivityTo(label) {
-  const trigger = document.querySelector('input[placeholder="选择某一行"]')
+  const trigger = screen.getByPlaceholderText('选择某一行')
   fireEvent.click(trigger)
   const option = screen.getByRole('option', { name: label })
   fireEvent.click(option)
