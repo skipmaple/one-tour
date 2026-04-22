@@ -45,6 +45,22 @@ RSpec.describe "Constraint Overrides", type: :request do
       expect(response).to redirect_to(tour_path(tour))
       expect(tour.reload.constraint_overrides.size).to eq(1)
     end
+
+    # Regression: scope values arrive as native Integers when the client
+    # posts JSON (Inertia does). Prior scope_param implementation called
+    # v =~ /regex/ which raises NoMethodError on Integer.
+    it "accepts integer-valued scope keys from a JSON body" do
+      login_as(author)
+      post "/tours/#{tour.id}/overrides",
+        params: {
+          rule: "max_tier_one_per_day",
+          scope: { day_index: 1 },
+          reason: "独库必走，无法压缩",
+        }.to_json,
+        headers: { "Content-Type" => "application/json" }
+      expect(response).to redirect_to(tour_path(tour))
+      expect(tour.reload.constraint_overrides.size).to eq(1)
+    end
   end
 
   describe "DELETE /tours/:tour_id/overrides" do
