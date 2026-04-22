@@ -59,6 +59,7 @@ function renderDrawer(props = {}) {
     mode: 'create',
     activity: null,
     targetDayId: null,
+    canEdit: true,
     author:  { user_id: 1, name: '作者', email: 'a@x', avatar_url: null },
     members: [
       { user_id: 2, name: '乙', email: 'b@x', avatar_url: null, role: 'editor' },
@@ -287,7 +288,8 @@ test('备注 writes to desc column on save', async () => {
     mode: 'edit',
     activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_one', day_id: 5, details: {} },
   })
-  const descInput = screen.getByLabelText('备注', { exact: false })
+  // MarkdownEditor Textarea is the native <textarea> element; 名称 is an <input>
+  const descInput = screen.getAllByRole('textbox').find(el => el.tagName === 'TEXTAREA')
   fireEvent.change(descInput, { target: { value: '测试描述文本' } })
   fireEvent.click(screen.getByRole('button', { name: '保存' }))
   await waitFor(() => {
@@ -304,11 +306,14 @@ test('备注 writes to desc column on save', async () => {
   expect(payload.activity).not.toHaveProperty('description')
 })
 
-test('三段式结构：位置 / 分类与时间 / 详情', () => {
+test('分段结构：位置 / 分类与时间 / 备注 / 类型细节 / 参与人', () => {
   renderDrawer({ mode: 'create', targetDayId: 5 })
   expect(screen.getByText('位置')).toBeInTheDocument()
   expect(screen.getByText('分类与时间')).toBeInTheDocument()
-  expect(screen.getByText('详情')).toBeInTheDocument()
+  expect(screen.getByText('备注')).toBeInTheDocument()
+  // 类型细节 and 参与人 are collapsible section buttons
+  expect(screen.getByRole('button', { name: /类型细节/ })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /参与人/ })).toBeInTheDocument()
   // "更多设置" 折叠按钮不应再存在
   expect(screen.queryByRole('button', { name: /更多设置/ })).not.toBeInTheDocument()
 })
@@ -342,7 +347,8 @@ test('备注 字段绑定 desc（原描述+贴士合并）', async () => {
     mode: 'edit',
     activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_one', day_id: 5, details: {} },
   })
-  const note = screen.getByLabelText('备注', { exact: false })
+  // MarkdownEditor Textarea is the native <textarea> element; 名称 is an <input>
+  const note = screen.getAllByRole('textbox').find(el => el.tagName === 'TEXTAREA')
   fireEvent.change(note, { target: { value: '合并后的备注' } })
   fireEvent.click(screen.getByRole('button', { name: '保存' }))
   await waitFor(() => {
@@ -372,55 +378,42 @@ test('update path pushes undo entry on save success', async () => {
   })
 })
 
-test('renders 参与人 tab in edit mode with default-全员 Alert + all-checked boxes', () => {
-  renderDrawer({
-    mode: 'edit',
-    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_three', participant_user_ids: [] },
-  })
-  fireEvent.click(screen.getByRole('tab', { name: '参与人' }))
-  expect(screen.getByText(/默认全员参与/)).toBeInTheDocument()
-  expect(screen.getAllByRole('checkbox')).toHaveLength(3)
-  screen.getAllByRole('checkbox').forEach((cb) => expect(cb).toBeChecked())
+test('create payload includes user_ids=[] when participants are untouched (默认全员)', async () => {
+  global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 999, position: 1 }) })
+  renderDrawer({ targetDayId: 10 })
+  fireEvent.change(screen.getByLabelText('名称', { exact: false }), { target: { value: '午餐' } })
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+  const [, opts] = global.fetch.mock.calls[0]
+  const body = JSON.parse(opts.body)
+  expect(body.user_ids).toEqual([])
 })
 
-test('unchecking a member sends "全员 minus that id" via PUT', async () => {
+test('create payload carries explicit user_ids after unchecking a member', async () => {
+  global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 999, position: 1 }) })
+  renderDrawer({ targetDayId: 10 })
+  fireEvent.change(screen.getByLabelText('名称', { exact: false }), { target: { value: '午餐' } })
+  fireEvent.click(screen.getByRole('button', { name: /参与人/ }))
+  fireEvent.click(screen.getByLabelText(/乙/))
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+  const [, opts] = global.fetch.mock.calls[0]
+  const body = JSON.parse(opts.body)
+  expect(body.user_ids).toEqual(expect.arrayContaining([ 1, 3 ]))
+  expect(body.user_ids).toHaveLength(2)
+})
+
+test('edit payload preserves existing explicit participant_user_ids', async () => {
   const { router } = await import('@inertiajs/react')
   renderDrawer({
     mode: 'edit',
-    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_three', participant_user_ids: [] },
+    activity: {
+      id: 42, name: '赛里木湖', kind: 'scenic', citizen_level: 'tier_one',
+      day_id: 5, details: {}, participant_user_ids: [ 1, 2 ],
+    },
   })
-  fireEvent.click(screen.getByRole('tab', { name: '参与人' }))
-  const checkboxes = screen.getAllByRole('checkbox')
-  fireEvent.click(checkboxes[2])
-  expect(router.put).toHaveBeenCalledWith(
-    '/activities/42/participants',
-    { user_ids: [ 1, 2 ] },
-    expect.objectContaining({ preserveScroll: true, only: [ 'activities' ] }),
-  )
-})
-
-test('re-checking the last-missing user sends [] (回到全员)', async () => {
-  const { router } = await import('@inertiajs/react')
-  renderDrawer({
-    mode: 'edit',
-    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_three', participant_user_ids: [ 1, 2 ] },
-  })
-  fireEvent.click(screen.getByRole('tab', { name: '参与人' }))
-  const checkboxes = screen.getAllByRole('checkbox')
-  fireEvent.click(checkboxes[2])
-  expect(router.put).toHaveBeenCalledWith(
-    '/activities/42/participants',
-    { user_ids: [] },
-    expect.any(Object),
-  )
-})
-
-test('participants tab checkboxes are disabled when canEdit=false', () => {
-  renderDrawer({
-    mode: 'edit',
-    canEdit: false,
-    activity: { id: 42, name: 'X', kind: 'scenic', citizen_level: 'tier_three', participant_user_ids: [] },
-  })
-  fireEvent.click(screen.getByRole('tab', { name: '参与人' }))
-  screen.getAllByRole('checkbox').forEach((cb) => expect(cb).toBeDisabled())
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => expect(router.patch).toHaveBeenCalled())
+  const [, data] = router.patch.mock.calls[0]
+  expect(data.user_ids).toEqual([ 1, 2 ])
 })
