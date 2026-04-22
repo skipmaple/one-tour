@@ -119,6 +119,32 @@ RSpec.describe Activity do
     end
   end
 
+  describe "desc size validation" do
+    let(:activity) { build(:activity, tour: create(:tour)) }
+
+    it "is valid when desc is blank" do
+      activity.desc = ""
+      expect(activity).to be_valid
+    end
+
+    it "is valid at the byte limit" do
+      activity.desc = "x" * Activity::DESC_MAX_BYTES
+      expect(activity).to be_valid
+    end
+
+    it "is invalid when desc exceeds the byte limit" do
+      activity.desc = "x" * (Activity::DESC_MAX_BYTES + 1)
+      expect(activity).not_to be_valid
+      expect(activity.errors[:desc].join).to match(/上限/)
+    end
+
+    it "counts bytes (not characters) for CJK" do
+      # 中 is 3 bytes in UTF-8; 20_000 chars = 60_000 bytes > 50_000
+      activity.desc = "中" * 20_000
+      expect(activity).not_to be_valid
+    end
+  end
+
   describe "#effective_participant_ids" do
     let(:tour)     { create(:tour) }
     let(:member1)  { create(:user) }

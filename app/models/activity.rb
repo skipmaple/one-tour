@@ -1,5 +1,6 @@
 class Activity < ApplicationRecord
   DETAILS_MAX_BYTES = 10_000
+  DESC_MAX_BYTES = 50_000
 
   # Non-negative numeric detail fields — kept in sync with the frontend
   # detailsSchema (`type: 'number_with_suffix'`) so the server rejects
@@ -31,6 +32,7 @@ class Activity < ApplicationRecord
   validates :position, presence: true
   validate  :details_is_hash
   validate  :details_size_within_limit
+  validate  :desc_size_within_limit
   validate  :details_numeric_bounds
 
   # Override default `as_json` so the `time`-typed `planned_start_at` column
@@ -120,5 +122,11 @@ class Activity < ApplicationRecord
           errors.add(:details, "#{key} 不能超过 #{max}")
         end
       end
+    end
+
+    def desc_size_within_limit
+      return if desc.blank?
+      return if desc.bytesize <= DESC_MAX_BYTES
+      errors.add(:desc, "备注过长（上限 #{DESC_MAX_BYTES} 字节）")
     end
 end

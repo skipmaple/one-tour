@@ -177,4 +177,13 @@ RSpec.describe "Activities", type: :request do
       expect(Activity.last.activity_participants.pluck(:user_id)).to eq([ editor.id ])
     end
   end
+
+  it "PATCH rejects desc exceeding the byte limit with 422" do
+    a = create(:activity, tour: tour)
+    login_as(author)
+    patch activity_path(a), params: {
+      activity: { desc: "x" * (Activity::DESC_MAX_BYTES + 1) }
+    }
+    expect(response).to have_http_status(:unprocessable_content)
+  end
 end
