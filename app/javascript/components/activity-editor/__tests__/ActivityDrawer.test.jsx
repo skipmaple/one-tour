@@ -9,7 +9,6 @@ vi.mock('@inertiajs/react', () => ({
   router: {
     post:   vi.fn((url, data, opts) => opts?.onSuccess?.()),
     patch:  vi.fn((url, data, opts) => opts?.onSuccess?.()),
-    put:    vi.fn((url, data, opts) => opts?.onSuccess?.()),
     delete: vi.fn((url, opts) => opts?.onSuccess?.()),
     reload: vi.fn(),
   },
@@ -44,7 +43,6 @@ beforeEach(async () => {
   const { router } = await import('@inertiajs/react')
   router.post.mockClear()
   router.patch.mockClear()
-  router.put.mockClear()
   router.delete.mockClear()
   router.reload.mockClear()
   mockUndoStack.push.mockClear()

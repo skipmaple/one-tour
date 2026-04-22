@@ -82,6 +82,15 @@ describe('MarkdownEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith('### 标题')
   })
 
+  it('toggles "### " off on second Heading click', () => {
+    const onChange = vi.fn()
+    wrap(<MarkdownEditor value="### 标题" onChange={onChange} />)
+    const textarea = screen.getByRole('textbox')
+    select(textarea, 4, 4) // caret after the prefix
+    fireEvent.click(screen.getByLabelText('标题'))
+    expect(onChange).toHaveBeenLastCalledWith('标题')
+  })
+
   it('shows a character counter with / 50000 suffix', () => {
     wrap(<MarkdownEditor value="你好" onChange={() => {}} />)
     expect(screen.getByText(/\/ 50000/)).toBeInTheDocument()

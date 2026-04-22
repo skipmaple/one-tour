@@ -59,6 +59,23 @@ export default function MarkdownEditor({ value, onChange, maxLength = MAX_LENGTH
     return { next, selStart: start + prefix.length, selEnd: end + delta }
   }
 
+  // Heading (H3) acts as a toggle: adds "### " when absent, strips it when
+  // present. Keeps caret at its same visual position on the line.
+  const toggleHeading = () => ({ value, start, end }) => {
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1
+    const lineEnd = (() => {
+      const nl = value.indexOf('\n', end)
+      return nl === -1 ? value.length : nl
+    })()
+    const line = value.slice(lineStart, lineEnd)
+    if (line.startsWith('### ')) {
+      const next = value.slice(0, lineStart) + line.slice(4) + value.slice(lineEnd)
+      return { next, selStart: Math.max(lineStart, start - 4), selEnd: Math.max(lineStart, end - 4) }
+    }
+    const next = value.slice(0, lineStart) + '### ' + line + value.slice(lineEnd)
+    return { next, selStart: start + 4, selEnd: end + 4 }
+  }
+
   const insertLink = () => ({ value, start, end }) => {
     if (start === end) {
       const insert = '[](url)'
@@ -78,19 +95,19 @@ export default function MarkdownEditor({ value, onChange, maxLength = MAX_LENGTH
   return (
     <Stack gap={4}>
       <Group gap={4} wrap="nowrap">
-        <ActionIcon variant="subtle" aria-label="粗体" onClick={() => apply(wrap('**', '粗体'))}>
+        <ActionIcon variant="subtle" size="sm" aria-label="粗体" onClick={() => apply(wrap('**', '粗体'))}>
           <IconBold size={16} />
         </ActionIcon>
-        <ActionIcon variant="subtle" aria-label="斜体" onClick={() => apply(wrap('*', '斜体'))}>
+        <ActionIcon variant="subtle" size="sm" aria-label="斜体" onClick={() => apply(wrap('*', '斜体'))}>
           <IconItalic size={16} />
         </ActionIcon>
-        <ActionIcon variant="subtle" aria-label="无序列表" onClick={() => apply(prefixLines('- '))}>
+        <ActionIcon variant="subtle" size="sm" aria-label="无序列表" onClick={() => apply(prefixLines('- '))}>
           <IconList size={16} />
         </ActionIcon>
-        <ActionIcon variant="subtle" aria-label="链接" onClick={() => apply(insertLink())}>
+        <ActionIcon variant="subtle" size="sm" aria-label="链接" onClick={() => apply(insertLink())}>
           <IconLink size={16} />
         </ActionIcon>
-        <ActionIcon variant="subtle" aria-label="标题" onClick={() => apply(prefixLines('### '))}>
+        <ActionIcon variant="subtle" size="sm" aria-label="标题" onClick={() => apply(toggleHeading())}>
           <IconHeading size={16} />
         </ActionIcon>
       </Group>

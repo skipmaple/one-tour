@@ -186,4 +186,17 @@ RSpec.describe "Activities", type: :request do
     }
     expect(response).to have_http_status(:unprocessable_content)
   end
+
+  it "POST rolls back AP inserts when activity validation fails" do
+    day = create(:day, tour: tour, day_index: 2)
+    editor = create(:user)
+    create(:tour_membership, tour: tour, user: editor, role: :editor)
+    login_as(author)
+    expect {
+      post tour_day_activities_path(tour, day), params: {
+        activity: { name: "", kind: "scenic", citizen_level: "tier_one" },
+        user_ids: [ editor.id ]
+      }
+    }.not_to change(ActivityParticipant, :count)
+  end
 end
