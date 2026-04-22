@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
 import { describe, it, expect } from 'vitest'
 import CollapsibleSection from '../CollapsibleSection'
@@ -55,28 +55,32 @@ describe('CollapsibleSection', () => {
 
   // Regression guard: Mantine Collapse's prop is `expanded` (v9+), not `in`.
   // The previous impl used `<Collapse in={open}>` which was silently ignored,
-  // leaving the body stuck at display:none regardless of aria-expanded state.
-  // Assert on the actual Collapse container style so a future prop rename gets
-  // caught by the test suite (not just by a user seeing a broken UI).
-  it('actually toggles Collapse container display (regression: use `expanded` prop)', () => {
-    const { container } = wrap(
+  // leaving the container permanently aria-hidden regardless of user clicks.
+  // Assert on the Collapse container's `aria-hidden` — that's what Mantine's
+  // useCollapse sets SYNCHRONOUSLY from the `expanded` prop (no animation
+  // timing to wait on), so a future silent prop rename fails here immediately.
+  it('toggles the Collapse container aria-hidden (regression: use `expanded` prop)', async () => {
+    wrap(
       <CollapsibleSection title="参与人" defaultOpen>
         <div>toggle body</div>
       </CollapsibleSection>
     )
     const header = screen.getByRole('button')
-    // Initially open → Collapse container should NOT be display:none
-    const collapseContainer = header.parentElement.children[1]
-    expect(collapseContainer).toBeTruthy()
-    expect(collapseContainer.style.display).not.toBe('none')
-    // Click to close → Collapse container becomes display:none (after animation)
+    // Re-query each assertion so we never hold a stale DOM reference.
+    const collapse = () => header.parentElement.children[1]
+
+    // Initial (defaultOpen=true): aria-hidden must be false/absent
+    expect(collapse().getAttribute('aria-hidden')).not.toBe('true')
+
+    // Click → close. aria-expanded on the button flips synchronously;
+    // wait for React commit before asserting on the Collapse container.
     fireEvent.click(header)
-    expect(header).toHaveAttribute('aria-expanded', 'false')
-    // Click to open again → display returns to not-none
+    await waitFor(() => expect(header).toHaveAttribute('aria-expanded', 'false'))
+    expect(collapse().getAttribute('aria-hidden')).toBe('true')
+
+    // Click → open. aria-hidden goes back to false.
     fireEvent.click(header)
-    expect(header).toHaveAttribute('aria-expanded', 'true')
-    expect(collapseContainer.style.display).not.toBe('none')
-    // And its aria-hidden flips back to "false" (or missing)
-    expect(collapseContainer.getAttribute('aria-hidden')).not.toBe('true')
+    await waitFor(() => expect(header).toHaveAttribute('aria-expanded', 'true'))
+    expect(collapse().getAttribute('aria-hidden')).not.toBe('true')
   })
 })
