@@ -1,11 +1,36 @@
-import { TextInput, Textarea, Select, Radio, Group, SimpleGrid, Stack, Text, NumberInput, Divider } from '@mantine/core'
+import { TextInput, Select, Radio, Group, SimpleGrid, Stack, Text, NumberInput, Divider } from '@mantine/core'
 import { TimeInput } from '@mantine/dates'
-import { KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS } from './detailsSchema'
+import { KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS, KIND_SCHEMA } from './detailsSchema'
 import PoiSearchCombobox from './PoiSearchCombobox'
 import PresetChips from './PresetChips'
 import DetailsFields from './DetailsFields'
+import CollapsibleSection from './CollapsibleSection'
+import MarkdownEditor from './MarkdownEditor'
+import ParticipantsSection from './ParticipantsSection'
 
-export default function CommonFields({ form, onPoiPick, kind, details, onDetailsChange }) {
+function countFilledDetails(kind, details) {
+  const schema = KIND_SCHEMA[kind] || []
+  return schema.reduce((n, f) => {
+    const v = details?.[f.key]
+    if (v == null || v === '' || v === false) return n
+    return n + 1
+  }, 0)
+}
+
+function participantSummary(value, memberCount) {
+  if (value === null) return `默认全员 · ${memberCount} 人`
+  return `${value.length} / ${memberCount} 人`
+}
+
+export default function CommonFields({
+  form, onPoiPick, kind, details, onDetailsChange,
+  author, members, canEdit,
+  participantUserIds, onParticipantsChange,
+}) {
+  const filledCount = countFilledDetails(kind, details)
+  const totalMembers = 1 + (members?.length || 0)
+  const hasExplicitParticipants = Array.isArray(participantUserIds)
+
   return (
     <Stack gap="md">
       {/* 段 1：位置 */}
@@ -58,16 +83,36 @@ export default function CommonFields({ form, onPoiPick, kind, details, onDetails
         </Stack>
       </Group>
 
-      {/* 段 3：详情 */}
-      <Divider label="详情" labelPosition="left" />
-      <Textarea
-        label="备注"
-        minRows={2}
-        maxRows={5}
-        autosize
-        {...form.getInputProps('desc')}
+      {/* 段 3：备注（保持展开） */}
+      <Divider label="备注" labelPosition="left" />
+      <MarkdownEditor
+        value={form.values.desc}
+        onChange={(v) => form.setFieldValue('desc', v)}
       />
-      <DetailsFields kind={kind} details={details} onChange={onDetailsChange} />
+
+      {/* 段 4：类型细节（默认折叠；有值则展开） */}
+      <CollapsibleSection
+        title="类型细节"
+        summary={filledCount > 0 ? `${filledCount} 项已填` : '未填写'}
+        defaultOpen={filledCount > 0}
+      >
+        <DetailsFields kind={kind} details={details} onChange={onDetailsChange} />
+      </CollapsibleSection>
+
+      {/* 段 5：参与人（默认折叠；edit 模式下有显式名单则展开） */}
+      <CollapsibleSection
+        title="参与人"
+        summary={participantSummary(participantUserIds, totalMembers)}
+        defaultOpen={hasExplicitParticipants}
+      >
+        <ParticipantsSection
+          author={author}
+          members={members}
+          canEdit={canEdit}
+          value={participantUserIds}
+          onChange={onParticipantsChange}
+        />
+      </CollapsibleSection>
     </Stack>
   )
 }
