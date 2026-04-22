@@ -5,6 +5,7 @@ import ActivityMiniMap from './ActivityMiniMap'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import { KIND_SCHEMA, KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS } from '../activity-editor/detailsSchema'
 import UserLabel from './UserLabel'
+import MarkdownView from '../MarkdownView'
 import { effectiveParticipants, isFullRoster } from '../../lib/effectiveParticipants'
 
 // Read-only detail view for a single Activity. Unified entry point for all
@@ -170,9 +171,9 @@ function DetailDescSection({ activity }) {
       <Divider />
       <Stack gap={6}>
         <Text size="xs" c="dimmed">介绍</Text>
-        <Text size="sm" data-testid="detail-desc" style={{ whiteSpace: 'pre-wrap' }}>
-          {activity.desc}
-        </Text>
+        <div data-testid="detail-desc">
+          <MarkdownView source={activity.desc} />
+        </div>
       </Stack>
     </>
   )

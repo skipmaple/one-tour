@@ -226,10 +226,10 @@ describe('ActivityDetailDrawer – description', () => {
     expect(screen.getByTestId('detail-desc')).toHaveTextContent('湖光山色，风景绝美。')
   })
 
-  test('preserves newlines via white-space: pre-wrap', () => {
+  test('renders newlines as <br> via remark-breaks', () => {
     renderDrawer({ activity: makeActivity({ desc: 'line1\nline2' }) })
     const el = screen.getByTestId('detail-desc')
-    expect(el).toHaveStyle({ whiteSpace: 'pre-wrap' })
+    expect(el.querySelectorAll('br').length).toBeGreaterThanOrEqual(1)
   })
 
   test('does not render section when desc is empty', () => {
