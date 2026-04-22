@@ -220,6 +220,10 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   // `关联行` to a 小分队 activity leaves "全员" selected — defeating the
   // feature.
   //
+  // Deps include `activities/author/members` so that a partial reload
+  // refreshing the tour roster mid-dialog also refreshes the prefill
+  // (e.g., a member joining/leaving). Dirty-guard still protects manual edits.
+  //
   // Skip in edit mode (participants come from expense.splits and must stay)
   // and skip when scope isn't activity (day/tour scopes don't bind to an
   // activity's roster).
@@ -229,7 +233,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     const activity = activities.find((a) => String(a.id) === activityId)
     if (!activity) return
     setParticipantIds(effectiveParticipants(activity, { author, members }))
-  }, [activityId, scope, opened, isEdit])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activityId, scope, opened, isEdit, activities, author, members])
 
   const toggleParticipant = (userId) => {
     participantsDirtyRef.current = true

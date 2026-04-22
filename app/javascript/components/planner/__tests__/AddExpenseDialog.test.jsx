@@ -35,24 +35,28 @@ const ACTIVITIES = [
 ]
 
 function renderDialog(props = {}) {
-  const defaults = {
-    opened: true,
-    onClose: vi.fn(),
-    tour: { id: 1, currency: 'CNY' },
-    days: DAYS,
-    activities: ACTIVITIES,
-    members: MEMBERS,
-    author: AUTHOR,
-    expense: null,
+  const build = (p) => {
+    const defaults = {
+      opened: true,
+      onClose: vi.fn(),
+      tour: { id: 1, currency: 'CNY' },
+      days: DAYS,
+      activities: ACTIVITIES,
+      members: MEMBERS,
+      author: AUTHOR,
+      expense: null,
+    }
+    return (
+      <MantineProvider>
+        <ModalsProvider>
+          <Notifications />
+          <AddExpenseDialog {...defaults} {...p} />
+        </ModalsProvider>
+      </MantineProvider>
+    )
   }
-  return render(
-    <MantineProvider>
-      <ModalsProvider>
-        <Notifications />
-        <AddExpenseDialog {...defaults} {...props} />
-      </ModalsProvider>
-    </MantineProvider>
-  )
+  const result = render(build(props))
+  return { ...result, rerenderWith: (p) => result.rerender(build(p)) }
 }
 
 // Mantine's <Select searchable> renders a readonly combobox input (user-event
@@ -124,5 +128,22 @@ describe('AddExpenseDialog – participantIds prefill', () => {
     expect(checkboxFor('Alice')).toBeChecked()    // user had it checked
     expect(checkboxFor('Bob')).toBeChecked()      // user had it checked
     expect(checkboxFor('Cindy')).not.toBeChecked() // user had unchecked it
+  })
+
+  test('partial reload refreshing members re-prefills when not dirty', () => {
+    const { rerenderWith } = renderDialog()
+    // Baseline: A-default (全员) → all three checked.
+    expect(checkboxFor('Alice')).toBeChecked()
+    expect(checkboxFor('Bob')).toBeChecked()
+    expect(checkboxFor('Cindy')).toBeChecked()
+
+    // Simulate partial reload: Cindy leaves the tour. Members prop ref changes.
+    // Since the user hasn't manually edited, the effect should re-prefill
+    // against the new roster — Cindy's checkbox disappears, Alice + Bob stay.
+    rerenderWith({ members: [ MEMBERS[0] ] })
+
+    expect(screen.queryByRole('checkbox', { name: /Cindy/ })).not.toBeInTheDocument()
+    expect(checkboxFor('Alice')).toBeChecked()
+    expect(checkboxFor('Bob')).toBeChecked()
   })
 })
