@@ -55,9 +55,16 @@ class Activity < ApplicationRecord
   # or `[]` to clear (restores 默认全员 via isFullRoster convention).
   #
   # Concurrency: SELECT FOR UPDATE on the activity row serializes concurrent
-  # writers on the same activity. Freshly re-reads member_user_ids inside the
-  # lock to narrow the race window; ActivityParticipantsController's comment
-  # has the full rationale.
+  # writers on the same activity — otherwise two concurrent PUTs could each
+  # delete_all + insert, producing a union rather than a last-writer-wins.
+  # Freshly re-reads member_user_ids (via Tour.find, not tour.reload, to bypass
+  # per-instance memoization) inside the lock to narrow the
+  # whitelist-read → upsert-commit race window.
+  #
+  # A vanishingly small window remains: if a TourMembership is destroyed
+  # after the fresh read but before upsert, a stale AP could point at a
+  # non-member. Self-heals via TourMembership#after_destroy cleanup; frontend
+  # also filters orphans via the `members` prop.
   def assign_participants!(requested_user_ids)
     with_lock do
       fresh_member_ids = Tour.find(tour_id).member_user_ids
