@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Drawer, Stack, Group, Text, Button, Divider, Tooltip } from '@mantine/core'
-import { IconPlus, IconPencil, IconMapPin } from '@tabler/icons-react'
+import { IconPlus, IconPencil, IconMapPin, IconCopy } from '@tabler/icons-react'
 import ActivityMiniMap from './ActivityMiniMap'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import { KIND_SCHEMA, KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS } from '../activity-editor/detailsSchema'
@@ -53,7 +53,7 @@ function usersById(author, members) {
   return map
 }
 
-function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) {
+function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense, onClone }) {
   const day = days.find((d) => d.id === activity.day_id)
   const dayLabel = day ? `D${day.day_index}` : '候选池'
   const duration = formatDuration(activity.planned_duration_min)
@@ -97,6 +97,14 @@ function DetailHeaderSection({ activity, days, canEdit, onEdit, onAddExpense }) 
               onClick={() => onEdit(activity.id)}
             >
               编辑
+            </Button>
+            <Button
+              size="xs"
+              variant="subtle"
+              leftSection={<IconCopy size={14} />}
+              onClick={() => onClone(activity.id)}
+            >
+              克隆
             </Button>
           </Group>
         )}
@@ -327,7 +335,7 @@ export default function ActivityDetailDrawer({
   opened, onClose,
   tour, days, activity, activityImages, author, members, expenses,
   canEdit,
-  onEdit, onAddExpense, onFocusExpense,
+  onEdit, onAddExpense, onClone, onFocusExpense,
 }) {
   return (
     <Drawer
@@ -348,6 +356,7 @@ export default function ActivityDetailDrawer({
             canEdit={canEdit}
             onEdit={onEdit}
             onAddExpense={onAddExpense}
+            onClone={onClone}
           />
           <DetailLocationSection activity={activity} />
           <DetailDescSection activity={activity} />
