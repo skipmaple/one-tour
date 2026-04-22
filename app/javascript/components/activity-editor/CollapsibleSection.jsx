@@ -10,6 +10,7 @@ export default function CollapsibleSection({ title, summary, defaultOpen = false
   return (
     <div>
       <UnstyledButton
+        type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         style={{ width: '100%', padding: '4px 0' }}

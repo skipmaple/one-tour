@@ -7,8 +7,12 @@ import {
 const MAX_LENGTH = 50_000
 
 // Light-weight markdown editor: 5-button toolbar over a Mantine Textarea.
-// Operations use the native `setRangeText` so the browser's built-in undo
-// stack keeps working. Never introduces an editor framework.
+// Toolbar actions compute the next markdown string from the current value
+// and selection, call `onChange(next)`, then restore selection on the next
+// rAF so the caret lands in the expected place after React re-renders the
+// controlled textarea. Native browser undo keeps working inside a single
+// key run; toolbar clicks become their own undo step (acceptable trade).
+// Never introduces an editor framework.
 //
 // Toolbar actions:
 //   Bold      — wraps selection with **; no selection → inserts **粗体** (selected)

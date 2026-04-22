@@ -1,7 +1,7 @@
 # Activity 创建参与人 + 备注轻量富文本
 
 **Date**: 2026-04-22
-**Status**: Draft — pending implementation
+**Status**: Implemented (PR #40)
 
 ## Background
 

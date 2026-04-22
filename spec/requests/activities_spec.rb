@@ -178,13 +178,28 @@ RSpec.describe "Activities", type: :request do
     end
   end
 
-  it "PATCH rejects desc exceeding the byte limit with 422" do
+  it "PATCH rejects desc exceeding the byte limit with 422 (fetch / non-Inertia)" do
     a = create(:activity, tour: tour)
     login_as(author)
     patch activity_path(a), params: {
       activity: { desc: "x" * (Activity::DESC_MAX_BYTES + 1) }
     }
     expect(response).to have_http_status(:unprocessable_content)
+    body = JSON.parse(response.body)
+    expect(body["errors"].first).to match(/备注过长/)
+  end
+
+  it "PATCH Inertia caller redirects with flash[:alert] on validation error" do
+    a = create(:activity, tour: tour)
+    login_as(author)
+    patch activity_path(a),
+      params: { activity: { desc: "x" * (Activity::DESC_MAX_BYTES + 1) } },
+      headers: { "X-Inertia" => "true" }
+
+    # Inertia requires 303 See Other after PATCH so it re-issues as GET.
+    expect(response).to have_http_status(:see_other)
+    expect(response.location).to include(tour_path(tour))
+    expect(flash[:alert]).to match(/备注过长/)
   end
 
   it "POST rolls back AP inserts when activity validation fails" do
@@ -198,6 +213,8 @@ RSpec.describe "Activities", type: :request do
         user_ids: [ editor.id ]
       }
     }.not_to change(ActivityParticipant, :count)
+    # Fetch path → 422 JSON (not raised, not an HTML error page)
+    expect(response).to have_http_status(:unprocessable_content)
   end
 
   describe "POST /activities/:id/clone" do

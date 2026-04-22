@@ -25,9 +25,9 @@ function stripHtmlPlugin() {
 
 const components = {
   a: ({ node, ...props }) => <a {...props} target="_blank" rel="noopener noreferrer" />,
-  h1: ({ children }) => <Text fw={600} size="md" my={4}>{children}</Text>,
-  h2: ({ children }) => <Text fw={600} size="sm" my={4}>{children}</Text>,
-  h3: ({ children }) => <Text fw={600} size="sm" my={4}>{children}</Text>,
+  h1: ({ children }) => <Text component="h1" fw={600} size="md" my={4}>{children}</Text>,
+  h2: ({ children }) => <Text component="h2" fw={600} size="sm" my={4}>{children}</Text>,
+  h3: ({ children }) => <Text component="h3" fw={600} size="sm" my={4}>{children}</Text>,
   p:  ({ children }) => <Text size="sm" my={2}>{children}</Text>,
   ul: ({ children }) => <Text component="ul" size="sm" my={2} pl="md">{children}</Text>,
   ol: ({ children }) => <Text component="ol" size="sm" my={2} pl="md">{children}</Text>,
