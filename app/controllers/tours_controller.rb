@@ -63,7 +63,7 @@ class ToursController < ApplicationController
     # `title` to '' so the DB NOT NULL constraint is satisfied; the frontend
     # falls back to "未命名旅程" for display and the onboarding drawer
     # requires a real name before finishing setup.
-    attrs = create_tour_params.to_h.reverse_merge('title' => '')
+    attrs = create_tour_params.to_h.reverse_merge("title" => "")
     @tour = Tour.create!(author: current_user, **attrs)
     redirect_to tour_path(@tour)
   end

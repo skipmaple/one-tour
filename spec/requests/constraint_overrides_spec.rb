@@ -55,7 +55,7 @@ RSpec.describe "Constraint Overrides", type: :request do
         params: {
           rule: "max_tier_one_per_day",
           scope: { day_index: 1 },
-          reason: "独库必走，无法压缩",
+          reason: "独库必走，无法压缩"
         }.to_json,
         headers: { "Content-Type" => "application/json" }
       expect(response).to redirect_to(tour_path(tour))
