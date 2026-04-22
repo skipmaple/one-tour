@@ -53,6 +53,21 @@ export default function ConstitutionDrawer({
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const advancedCount = Object.keys(defaults || {}).filter(k => !KEY_FIELDS.includes(k)).length
 
+  // Soft violations the user has dismissed ("知道了") during this drawer
+  // session. Session-only — next time the drawer re-mounts, all violations
+  // reappear. Mirrors the original ConstitutionChip behavior.
+  const [dismissedSoft, setDismissedSoft] = useState(() => new Set())
+  const visibleViolations = violations.filter((v, i) =>
+    v.level === 'hard' || !dismissedSoft.has(`${v.rule}:${i}`)
+  )
+  const dismissSoft = (v, i) => {
+    setDismissedSoft(prev => {
+      const next = new Set(prev)
+      next.add(`${v.rule}:${i}`)
+      return next
+    })
+  }
+
   // Tour metadata state (onboarding only).
   const [tourTitle, setTourTitle] = useState(tour.title || '')
   const [tourDateRange, setTourDateRange] = useState(() => parseTourDateRange(tour.date_range))
@@ -291,13 +306,13 @@ export default function ConstitutionDrawer({
   // hidden while the user is actively editing constitution params (the
   // violations are computed against the SAVED constitution, not the draft,
   // so the list would be misleading during edit).
-  const violationList = onboarded && !editing && violations.length > 0 && (
+  const violationList = onboarded && !editing && visibleViolations.length > 0 && (
     <Stack gap="xs">
-      {violations.map((v, i) => {
+      {visibleViolations.map((v, i) => {
         const isHard = v.level === 'hard'
         return (
           <Paper
-            key={i}
+            key={`${v.rule}:${i}`}
             p="xs"
             withBorder
             style={{
@@ -320,7 +335,7 @@ export default function ConstitutionDrawer({
                 <Button
                   size="compact-xs"
                   variant="default"
-                  onClick={() => (isHard ? onAcknowledge(v) : undefined)}
+                  onClick={() => (isHard ? onAcknowledge(v) : dismissSoft(v, i))}
                 >
                   {isHard ? '承认此违反' : '知道了'}
                 </Button>

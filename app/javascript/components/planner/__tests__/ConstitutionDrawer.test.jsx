@@ -143,6 +143,17 @@ describe('ConstitutionDrawer — edit mode (Review)', () => {
     expect(screen.getByText('行程超过每日上限')).toBeInTheDocument()
   })
 
+  it('soft violation "知道了" dismisses that row for the session', async () => {
+    const user = userEvent.setup()
+    renderDrawer({
+      tour: { ...baseTour, constitution_accepted: true },
+      violations: [{ level: 'soft', message: '整程 0 个机动日', rule: 'min_buffer_days' }],
+    })
+    expect(screen.getByText('整程 0 个机动日')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '知道了' }))
+    expect(screen.queryByText('整程 0 个机动日')).not.toBeInTheDocument()
+  })
+
   it('close button (×) is present in edit mode', () => {
     renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
     expect(screen.getByRole('button', { name: /关闭|close/i })).toBeInTheDocument()
