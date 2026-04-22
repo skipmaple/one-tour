@@ -1,7 +1,47 @@
 import { Group, Avatar, Text, Menu, UnstyledButton } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks'
+import { useDisclosure, useClipboard, useHover } from '@mantine/hooks'
+import { IconCopy, IconCheck } from '@tabler/icons-react'
 import { Link, usePage } from '@inertiajs/react'
 import ProfileSettingsModal from '../../components/ProfileSettingsModal'
+
+function EmailCopyItem({ email }) {
+  const clipboard = useClipboard({ timeout: 1500 })
+  const { hovered, ref } = useHover()
+  const showIcon = hovered || clipboard.copied
+
+  return (
+    <UnstyledButton
+      ref={ref}
+      onClick={() => clipboard.copy(email)}
+      aria-label={`复制邮箱 ${email}`}
+      px="sm"
+      py={4}
+      w="100%"
+      style={{ cursor: 'pointer' }}
+    >
+      <Group gap={6} wrap="nowrap" align="center" justify="space-between">
+        <Text
+          c="dimmed"
+          fz="xs"
+          style={{ wordBreak: 'break-all', whiteSpace: 'normal', flex: 1, minWidth: 0 }}
+        >
+          {clipboard.copied ? '已复制' : email}
+        </Text>
+        {clipboard.copied ? (
+          <IconCheck
+            size={14}
+            style={{ color: 'var(--mantine-color-teal-6)', flexShrink: 0, opacity: 1, transition: 'opacity 120ms' }}
+          />
+        ) : (
+          <IconCopy
+            size={14}
+            style={{ color: 'var(--mantine-color-dimmed)', flexShrink: 0, opacity: showIcon ? 1 : 0, transition: 'opacity 120ms' }}
+          />
+        )}
+      </Group>
+    </UnstyledButton>
+  )
+}
 
 export default function UserSection() {
   const { current_user } = usePage().props
@@ -24,11 +64,7 @@ export default function UserSection() {
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Label>{current_user.name}</Menu.Label>
-          {current_user.email && (
-            <Menu.Label c="dimmed" fz="xs" style={{ fontWeight: 'normal' }}>
-              {current_user.email}
-            </Menu.Label>
-          )}
+          {current_user.email && <EmailCopyItem email={current_user.email} />}
           <Menu.Divider />
           <Menu.Item onClick={open}>个人设置</Menu.Item>
           <Menu.Item component={Link} href="/logout" method="delete" as="button">
