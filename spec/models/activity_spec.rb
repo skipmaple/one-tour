@@ -329,5 +329,30 @@ RSpec.describe Activity do
         expect(clone.activity_images).to be_empty
       end
     end
+
+    it "rolls back the shift and the new activity when participant copy fails" do
+      editor_user = create(:user)
+      create(:tour_membership, tour: tour, user: editor_user, role: :editor)
+
+      src = create(:activity, tour: tour, day: day, position: 1)
+      ActivityParticipant.create!(activity: src, user: editor_user)
+      other = create(:activity, tour: tour, day: day, position: 2)
+
+      # Force the participant copy to fail after the main activity is inserted.
+      # The clone method calls new_activity.activity_participants.create!(user_id:),
+      # which builds a new ActivityParticipant and calls save! on it.
+      # We stub save! on any ActivityParticipant instance so the copy path raises.
+      # The setup's ActivityParticipant.create! already ran before this stub.
+      allow_any_instance_of(ActivityParticipant).to receive(:save!).and_raise(
+        ActiveRecord::RecordInvalid.new(ActivityParticipant.new)
+      )
+
+      expect { src.clone_for_same_day! }.to raise_error(ActiveRecord::RecordInvalid)
+
+      # No extra activity landed
+      expect(tour.activities.reload.count).to eq(2)
+      # The sibling shift was rolled back
+      expect(other.reload.position).to eq(2)
+    end
   end
 end
