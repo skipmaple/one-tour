@@ -130,3 +130,43 @@ test('applies .ac-highlighted to the ActivityCard whose id is in hoveredActivity
   expect(cards[0].classList.contains('ac-highlighted')).toBe(true)
   expect(cards[1].classList.contains('ac-highlighted')).toBe(false)
 })
+
+function renderDayColumn(props = {}) {
+  const day = props.day || { id: 1, day_index: 1, intensity_derived: 'green' }
+  const activities = props.activities ?? []
+  const rest = { ...props }
+  delete rest.day
+  delete rest.activities
+  return render(
+    <MantineProvider>
+      <DndContext>
+        <DayColumn day={day} activities={activities} constitution={{ max_daily_driving_minutes: 420 }} {...rest} />
+      </DndContext>
+    </MantineProvider>
+  )
+}
+
+test('shows filter banner when filterActive=true', () => {
+  renderDayColumn({ activities: [], filterActive: true, day: { id: 1, day_index: 1 } })
+  expect(screen.getByText(/筛选中/)).toBeInTheDocument()
+})
+
+test('filterActive=true + empty activities shows "该天无匹配"', () => {
+  renderDayColumn({ activities: [], filterActive: true, day: { id: 1, day_index: 1 } })
+  expect(screen.getByText(/该天无匹配/)).toBeInTheDocument()
+})
+
+test('filterActive=false + empty activities does NOT show "该天无匹配"', () => {
+  renderDayColumn({ activities: [], filterActive: false, day: { id: 1, day_index: 1 } })
+  expect(screen.queryByText(/该天无匹配/)).not.toBeInTheDocument()
+})
+
+test('filterActive forwards draggable=false to ActivityCard (data-draggable attr)', () => {
+  const { container } = renderDayColumn({
+    activities: [{ id: 1, name: 'X', kind: 'scenic', day_id: 1, position: 1 }],
+    filterActive: true,
+    day: { id: 1, day_index: 1 },
+  })
+  const cards = container.querySelectorAll('.ac-card')
+  cards.forEach(card => expect(card.getAttribute('data-draggable')).toBe('false'))
+})

@@ -1,8 +1,8 @@
 import { useMemo, useCallback } from 'react'
 import { DAY_COLOR } from '../../lib/dayColors'
-import { Paper, Text, Stack, Group, Button } from '@mantine/core'
+import { Alert, Paper, Text, Stack, Group, Button } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
-import { IconAlertTriangleFilled } from '@tabler/icons-react'
+import { IconAlertTriangleFilled, IconFilterFilled } from '@tabler/icons-react'
 import ActivityCard from './ActivityCard'
 import RoadConnector from './RoadConnector'
 import DayMetricBar from '../DayMetricBar'
@@ -31,6 +31,7 @@ export default function DayColumn({
   onClearHover,
   author,
   members,
+  filterActive = false,
 }) {
   const maxH = Math.round((constitution?.max_daily_driving_minutes || 420) / 60)
   const maxTier1 = constitution?.max_tier_one_per_day || 3
@@ -172,6 +173,7 @@ export default function DayColumn({
         dayColorName={dayColorName}
         author={author}
         members={members}
+        draggable={!filterActive}
       />
     )
     prevCardActivity = a
@@ -232,8 +234,25 @@ export default function DayColumn({
         background: isOver ? '#f0f7ff' : undefined,
         border: dragWarning ? '1px solid var(--mantine-color-red-6)' : undefined
       }}>
+        {filterActive && (
+          <Alert
+            color="blue"
+            variant="light"
+            icon={<IconFilterFilled size={14} />}
+            mb="xs"
+            p="xs"
+            styles={{ message: { fontSize: 11 } }}
+          >
+            筛选中，清除后恢复拖拽
+          </Alert>
+        )}
         {renderedItems}
-        {activities.length === 0 && <Text size="xs" c="dimmed" ta="center" mt="md">空</Text>}
+        {activities.length === 0 && filterActive && (
+          <Text size="xs" c="dimmed" ta="center" py="sm">该天无匹配</Text>
+        )}
+        {activities.length === 0 && !filterActive && (
+          <Text size="xs" c="dimmed" ta="center" mt="md">空</Text>
+        )}
       </Stack>
       {!readOnly && onAddActivity && (
         <div style={{ padding: '4px 8px' }}>
