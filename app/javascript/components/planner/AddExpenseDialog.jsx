@@ -76,6 +76,13 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   pendingFilesRef.current = pendingFiles
   const fileInputRef = useRef(null)
   const initialSnapshotRef = useRef('')
+  // Tracks whether the user has manually toggled any participant checkbox.
+  // When still false, switching the `activityId` re-prefills participantIds
+  // from the newly-selected activity's effective set — the common case
+  // "open dialog, change activity, expect list to reflect that activity".
+  // Once the user toggles anything, their intent wins and activity changes
+  // stop touching the set. Reset on each dialog open.
+  const participantsDirtyRef = useRef(false)
 
   const currentSnapshot = () => JSON.stringify({
     scope, activityId, dayId, paidById, amount, category, strategy, note,
@@ -188,6 +195,9 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     setExternalCount(v.externalCount)
     setExternalAttributedToId(v.externalAttributedToId)
     setAmountError(null)
+    // Fresh dialog open → treat the initial prefill as "not yet user-edited",
+    // so a subsequent activity switch can still update the participant list.
+    participantsDirtyRef.current = false
     // Clean up any stale previews from a previous open before starting fresh.
     cleanupPendingFiles()
 
@@ -204,7 +214,29 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     pendingFilesRef.current.forEach((p) => URL.revokeObjectURL(p.url))
   }, [])
 
+  // Re-prefill participantIds when the user switches activities mid-dialog,
+  // but only if they haven't manually toggled any participant yet. Without
+  // this, dialog-open prefill sticks to the *first* activity and changing
+  // `关联行` to a 小分队 activity leaves "全员" selected — defeating the
+  // feature.
+  //
+  // Deps include `activities/author/members` so that a partial reload
+  // refreshing the tour roster mid-dialog also refreshes the prefill
+  // (e.g., a member joining/leaving). Dirty-guard still protects manual edits.
+  //
+  // Skip in edit mode (participants come from expense.splits and must stay)
+  // and skip when scope isn't activity (day/tour scopes don't bind to an
+  // activity's roster).
+  useEffect(() => {
+    if (!opened || isEdit || scope !== 'activity' || !activityId) return
+    if (participantsDirtyRef.current) return
+    const activity = activities.find((a) => String(a.id) === activityId)
+    if (!activity) return
+    setParticipantIds(effectiveParticipants(activity, { author, members }))
+  }, [activityId, scope, opened, isEdit, activities, author, members])
+
   const toggleParticipant = (userId) => {
+    participantsDirtyRef.current = true
     setParticipantIds((prev) =>
       prev.includes(userId) ? prev.filter((id) => id !== userId) : [ ...prev, userId ]
     )

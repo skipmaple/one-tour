@@ -35,24 +35,39 @@ const ACTIVITIES = [
 ]
 
 function renderDialog(props = {}) {
-  const defaults = {
-    opened: true,
-    onClose: vi.fn(),
-    tour: { id: 1, currency: 'CNY' },
-    days: DAYS,
-    activities: ACTIVITIES,
-    members: MEMBERS,
-    author: AUTHOR,
-    expense: null,
+  const build = (p) => {
+    const defaults = {
+      opened: true,
+      onClose: vi.fn(),
+      tour: { id: 1, currency: 'CNY' },
+      days: DAYS,
+      activities: ACTIVITIES,
+      members: MEMBERS,
+      author: AUTHOR,
+      expense: null,
+    }
+    return (
+      <MantineProvider>
+        <ModalsProvider>
+          <Notifications />
+          <AddExpenseDialog {...defaults} {...p} />
+        </ModalsProvider>
+      </MantineProvider>
+    )
   }
-  return render(
-    <MantineProvider>
-      <ModalsProvider>
-        <Notifications />
-        <AddExpenseDialog {...defaults} {...props} />
-      </ModalsProvider>
-    </MantineProvider>
-  )
+  const result = render(build(props))
+  return { ...result, rerenderWith: (p) => result.rerender(build(p)) }
+}
+
+// Mantine's <Select searchable> renders a readonly combobox input (user-event
+// skips readonly inputs, so we drive it via fireEvent.click). Multiple selects
+// in this dialog share labels with other elements — find the activity combobox
+// by its distinctive placeholder.
+function switchActivityTo(label) {
+  const trigger = screen.getByPlaceholderText('选择某一行')
+  fireEvent.click(trigger)
+  const option = screen.getByRole('option', { name: label })
+  fireEvent.click(option)
 }
 
 function checkboxFor(name) {
@@ -84,5 +99,51 @@ describe('AddExpenseDialog – participantIds prefill', () => {
     expect(checkboxFor('Bob')).toBeChecked()
     expect(checkboxFor('Alice')).not.toBeChecked()
     expect(checkboxFor('Cindy')).not.toBeChecked()
+  })
+
+  test('switching activity re-prefills when user has not manually edited', () => {
+    renderDialog()
+    // Baseline: A-default → all three checked (from initial prefill).
+    expect(checkboxFor('Alice')).toBeChecked()
+
+    switchActivityTo('B-just-Bob')
+
+    // B-just-Bob.participant_user_ids = [2] → only Bob should be checked.
+    expect(checkboxFor('Alice')).not.toBeChecked()
+    expect(checkboxFor('Bob')).toBeChecked()
+    expect(checkboxFor('Cindy')).not.toBeChecked()
+  })
+
+  test('switching activity preserves manual edits (user intent wins)', () => {
+    renderDialog()
+    // User manually unchecks Cindy — this flips the "dirty" flag.
+    fireEvent.click(checkboxFor('Cindy'))
+    expect(checkboxFor('Cindy')).not.toBeChecked()
+    expect(checkboxFor('Alice')).toBeChecked()
+    expect(checkboxFor('Bob')).toBeChecked()
+
+    // Now switch activity. The prefill MUST NOT run — user has diverged.
+    switchActivityTo('B-just-Bob')
+
+    expect(checkboxFor('Alice')).toBeChecked()    // user had it checked
+    expect(checkboxFor('Bob')).toBeChecked()      // user had it checked
+    expect(checkboxFor('Cindy')).not.toBeChecked() // user had unchecked it
+  })
+
+  test('partial reload refreshing members re-prefills when not dirty', () => {
+    const { rerenderWith } = renderDialog()
+    // Baseline: A-default (全员) → all three checked.
+    expect(checkboxFor('Alice')).toBeChecked()
+    expect(checkboxFor('Bob')).toBeChecked()
+    expect(checkboxFor('Cindy')).toBeChecked()
+
+    // Simulate partial reload: Cindy leaves the tour. Members prop ref changes.
+    // Since the user hasn't manually edited, the effect should re-prefill
+    // against the new roster — Cindy's checkbox disappears, Alice + Bob stay.
+    rerenderWith({ members: [ MEMBERS[0] ] })
+
+    expect(screen.queryByRole('checkbox', { name: /Cindy/ })).not.toBeInTheDocument()
+    expect(checkboxFor('Alice')).toBeChecked()
+    expect(checkboxFor('Bob')).toBeChecked()
   })
 })
