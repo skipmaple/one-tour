@@ -189,4 +189,27 @@ RSpec.describe Tour do
       expect(tour.member_user_ids).to contain_exactly(tour.author_id, m1.id, m2.id)
     end
   end
+
+  describe "title presence validation" do
+    # The onboarding flow lets users create a tour with no title and only
+    # name it during step 1. Once the user has accepted the constitution,
+    # the tour is live and a real title becomes mandatory.
+    it "allows a blank title while constitution_accepted is false" do
+      tour = build(:tour, title: "", constitution_accepted: false)
+      expect(tour).to be_valid
+    end
+
+    it "allows a blank title on a brand-new record" do
+      tour = Tour.new(author: create(:user), title: "")
+      expect(tour).to be_valid
+    end
+
+    it "forbids a blank title once constitution_accepted is true" do
+      tour = create(:tour, title: "伊犁")
+      tour.constitution_accepted = true
+      tour.title = ""
+      expect(tour).not_to be_valid
+      expect(tour.errors[:title]).to include("can't be blank")
+    end
+  end
 end

@@ -28,7 +28,7 @@ export default function ToursShow() {
 
   return (
     <>
-      <Head title={tour.title} />
+      <Head title={tour.title || '未命名旅程'} />
       <Container size="lg" px="md">
         <Stack gap="md">
           <Anchor component={Link} href="/admin/tours">
@@ -37,7 +37,7 @@ export default function ToursShow() {
 
           {/* Tour profile */}
           <Card withBorder padding="md" radius="md">
-            <Title order={3}>{tour.title}</Title>
+            <Title order={3}>{tour.title || '未命名旅程'}</Title>
             <Text size="sm" mt={4}>
               作者：
               <Anchor component={Link} href={`/admin/users/${tour.author.id}`}>

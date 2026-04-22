@@ -62,7 +62,7 @@ export default function ToursIndex() {
                 <Table.Tr key={t.id}>
                   <Table.Td>{t.id}</Table.Td>
                   <Table.Td>
-                    <Anchor component={Link} href={`/admin/tours/${t.id}`}>{t.title}</Anchor>
+                    <Anchor component={Link} href={`/admin/tours/${t.id}`}>{t.title || '未命名旅程'}</Anchor>
                   </Table.Td>
                   <Table.Td>
                     <Anchor component={Link} href={`/admin/users/${t.author_id}`}>
