@@ -289,5 +289,45 @@ RSpec.describe Activity do
       expect(backlog_after.reload.position).to eq(3)
       expect(day_act.reload.position).to eq(1)  # day scope untouched
     end
+
+    describe "activity_participants" do
+      let(:editor_user) { create(:user) }
+      let(:reader_user) { create(:user) }
+
+      before do
+        create(:tour_membership, tour: tour, user: editor_user, role: :editor)
+        create(:tour_membership, tour: tour, user: reader_user, role: :reader)
+      end
+
+      it "copies explicit activity_participants rows" do
+        src = create(:activity, tour: tour, day: day, position: 1)
+        ActivityParticipant.create!(activity: src, user: editor_user)
+        ActivityParticipant.create!(activity: src, user: reader_user)
+
+        clone = src.clone_for_same_day!
+
+        expect(clone.activity_participants.pluck(:user_id))
+          .to contain_exactly(editor_user.id, reader_user.id)
+      end
+
+      it "leaves participants empty when source has none (default-全员 preserved)" do
+        src = create(:activity, tour: tour, day: day, position: 1)
+        expect(src.activity_participants).to be_empty
+
+        clone = src.clone_for_same_day!
+
+        expect(clone.activity_participants).to be_empty
+      end
+
+      it "does NOT copy activity_images" do
+        src = create(:activity, tour: tour, day: day, position: 1)
+        img = ActivityImage.new(activity: src, uploaded_by: tour.author, position: 1)
+        img.save!(validate: false)
+
+        clone = src.clone_for_same_day!
+
+        expect(clone.activity_images).to be_empty
+      end
+    end
   end
 end

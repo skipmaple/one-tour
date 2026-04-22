@@ -61,7 +61,7 @@ class Activity < ApplicationRecord
           .where("position > ?", position)
           .update_all("position = position + 1")
 
-      tour.activities.create!(
+      new_activity = tour.activities.create!(
         day_id: day_id,
         position: position + 1,
         name: name,
@@ -75,6 +75,12 @@ class Activity < ApplicationRecord
         planned_start_at: nil,
         details: details.is_a?(Hash) ? details.deep_dup : details,
       )
+
+      activity_participants.each do |ap|
+        new_activity.activity_participants.create!(user_id: ap.user_id)
+      end
+
+      new_activity
     end
   end
 
