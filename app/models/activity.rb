@@ -71,6 +71,9 @@ class Activity < ApplicationRecord
         }
         ActivityParticipant.upsert_all(rows, unique_by: %i[activity_id user_id])
       end
+      # upsert_all bypasses the association cache; delete_all leaves it
+      # marked-loaded-but-empty. Force a re-query so callers reading
+      # activity_participants on the same instance see fresh DB state.
       activity_participants.reset
     end
   end

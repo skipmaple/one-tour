@@ -211,12 +211,12 @@ RSpec.describe Activity do
 
     it "silently drops user_ids that are not tour members" do
       activity.assign_participants!([ editor.id, bystander.id ])
-      expect(activity.activity_participants.pluck(:user_id)).to eq([ editor.id ])
+      expect(activity.activity_participants.pluck(:user_id)).to contain_exactly(editor.id)
     end
 
     it "deduplicates user_ids" do
       activity.assign_participants!([ editor.id, editor.id ])
-      expect(activity.activity_participants.pluck(:user_id)).to eq([ editor.id ])
+      expect(activity.activity_participants.pluck(:user_id)).to contain_exactly(editor.id)
     end
 
     it "accepts nil (same as empty — clears the set)" do
