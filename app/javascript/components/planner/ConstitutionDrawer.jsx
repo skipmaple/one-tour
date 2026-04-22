@@ -332,38 +332,29 @@ export default function ConstitutionDrawer({
     </Stack>
   )
 
-  const reviewBody = (
-    <>
-      <RedHeaderDocument>
-        <ConstitutionFullText constitution={tour.constitution} defaults={defaults} />
-      </RedHeaderDocument>
-      {canEdit && (
-        <Group justify="center">
-          <Button variant="light" color="red" onClick={() => setEditing(true)}>修宪</Button>
-        </Group>
-      )}
-    </>
+  // Body sections are pure content (no action buttons). The CTA rows for
+  // each state are rendered separately as a sticky footer below the
+  // ScrollArea so users always see the primary action without scrolling
+  // past a long constitution document.
+  const reviewContent = (
+    <RedHeaderDocument>
+      <ConstitutionFullText constitution={tour.constitution} defaults={defaults} />
+    </RedHeaderDocument>
   )
 
-  const editingBody = (
-    <>
-      <ParameterEditor
-        c={c}
-        setC={setC}
-        dirty={dirty}
-        advancedOpen={advancedOpen}
-        setAdvancedOpen={setAdvancedOpen}
-        advancedCount={advancedCount}
-        resetToDefaults={resetToDefaults}
-      />
-      <Group justify="flex-end">
-        <Button variant="default" onClick={cancelEdits}>取消</Button>
-        <Button onClick={saveEdits} disabled={!constitutionDirty}>保存</Button>
-      </Group>
-    </>
+  const editingContent = (
+    <ParameterEditor
+      c={c}
+      setC={setC}
+      dirty={dirty}
+      advancedOpen={advancedOpen}
+      setAdvancedOpen={setAdvancedOpen}
+      advancedCount={advancedCount}
+      resetToDefaults={resetToDefaults}
+    />
   )
 
-  const onboardingStep1 = (
+  const onboardingStep1Content = (
     <>
       <Text size="xs" c="dimmed" ta="center">第 1 步（共 2 步）</Text>
       <TextInput
@@ -410,36 +401,74 @@ export default function ConstitutionDrawer({
         advancedCount={advancedCount}
         resetToDefaults={resetToDefaults}
       />
-      <Group justify="flex-end">
-        <Button onClick={saveStep1} loading={isSaving} disabled={isSaving}>
-          {isSaving ? '保存中…' : '下一步 →'}
-        </Button>
-      </Group>
     </>
   )
 
-  const onboardingStep2 = (
+  const onboardingStep2Content = (
     <>
       <Text size="xs" c="dimmed" ta="center">第 2 步（共 2 步）· 请阅读后同意</Text>
       <RedHeaderDocument>
         <ConstitutionFullText constitution={c} defaults={defaults} />
       </RedHeaderDocument>
+    </>
+  )
+
+  const scrollableBody = (
+    <Stack gap="md" p="md">
+      {violationList}
+      {onboarded
+        ? (editing ? editingContent : reviewContent)
+        : (setupStep === 1 ? onboardingStep1Content : onboardingStep2Content)}
+    </Stack>
+  )
+
+  // Sticky footer CTA — state-specific. null if no action applies (e.g.
+  // review mode for read-only users).
+  let footerCta = null
+  if (onboarded) {
+    if (editing) {
+      footerCta = (
+        <Group justify="flex-end">
+          <Button variant="default" onClick={cancelEdits}>取消</Button>
+          <Button onClick={saveEdits} disabled={!constitutionDirty}>保存</Button>
+        </Group>
+      )
+    } else if (canEdit) {
+      footerCta = (
+        <Group justify="center">
+          <Button variant="light" color="red" onClick={() => setEditing(true)}>修宪</Button>
+        </Group>
+      )
+    }
+  } else if (setupStep === 1) {
+    footerCta = (
+      <Group justify="flex-end">
+        <Button onClick={saveStep1} loading={isSaving} disabled={isSaving}>
+          {isSaving ? '保存中…' : '下一步 →'}
+        </Button>
+      </Group>
+    )
+  } else {
+    footerCta = (
       <Group justify="center">
         <Button variant="default" onClick={() => setSetupStep(1)}>← 返回修改</Button>
         <Button color="red" onClick={acceptConstitution} loading={isAccepting} disabled={isAccepting}>
           同意并开始规划 →
         </Button>
       </Group>
-    </>
-  )
-
-  const bodyContent = (
-    <Stack gap="md" p="md">
-      {violationList}
-      {onboarded
-        ? (editing ? editingBody : reviewBody)
-        : (setupStep === 1 ? onboardingStep1 : onboardingStep2)}
-    </Stack>
+    )
+  }
+  const stickyFooter = footerCta && (
+    <div
+      style={{
+        flexShrink: 0,
+        padding: '12px 16px',
+        borderTop: '1px solid #eee',
+        background: '#fff',
+      }}
+    >
+      {footerCta}
+    </div>
   )
 
   // Mobile: render as floating Mantine Drawer (push would squash planner).
@@ -458,7 +487,8 @@ export default function ConstitutionDrawer({
       >
         <div ref={drawerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           {header}
-          <ScrollArea style={{ flex: 1 }}>{bodyContent}</ScrollArea>
+          <ScrollArea style={{ flex: 1 }}>{scrollableBody}</ScrollArea>
+          {stickyFooter}
         </div>
       </MantineDrawer>
     )
@@ -487,7 +517,8 @@ export default function ConstitutionDrawer({
       tabIndex={-1}
     >
       {header}
-      <ScrollArea style={{ flex: 1 }}>{bodyContent}</ScrollArea>
+      <ScrollArea style={{ flex: 1 }}>{scrollableBody}</ScrollArea>
+      {stickyFooter}
       <div
         onMouseDown={onResizeStart}
         style={{
