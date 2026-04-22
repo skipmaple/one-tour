@@ -29,7 +29,7 @@ export default function CollapsibleSection({ title, summary, defaultOpen = false
           {summary && <Text size="xs" c="dimmed">{summary}</Text>}
         </Group>
       </UnstyledButton>
-      <Collapse in={open}>
+      <Collapse expanded={open}>
         <div style={{ paddingTop: 8 }}>{children}</div>
       </Collapse>
     </div>

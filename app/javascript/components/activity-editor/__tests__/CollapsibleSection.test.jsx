@@ -52,4 +52,31 @@ describe('CollapsibleSection', () => {
     fireEvent.click(header)
     expect(header).toHaveAttribute('aria-expanded', 'false')
   })
+
+  // Regression guard: Mantine Collapse's prop is `expanded` (v9+), not `in`.
+  // The previous impl used `<Collapse in={open}>` which was silently ignored,
+  // leaving the body stuck at display:none regardless of aria-expanded state.
+  // Assert on the actual Collapse container style so a future prop rename gets
+  // caught by the test suite (not just by a user seeing a broken UI).
+  it('actually toggles Collapse container display (regression: use `expanded` prop)', () => {
+    const { container } = wrap(
+      <CollapsibleSection title="参与人" defaultOpen>
+        <div>toggle body</div>
+      </CollapsibleSection>
+    )
+    const header = screen.getByRole('button')
+    // Initially open → Collapse container should NOT be display:none
+    const collapseContainer = header.parentElement.children[1]
+    expect(collapseContainer).toBeTruthy()
+    expect(collapseContainer.style.display).not.toBe('none')
+    // Click to close → Collapse container becomes display:none (after animation)
+    fireEvent.click(header)
+    expect(header).toHaveAttribute('aria-expanded', 'false')
+    // Click to open again → display returns to not-none
+    fireEvent.click(header)
+    expect(header).toHaveAttribute('aria-expanded', 'true')
+    expect(collapseContainer.style.display).not.toBe('none')
+    // And its aria-hidden flips back to "false" (or missing)
+    expect(collapseContainer.getAttribute('aria-hidden')).not.toBe('true')
+  })
 })
