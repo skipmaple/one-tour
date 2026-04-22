@@ -177,4 +177,60 @@ RSpec.describe Activity do
       expect(assoc.options[:source]).to eq(:user)
     end
   end
+
+  describe "#clone_for_same_day!" do
+    let(:tour) { create(:tour) }
+    let(:day)  { create(:day, tour: tour, day_index: 2) }
+
+    def build_source
+      create(:activity,
+        tour: tour,
+        day: day,
+        name: "万豪酒店",
+        kind: :stay,
+        citizen_level: :tier_one,
+        lat: 29.65,
+        lng: 91.13,
+        address: "拉萨市城关区",
+        desc: "市中心，地铁站口",
+        planned_start_at: "14:00",
+        planned_duration_min: 120,
+        details: { "altitude" => 3650, "need_reservation" => true },
+      )
+    end
+
+    it "copies name, kind, citizen_level, coords, address, desc, duration, details" do
+      src = build_source
+      clone = src.clone_for_same_day!
+
+      expect(clone.name).to eq("万豪酒店")
+      expect(clone.kind).to eq("stay")
+      expect(clone.citizen_level).to eq("tier_one")
+      expect(clone.lat).to eq(src.lat)
+      expect(clone.lng).to eq(src.lng)
+      expect(clone.address).to eq("拉萨市城关区")
+      expect(clone.desc).to eq("市中心，地铁站口")
+      expect(clone.planned_duration_min).to eq(120)
+      expect(clone.details).to eq("altitude" => 3650, "need_reservation" => true)
+      expect(clone.tour_id).to eq(tour.id)
+      expect(clone.day_id).to eq(day.id)
+    end
+
+    it "clears planned_start_at on the clone" do
+      src = build_source
+      clone = src.clone_for_same_day!
+
+      expect(clone.planned_start_at).to be_nil
+      expect(src.reload.planned_start_at.strftime("%H:%M")).to eq("14:00")
+    end
+
+    it "deep_dups details so mutating the clone doesn't affect the source" do
+      src = build_source
+      clone = src.clone_for_same_day!
+
+      clone.details["altitude"] = 5000
+      clone.save!
+      expect(src.reload.details["altitude"]).to eq(3650)
+    end
+  end
 end

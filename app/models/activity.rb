@@ -51,6 +51,28 @@ class Activity < ApplicationRecord
     tour.member_user_ids
   end
 
+  # Creates a copy of this activity. `planned_start_at` is the only identity-
+  # like field NOT copied — the A→B→A use case (revisit the same place later)
+  # demands a fresh time slot.
+  def clone_for_same_day!
+    transaction do
+      tour.activities.create!(
+        day_id: day_id,
+        position: position + 1,
+        name: name,
+        kind: kind,
+        citizen_level: citizen_level,
+        lat: lat,
+        lng: lng,
+        address: address,
+        desc: desc,
+        planned_duration_min: planned_duration_min,
+        planned_start_at: nil,
+        details: details.is_a?(Hash) ? details.deep_dup : details,
+      )
+    end
+  end
+
   private
     def sync_expense_days
       expenses.activity.update_all(day_id: day_id)
