@@ -58,7 +58,13 @@ class ToursController < ApplicationController
   end
 
   def create
-    @tour = Tour.create!(author: current_user, **tour_params)
+    # /tours POST may be called with an empty body (from "+ 新建旅程") or
+    # with a pre-filled `tour:` hash (from tests / admin tooling). Default
+    # `title` to '' so the DB NOT NULL constraint is satisfied; the frontend
+    # falls back to "未命名旅程" for display and the onboarding drawer
+    # requires a real name before finishing setup.
+    attrs = create_tour_params.to_h.reverse_merge('title' => '')
+    @tour = Tour.create!(author: current_user, **attrs)
     redirect_to tour_path(@tour)
   end
 
@@ -83,8 +89,19 @@ class ToursController < ApplicationController
       head :not_found and return unless @tour
     end
 
+    # For update: tour key is required — PATCH /tours/:id with no body is
+    # a client error.
     def tour_params
       params.require(:tour).permit(
+        :title, :date_range, :vehicle, :team_size, :trip_style, :budget_per_person,
+        :archived, :currency, :timezone
+      )
+    end
+
+    # For create: tour key is optional (empty body → empty hash). Onboarding
+    # fills actual fields in a later PATCH.
+    def create_tour_params
+      params.fetch(:tour, {}).permit(
         :title, :date_range, :vehicle, :team_size, :trip_style, :budget_per_person,
         :archived, :currency, :timezone
       )
