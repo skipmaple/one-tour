@@ -1,0 +1,109 @@
+import { useRef } from 'react'
+import { ActionIcon, Group, Stack, Textarea, Text } from '@mantine/core'
+import {
+  IconBold, IconItalic, IconList, IconLink, IconHeading,
+} from '@tabler/icons-react'
+
+const MAX_LENGTH = 50_000
+
+// Light-weight markdown editor: 5-button toolbar over a Mantine Textarea.
+// Operations use the native `setRangeText` so the browser's built-in undo
+// stack keeps working. Never introduces an editor framework.
+//
+// Toolbar actions:
+//   Bold      — wraps selection with **; no selection → inserts **粗体** (selected)
+//   Italic    — wraps selection with *;  no selection → inserts *斜体*   (selected)
+//   List      — prefixes each line touched by selection with "- "
+//   Link      — [selection](url); no selection → [](url) and caret between []
+//   Heading   — prefixes current line with "### " (H3)
+export default function MarkdownEditor({ value, onChange, maxLength = MAX_LENGTH }) {
+  const ref = useRef(null)
+
+  const apply = (fn) => {
+    const ta = ref.current
+    if (!ta) return
+    const start = ta.selectionStart
+    const end = ta.selectionEnd
+    const { next, selStart, selEnd } = fn({ value: value || '', start, end })
+    onChange(next)
+    // Restore selection after React applies the new value in the next tick.
+    requestAnimationFrame(() => {
+      if (!ref.current) return
+      ref.current.focus()
+      ref.current.setSelectionRange(selStart, selEnd)
+    })
+  }
+
+  const wrap = (marker, placeholder) => ({ value, start, end }) => {
+    if (start === end) {
+      const insert = `${marker}${placeholder}${marker}`
+      const next = value.slice(0, start) + insert + value.slice(end)
+      return { next, selStart: start + marker.length, selEnd: start + marker.length + placeholder.length }
+    }
+    const selected = value.slice(start, end)
+    const next = value.slice(0, start) + marker + selected + marker + value.slice(end)
+    return { next, selStart: start, selEnd: end + marker.length * 2 }
+  }
+
+  const prefixLines = (prefix) => ({ value, start, end }) => {
+    // Expand to line boundaries.
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1
+    const lineEnd = (() => {
+      const nl = value.indexOf('\n', end)
+      return nl === -1 ? value.length : nl
+    })()
+    const block = value.slice(lineStart, lineEnd)
+    const prefixed = block.split('\n').map((ln) => prefix + ln).join('\n')
+    const next = value.slice(0, lineStart) + prefixed + value.slice(lineEnd)
+    const delta = prefixed.length - block.length
+    return { next, selStart: start + prefix.length, selEnd: end + delta }
+  }
+
+  const insertLink = () => ({ value, start, end }) => {
+    if (start === end) {
+      const insert = '[](url)'
+      const next = value.slice(0, start) + insert + value.slice(end)
+      return { next, selStart: start + 1, selEnd: start + 1 }
+    }
+    const selected = value.slice(start, end)
+    const insert = `[${selected}](url)`
+    const next = value.slice(0, start) + insert + value.slice(end)
+    const urlStart = start + selected.length + 3 // "[selected]("
+    return { next, selStart: urlStart, selEnd: urlStart + 3 } // select "url"
+  }
+
+  const len = (value || '').length
+  const counterColor = len > maxLength ? 'red' : len > maxLength * 0.9 ? 'orange' : 'dimmed'
+
+  return (
+    <Stack gap={4}>
+      <Group gap={4} wrap="nowrap">
+        <ActionIcon variant="subtle" aria-label="粗体" onClick={() => apply(wrap('**', '粗体'))}>
+          <IconBold size={16} />
+        </ActionIcon>
+        <ActionIcon variant="subtle" aria-label="斜体" onClick={() => apply(wrap('*', '斜体'))}>
+          <IconItalic size={16} />
+        </ActionIcon>
+        <ActionIcon variant="subtle" aria-label="无序列表" onClick={() => apply(prefixLines('- '))}>
+          <IconList size={16} />
+        </ActionIcon>
+        <ActionIcon variant="subtle" aria-label="链接" onClick={() => apply(insertLink())}>
+          <IconLink size={16} />
+        </ActionIcon>
+        <ActionIcon variant="subtle" aria-label="标题" onClick={() => apply(prefixLines('### '))}>
+          <IconHeading size={16} />
+        </ActionIcon>
+      </Group>
+      <Textarea
+        ref={ref}
+        value={value || ''}
+        onChange={(e) => onChange(e.currentTarget.value)}
+        autosize
+        minRows={3}
+        maxRows={30}
+        maxLength={maxLength}
+      />
+      <Text size="xs" c={counterColor} ta="right">{len} / {maxLength}</Text>
+    </Stack>
+  )
+}
