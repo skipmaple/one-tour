@@ -51,9 +51,13 @@ class Activity < ApplicationRecord
     tour.member_user_ids
   end
 
-  # Creates a copy of this activity. `planned_start_at` is the only identity-
-  # like field NOT copied — the A→B→A use case (revisit the same place later)
-  # demands a fresh time slot.
+  # Creates a copy of this activity at `position + 1` in the same (tour, day)
+  # scope, shifting subsequent siblings. `planned_start_at` is the only
+  # identity-like field NOT copied — the A→B→A use case (revisit the same
+  # place later) demands a fresh time slot. Explicit activity_participants
+  # rows ARE copied; default-全员 (empty rows) stays empty. Images, expenses,
+  # and tour_budgets are deliberately NOT copied — they're instance-specific
+  # history, not template material.
   def clone_for_same_day!
     transaction do
       tour.activities

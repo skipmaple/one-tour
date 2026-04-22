@@ -185,7 +185,9 @@ export default function Show({
   }
 
   // Mirrors the CREATE path in ActivityDrawer: fetch (not router.post) because
-  // the undo entry needs the new id from the response body.
+  // the undo entry needs the new id from the response body. `cloningRef`
+  // guards against double-tap — without it, rapid clicks fire multiple POSTs
+  // and push duplicate undo entries with stale newIds.
   const cloningRef = useRef(false)
   const handleCloneActivity = async (activityId) => {
     if (cloningRef.current) return
@@ -211,7 +213,8 @@ export default function Show({
         }),
       })
     } catch (err) {
-      notifications.show({ message: `克隆失败：${err.message}`, color: 'red' })
+      console.error('clone failed', err)
+      notifications.show({ message: '克隆失败', color: 'red' })
     } finally {
       cloningRef.current = false
     }
