@@ -232,5 +232,27 @@ RSpec.describe Activity do
       clone.save!
       expect(src.reload.details["altitude"]).to eq(3650)
     end
+
+    it "assigns position = source.position + 1" do
+      src = create(:activity, tour: tour, day: day, position: 3)
+      clone = src.clone_for_same_day!
+
+      expect(clone.position).to eq(4)
+    end
+
+    it "shifts siblings whose position > source.position by +1 (same day)" do
+      a1 = create(:activity, tour: tour, day: day, position: 1)
+      src = create(:activity, tour: tour, day: day, position: 2)
+      a3 = create(:activity, tour: tour, day: day, position: 3)
+      a4 = create(:activity, tour: tour, day: day, position: 4)
+
+      clone = src.clone_for_same_day!
+
+      expect(a1.reload.position).to eq(1)  # before source, untouched
+      expect(src.reload.position).to eq(2) # source itself, untouched
+      expect(clone.position).to eq(3)      # inserted right after source
+      expect(a3.reload.position).to eq(4)  # shifted +1
+      expect(a4.reload.position).to eq(5)  # shifted +1
+    end
   end
 end

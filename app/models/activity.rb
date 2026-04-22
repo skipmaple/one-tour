@@ -56,6 +56,11 @@ class Activity < ApplicationRecord
   # demands a fresh time slot.
   def clone_for_same_day!
     transaction do
+      tour.activities
+          .where(day_id: day_id)
+          .where("position > ?", position)
+          .update_all("position = position + 1")
+
       tour.activities.create!(
         day_id: day_id,
         position: position + 1,
