@@ -162,9 +162,10 @@ export default function ActivityCard({
   dayColorName = 'none',
   author,
   members,
+  draggable = true,
 }) {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } =
-    useDraggable({ id: `activity-${activity.id}` })
+    useDraggable({ id: `activity-${activity.id}`, disabled: !draggable })
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `activity-drop-${activity.id}`,
     data: { dayId: activity.day_id, position: activity.position },
@@ -205,6 +206,7 @@ export default function ActivityCard({
       ref={setRef}
       className={cardClasses(activity, extra)}
       data-day-color={dayColorName}
+      data-draggable={draggable ? 'true' : 'false'}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={onClick ? handleBodyClick : undefined}
@@ -212,8 +214,8 @@ export default function ActivityCard({
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       aria-label={onClick ? activity.name : undefined}
-      {...dragAttributes}
-      {...dragListeners}
+      {...(draggable ? dragAttributes : {})}
+      {...(draggable ? dragListeners : {})}
     >
       {isOver && <div data-testid="drop-indicator" className="ac-drop-indicator" />}
       <ThumbAndBadge activity={activity} />

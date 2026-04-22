@@ -265,3 +265,15 @@ test('renders avatar group without "+N" when exactly 3 explicit participants', (
   )
   expect(screen.queryByText(/^\+\d+$/)).not.toBeInTheDocument()
 })
+
+test('draggable=true (default) → data-draggable="true" on .ac-card root', () => {
+  const { container } = renderInDnd(<ActivityCard activity={baseActivity} />)
+  expect(container.querySelector('.ac-card').getAttribute('data-draggable')).toBe('true')
+})
+
+test('draggable=false → data-draggable="false" on .ac-card root', () => {
+  const { container } = renderInDnd(
+    <ActivityCard activity={baseActivity} draggable={false} />
+  )
+  expect(container.querySelector('.ac-card').getAttribute('data-draggable')).toBe('false')
+})
