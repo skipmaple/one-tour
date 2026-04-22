@@ -84,4 +84,53 @@ RSpec.describe "Activities", type: :request do
       expect(body["id"]).to be_a(Integer)
     end
   end
+
+  describe "POST create with user_ids" do
+    let(:editor)   { create(:user) }
+    let(:reader)   { create(:user) }
+    let(:bystander) { create(:user) }
+
+    before do
+      create(:tour_membership, tour: tour, user: editor, role: :editor)
+      create(:tour_membership, tour: tour, user: reader, role: :reader)
+    end
+
+    it "assigns participants atomically when creating in a day" do
+      day = create(:day, tour: tour, day_index: 2)
+      login_as(author)
+      post tour_day_activities_path(tour, day), params: {
+        activity: { name: "午餐", kind: "food", citizen_level: "tier_two" },
+        user_ids: [ editor.id, reader.id ],
+      }
+      a = Activity.last
+      expect(a.activity_participants.pluck(:user_id)).to contain_exactly(editor.id, reader.id)
+    end
+
+    it "creates with no participants (默认全员) when user_ids is absent" do
+      day = create(:day, tour: tour, day_index: 2)
+      login_as(author)
+      post tour_day_activities_path(tour, day), params: {
+        activity: { name: "加油", kind: "fuel", citizen_level: "tier_three" },
+      }
+      expect(Activity.last.activity_participants).to be_empty
+    end
+
+    it "creates with no participants when user_ids is an empty array" do
+      login_as(author)
+      post tour_backlog_activities_path(tour), params: {
+        activity: { name: "待定", kind: "scenic", citizen_level: "tier_three" },
+        user_ids: [],
+      }
+      expect(Activity.last.activity_participants).to be_empty
+    end
+
+    it "silently drops non-member user_ids" do
+      login_as(author)
+      post tour_backlog_activities_path(tour), params: {
+        activity: { name: "待定", kind: "scenic", citizen_level: "tier_three" },
+        user_ids: [ editor.id, bystander.id ],
+      }
+      expect(Activity.last.activity_participants.pluck(:user_id)).to eq([ editor.id ])
+    end
+  end
 end

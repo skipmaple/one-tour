@@ -6,11 +6,17 @@ class ActivitiesController < ApplicationController
       day = Day.find(params[:day_id])
       tour = day.tour
       head :forbidden and return unless tour.editable_by?(current_user)
-      @activity = tour.activities.create!(activity_params.merge(day: day, position: next_position(tour, day)))
+      ActiveRecord::Base.transaction do
+        @activity = tour.activities.create!(activity_params.merge(day: day, position: next_position(tour, day)))
+        @activity.assign_participants!(params[:user_ids]) if params.key?(:user_ids)
+      end
     else
       tour = Tour.find(params[:tour_id])
       head :forbidden and return unless tour.editable_by?(current_user)
-      @activity = tour.activities.create!(activity_params.merge(day: nil, position: next_position(tour, nil)))
+      ActiveRecord::Base.transaction do
+        @activity = tour.activities.create!(activity_params.merge(day: nil, position: next_position(tour, nil)))
+        @activity.assign_participants!(params[:user_ids]) if params.key?(:user_ids)
+      end
     end
     respond_to do |format|
       format.json { render json: { id: @activity.id, position: @activity.position } }
