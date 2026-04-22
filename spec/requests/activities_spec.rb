@@ -85,6 +85,50 @@ RSpec.describe "Activities", type: :request do
     end
   end
 
+  describe "PATCH update with user_ids" do
+    let(:editor) { create(:user) }
+    let(:reader) { create(:user) }
+
+    before do
+      create(:tour_membership, tour: tour, user: editor, role: :editor)
+      create(:tour_membership, tour: tour, user: reader, role: :reader)
+    end
+
+    it "replaces participant set on update" do
+      a = create(:activity, tour: tour)
+      create(:activity_participant, activity: a, user: editor)
+      login_as(author)
+      patch activity_path(a), params: {
+        activity: { name: "新名" },
+        user_ids: [ reader.id ]
+      }
+      a.reload
+      expect(a.name).to eq("新名")
+      expect(a.activity_participants.pluck(:user_id)).to eq([ reader.id ])
+    end
+
+    it "leaves participants untouched when user_ids is absent" do
+      a = create(:activity, tour: tour)
+      create(:activity_participant, activity: a, user: editor)
+      login_as(author)
+      patch activity_path(a), params: {
+        activity: { name: "仅改名" }
+      }
+      expect(a.reload.activity_participants.pluck(:user_id)).to eq([ editor.id ])
+    end
+
+    it "clears participants when user_ids is empty" do
+      a = create(:activity, tour: tour)
+      create(:activity_participant, activity: a, user: editor)
+      login_as(author)
+      patch activity_path(a), params: {
+        activity: { name: a.name },
+        user_ids: []
+      }
+      expect(a.reload.activity_participants).to be_empty
+    end
+  end
+
   describe "POST create with user_ids" do
     let(:editor)   { create(:user) }
     let(:reader)   { create(:user) }

@@ -27,7 +27,10 @@ class ActivitiesController < ApplicationController
   def update
     activity = Activity.find(params[:id])
     head :forbidden and return unless activity.tour.editable_by?(current_user)
-    activity.update!(activity_params)
+    ActiveRecord::Base.transaction do
+      activity.update!(activity_params)
+      activity.assign_participants!(params[:user_ids]) if params.key?(:user_ids)
+    end
     redirect_to activity.tour
   end
 
