@@ -254,5 +254,40 @@ RSpec.describe Activity do
       expect(a3.reload.position).to eq(4)  # shifted +1
       expect(a4.reload.position).to eq(5)  # shifted +1
     end
+
+    it "does not shift activities in OTHER days" do
+      other_day = create(:day, tour: tour, day_index: 3)
+      src = create(:activity, tour: tour, day: day, position: 1)
+      other_a = create(:activity, tour: tour, day: other_day, position: 1)
+      other_b = create(:activity, tour: tour, day: other_day, position: 2)
+
+      src.clone_for_same_day!
+
+      expect(other_a.reload.position).to eq(1)
+      expect(other_b.reload.position).to eq(2)
+    end
+
+    it "does not shift activities in OTHER tours" do
+      other_tour = create(:tour)
+      src = create(:activity, tour: tour, day: day, position: 1)
+      foreign = create(:activity, tour: other_tour, day: nil, position: 1)
+
+      src.clone_for_same_day!
+
+      expect(foreign.reload.position).to eq(1)
+    end
+
+    it "clones a backlog source (day_id nil) and shifts only backlog siblings" do
+      backlog_src = create(:activity, tour: tour, day: nil, position: 1)
+      backlog_after = create(:activity, tour: tour, day: nil, position: 2)
+      day_act = create(:activity, tour: tour, day: day, position: 1)
+
+      clone = backlog_src.clone_for_same_day!
+
+      expect(clone.day_id).to be_nil
+      expect(clone.position).to eq(2)
+      expect(backlog_after.reload.position).to eq(3)
+      expect(day_act.reload.position).to eq(1)  # day scope untouched
+    end
   end
 end
