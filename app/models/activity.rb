@@ -51,6 +51,30 @@ class Activity < ApplicationRecord
     tour.member_user_ids
   end
 
+  # Replace this activity's participant set with the given user_ids. Pass `nil`
+  # or `[]` to clear (restores 默认全员 via isFullRoster convention).
+  #
+  # Concurrency: SELECT FOR UPDATE on the activity row serializes concurrent
+  # writers on the same activity. Freshly re-reads member_user_ids inside the
+  # lock to narrow the race window; ActivityParticipantsController's comment
+  # has the full rationale.
+  def assign_participants!(requested_user_ids)
+    with_lock do
+      fresh_member_ids = Tour.find(tour_id).member_user_ids
+      ids = Array(requested_user_ids).map(&:to_i).uniq & fresh_member_ids
+
+      activity_participants.delete_all
+      unless ids.empty?
+        now = Time.current
+        rows = ids.map { |uid|
+          { activity_id: id, user_id: uid, created_at: now, updated_at: now }
+        }
+        ActivityParticipant.upsert_all(rows, unique_by: %i[activity_id user_id])
+      end
+      activity_participants.reset
+    end
+  end
+
   private
     def sync_expense_days
       expenses.activity.update_all(day_id: day_id)
