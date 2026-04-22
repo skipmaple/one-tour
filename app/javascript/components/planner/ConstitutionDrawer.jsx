@@ -387,7 +387,7 @@ export default function ConstitutionDrawer({
           value={tourDateRange}
           onChange={handleDateRangeChange}
           valueFormat="YYYY-MM-DD"
-          minDate={todayLocal()}
+          minDate={new Date(todayLocal())}
           clearable
         />
         <NumberInput

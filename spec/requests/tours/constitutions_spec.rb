@@ -38,4 +38,26 @@ RSpec.describe "Tours::Constitutions", type: :request do
     get "/tours/#{tour.id}/timeline"
     expect(response).to have_http_status(:not_found)
   end
+
+  describe "POST /tours/:id/constitution/accept" do
+    # Tour.validates :title, presence: true, if: :constitution_accepted?
+    # means accepting a tour with a blank title would raise
+    # ActiveRecord::RecordInvalid → 500 via update!. Controller catches this
+    # upfront and returns 422 to JSON / redirects with an alert to HTML.
+    it "returns 422 (JSON) when the tour has a blank title" do
+      tour = create(:tour, author: user, title: "")
+      login_as(user)
+      post "/tours/#{tour.id}/constitution/accept", as: :json
+      expect(response).to have_http_status(:unprocessable_entity)
+      expect(tour.reload.constitution_accepted).to be false
+    end
+
+    it "accepts when the tour has a title" do
+      tour = create(:tour, author: user, title: "伊犁")
+      login_as(user)
+      post "/tours/#{tour.id}/constitution/accept", as: :json
+      expect(response).to have_http_status(:ok)
+      expect(tour.reload.constitution_accepted).to be true
+    end
+  end
 end
