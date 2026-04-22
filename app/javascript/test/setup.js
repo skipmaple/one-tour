@@ -32,3 +32,12 @@ if (typeof document !== 'undefined' && !document.fonts) {
     removeEventListener() {},
   }
 }
+
+// jsdom lacks navigator.clipboard; Mantine useClipboard gates on its presence.
+if (typeof navigator !== 'undefined' && !('clipboard' in navigator)) {
+  Object.defineProperty(navigator, 'clipboard', {
+    value: { writeText: () => Promise.resolve() },
+    writable: true,
+    configurable: true,
+  })
+}
