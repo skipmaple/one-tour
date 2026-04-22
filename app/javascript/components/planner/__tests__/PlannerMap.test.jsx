@@ -1,6 +1,107 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi } from 'vitest'
+import { render } from '@testing-library/react'
+import '@testing-library/jest-dom'
+import { MantineProvider } from '@mantine/core'
+import PlannerMap from '../PlannerMap'
 import { DAY_COLOR } from '../PlannerMap'
 import { filterActivitiesByViewMode } from '../PlannerMap'
+
+// ── mock Inertia so usePage() doesn't crash in jsdom ──────────────────────────
+vi.mock('@inertiajs/react', () => ({
+  usePage: () => ({ props: {} }),
+  router: { post: vi.fn() },
+}))
+
+// ── renderMap helper ──────────────────────────────────────────────────────────
+// Wraps PlannerMap in MantineProvider (required for useMantineTheme()).
+// Accepts snake_case `route_legs` for readability in tests; maps to camelCase
+// `routeLegs` accepted by PlannerMap.
+function renderMap({ route_legs, ...rest } = {}) {
+  return render(
+    <MantineProvider>
+      <PlannerMap
+        days={[{ id: 1, day_index: 1 }]}
+        routeLegs={route_legs ?? []}
+        tourId={1}
+        {...rest}
+      />
+    </MantineProvider>
+  )
+}
+
+// ── matches predicate tests ───────────────────────────────────────────────────
+
+test('matches predicate hides unmatched activity markers', () => {
+  const matches = (a) => a.id === 1
+  renderMap({
+    activities: [
+      { id: 1, name: 'A', lat: 30, lng: 100, day_id: 1, position: 1 },
+      { id: 2, name: 'B', lat: 31, lng: 101, day_id: 1, position: 2 },
+    ],
+    matches,
+  })
+  expect(document.querySelector('[data-activity-id="1"]')).toBeInTheDocument()
+  expect(document.querySelector('[data-activity-id="2"]')).not.toBeInTheDocument()
+})
+
+test('matches predicate hides route_legs with at least one unmatched endpoint', () => {
+  const matches = (a) => a.id === 1
+  renderMap({
+    activities: [
+      { id: 1, name: 'A', lat: 30, lng: 100, day_id: 1, position: 1 },
+      { id: 2, name: 'B', lat: 31, lng: 101, day_id: 1, position: 2 },
+    ],
+    route_legs: [
+      { id: 100, from_activity_id: 1, to_activity_id: 2, polyline: 'encoded' },
+    ],
+    matches,
+  })
+  expect(document.querySelector('[data-route-leg-id="100"]')).not.toBeInTheDocument()
+})
+
+test('route_leg renders when both endpoints match', () => {
+  const matches = () => true
+  renderMap({
+    activities: [
+      { id: 1, name: 'A', lat: 30, lng: 100, day_id: 1, position: 1 },
+      { id: 2, name: 'B', lat: 31, lng: 101, day_id: 1, position: 2 },
+    ],
+    route_legs: [
+      { id: 100, from_activity_id: 1, to_activity_id: 2, polyline: 'encoded' },
+    ],
+    matches,
+  })
+  expect(document.querySelector('[data-route-leg-id="100"]')).toBeInTheDocument()
+})
+
+test('defaults matches to () => true when prop omitted (backward compat)', () => {
+  renderMap({
+    activities: [
+      { id: 1, name: 'A', lat: 30, lng: 100, day_id: 1, position: 1 },
+    ],
+  })
+  expect(document.querySelector('[data-activity-id="1"]')).toBeInTheDocument()
+})
+
+test('matches predicate also gates activitiesByDay (polyline source)', () => {
+  // Two activities in the same day — filter hides one. The gated
+  // `activitiesByDay` feeds AMap polyline drawing, so this test confirms
+  // the filter propagates to the polyline pipeline (not just route_legs).
+  const matches = (a) => a.id === 1
+  renderMap({
+    activities: [
+      { id: 1, name: 'A', lat: 30, lng: 100, day_id: 1, position: 1 },
+      { id: 2, name: 'B', lat: 31, lng: 101, day_id: 1, position: 2 },
+    ],
+    matches,
+  })
+  // Only the matched activity should have a sentinel div
+  expect(document.querySelector('[data-activity-id="1"]')).toBeInTheDocument()
+  expect(document.querySelector('[data-activity-id="2"]')).not.toBeInTheDocument()
+  // Note: AMap polyline rendering can't be asserted in jsdom; this test's
+  // contract is that the predicate gates the `activitiesByDay` source of
+  // truth that both sentinels and polylines consume.
+})
 
 describe('DAY_COLOR', () => {
   test('day 1 returns first color (red)', () => {
