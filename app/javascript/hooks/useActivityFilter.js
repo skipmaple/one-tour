@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react'
+import { router, usePage } from '@inertiajs/react'
 
 function collectStrings(value, acc) {
   if (value == null) return
@@ -88,5 +89,115 @@ export function useActivityFilterCore({ activities, filter, tour }) {
     active,
     activeCount,
     totalCount: activities.length,
+  }
+}
+
+function parseUrl(url) {
+  const idx = url.indexOf('?')
+  const path = idx === -1 ? url : url.slice(0, idx)
+  const params = new URLSearchParams(idx === -1 ? '' : url.slice(idx + 1))
+  return { path, params }
+}
+
+function filterFromParams(params) {
+  const q = params.get('q') || ''
+  const kindRaw = params.get('kind') || ''
+  const uidsRaw = params.get('uids') || ''
+  const kind = kindRaw ? kindRaw.split(',').filter(Boolean) : []
+  const uids = uidsRaw ? uidsRaw.split(',').map(Number).filter(n => Number.isFinite(n)) : []
+  return { q, kind, uids }
+}
+
+function buildUrl(path, { q, kind, uids }) {
+  const parts = []
+  if (q) parts.push(`q=${encodeURIComponent(q)}`)
+  if (kind.length > 0) parts.push(`kind=${kind.join(',')}`)
+  if (uids.length > 0) parts.push(`uids=${uids.join(',')}`)
+  const qs = parts.join('&')
+  return qs ? `${path}?${qs}` : path
+}
+
+const DEBOUNCE_MS = 200
+
+/**
+ * URL-backed wrapper around useActivityFilterCore.
+ *
+ * Local state mirrors the URL for snappy UI; URL is the source of truth via
+ * router.replace (debounced 200ms on q, immediate on kind/uids). Back button,
+ * page refresh, and sharing all restore filter state.
+ *
+ * @param {object} opts
+ * @param {Array}  opts.activities
+ * @param {object} opts.tour — { authorId, memberIds } (see useActivityFilterCore)
+ */
+export function useActivityFilter({ activities, tour }) {
+  const { url } = usePage()
+  const { path, params } = parseUrl(url)
+  const urlFilter = filterFromParams(params)
+
+  const [local, setLocal] = useState(urlFilter)
+
+  const urlKey = `${urlFilter.q}|${urlFilter.kind.join(',')}|${urlFilter.uids.join(',')}`
+  useEffect(() => {
+    setLocal(urlFilter)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlKey])
+
+  const pushUrl = useCallback((nextFilter) => {
+    const nextUrl = buildUrl(path, nextFilter)
+    router.replace(nextUrl, { preserveState: true, preserveScroll: true, only: [] })
+  }, [path])
+
+  const qDebounceRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
+    }
+  }, [])
+
+  const setQ = useCallback((v) => {
+    setLocal(prev => {
+      const next = { ...prev, q: v }
+      if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
+      qDebounceRef.current = setTimeout(() => pushUrl(next), DEBOUNCE_MS)
+      return next
+    })
+  }, [pushUrl])
+
+  const setKind = useCallback((v) => {
+    if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
+    setLocal(prev => {
+      const next = { ...prev, kind: v }
+      pushUrl(next)
+      return next
+    })
+  }, [pushUrl])
+
+  const setUids = useCallback((v) => {
+    if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
+    setLocal(prev => {
+      const next = { ...prev, uids: v }
+      pushUrl(next)
+      return next
+    })
+  }, [pushUrl])
+
+  const reset = useCallback(() => {
+    const empty = { q: '', kind: [], uids: [] }
+    setLocal(empty)
+    pushUrl(empty)
+    if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
+  }, [pushUrl])
+
+  const core = useActivityFilterCore({ activities, filter: local, tour })
+
+  return {
+    filter: local,
+    setQ,
+    setKind,
+    setUids,
+    reset,
+    ...core,
   }
 }

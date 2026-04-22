@@ -1,6 +1,17 @@
-import { describe, it, expect } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { renderHook, act } from '@testing-library/react'
 import { useActivityFilterCore } from '../useActivityFilter'
+
+vi.mock('@inertiajs/react', () => ({
+  router: { replace: vi.fn() },
+  usePage: vi.fn(() => ({ url: '/tours/42' })),
+}))
+
+import { router, usePage } from '@inertiajs/react'
+
+// Dynamic import after mock is registered — needed because useActivityFilter
+// (Task 3) reads from @inertiajs/react at import time.
+const { useActivityFilter } = await import('../useActivityFilter')
 
 const tour = { authorId: 1, memberIds: [2, 3] } // tour members = [1, 2, 3]
 
@@ -147,5 +158,120 @@ describe('useActivityFilterCore', () => {
     // activities[3] name='Hotel A', details.note='good view' — 'Hotel' is in name only
     expect(result.current.matches(activities[3])).toBe(true)
     expect(result.current.matches(activities[0])).toBe(false) // other activities don't have 'Hotel' anywhere
+  })
+})
+
+describe('useActivityFilter · URL sync', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    usePage.mockReturnValue({ url: '/tours/42' })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('reads initial filter from URL params', () => {
+    usePage.mockReturnValue({ url: '/tours/42?q=%E9%A4%90&kind=food,stay&uids=2,3' })
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    expect(result.current.filter.q).toBe('餐')
+    expect(result.current.filter.kind).toEqual(['food', 'stay'])
+    expect(result.current.filter.uids).toEqual([2, 3])
+  })
+
+  it('defaults to empty filter when URL has no params', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    expect(result.current.filter.q).toBe('')
+    expect(result.current.filter.kind).toEqual([])
+    expect(result.current.filter.uids).toEqual([])
+  })
+
+  it('setQ debounces 200ms then router.replace', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setQ('餐') })
+    expect(router.replace).not.toHaveBeenCalled()
+    act(() => { vi.advanceTimersByTime(200) })
+    expect(router.replace).toHaveBeenCalledWith(
+      '/tours/42?q=%E9%A4%90',
+      expect.objectContaining({ preserveState: true, preserveScroll: true, only: [] })
+    )
+  })
+
+  it('setKind is immediate (no debounce)', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setKind(['food']) })
+    expect(router.replace).toHaveBeenCalledWith(
+      '/tours/42?kind=food',
+      expect.objectContaining({ preserveState: true, preserveScroll: true })
+    )
+  })
+
+  it('setUids is immediate', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setUids([2, 3]) })
+    expect(router.replace).toHaveBeenCalledWith(
+      '/tours/42?uids=2,3',
+      expect.objectContaining({ preserveState: true, preserveScroll: true })
+    )
+  })
+
+  it('reset clears all three params in one call', () => {
+    usePage.mockReturnValue({ url: '/tours/42?q=a&kind=food&uids=2' })
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.reset() })
+    expect(router.replace).toHaveBeenCalledWith(
+      '/tours/42',
+      expect.objectContaining({ preserveState: true, preserveScroll: true })
+    )
+  })
+
+  it('empty string values drop the param from URL', () => {
+    usePage.mockReturnValue({ url: '/tours/42?q=abc&kind=food' })
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setQ('') })
+    act(() => { vi.advanceTimersByTime(200) })
+    expect(router.replace).toHaveBeenCalledWith(
+      '/tours/42?kind=food',
+      expect.anything()
+    )
+  })
+
+  it('setKind cancels pending q debounce (no stale overwrite)', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setQ('餐') })
+    // debounce pending — don't advance timer yet
+    act(() => { result.current.setKind(['food']) })
+    expect(router.replace).toHaveBeenLastCalledWith(
+      '/tours/42?q=%E9%A4%90&kind=food',
+      expect.anything()
+    )
+    const callsBefore = router.replace.mock.calls.length
+    // Advance past the debounce window — the stale timer should NOT fire a push
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(router.replace.mock.calls.length).toBe(callsBefore)
+  })
+
+  it('setUids cancels pending q debounce', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setQ('餐') })
+    act(() => { result.current.setUids([2]) })
+    expect(router.replace).toHaveBeenLastCalledWith(
+      '/tours/42?q=%E9%A4%90&uids=2',
+      expect.anything()
+    )
+    const callsBefore = router.replace.mock.calls.length
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(router.replace.mock.calls.length).toBe(callsBefore)
+  })
+
+  it('unmount clears pending q debounce (no stale push)', () => {
+    const { result, unmount } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setQ('餐') })
+    // Debounce pending
+    unmount()
+    const callsBefore = router.replace.mock.calls.length
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(router.replace.mock.calls.length).toBe(callsBefore)
   })
 })
