@@ -41,6 +41,13 @@ class ActivitiesController < ApplicationController
     redirect_to activity.tour
   end
 
+  def clone
+    source = Activity.find(params[:id])
+    head :forbidden and return unless source.tour.editable_by?(current_user)
+    new_activity = source.clone_for_same_day!
+    render json: { id: new_activity.id, position: new_activity.position }
+  end
+
   private
     def activity_params
       params.require(:activity).permit(

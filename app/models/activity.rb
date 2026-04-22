@@ -87,6 +87,43 @@ class Activity < ApplicationRecord
     end
   end
 
+  # Creates a copy of this activity at `position + 1` in the same (tour, day)
+  # scope, shifting subsequent siblings. `planned_start_at` is the only
+  # identity-like field NOT copied — the A→B→A use case (revisit the same
+  # place later) demands a fresh time slot. Explicit activity_participants
+  # rows ARE copied; default-全员 (empty rows) stays empty. Images, expenses,
+  # and tour_budgets are deliberately NOT copied — they're instance-specific
+  # history, not template material.
+  def clone_for_same_day!
+    transaction do
+      tour.activities
+          .where(day_id: day_id)
+          .where("position > ?", position)
+          .update_all("position = position + 1")
+
+      new_activity = tour.activities.create!(
+        day_id: day_id,
+        position: position + 1,
+        name: name,
+        kind: kind,
+        citizen_level: citizen_level,
+        lat: lat,
+        lng: lng,
+        address: address,
+        desc: desc,
+        planned_duration_min: planned_duration_min,
+        planned_start_at: nil,
+        details: details.is_a?(Hash) ? details.deep_dup : details,
+      )
+
+      activity_participants.each do |ap|
+        new_activity.activity_participants.create!(user_id: ap.user_id)
+      end
+
+      new_activity
+    end
+  end
+
   private
     def sync_expense_days
       expenses.activity.update_all(day_id: day_id)

@@ -65,6 +65,7 @@ function renderDrawer(props = {}) {
     canEdit: true,
     onEdit: vi.fn(),
     onAddExpense: vi.fn(),
+    onClone: vi.fn(),
     onFocusExpense: vi.fn(),
   }
   return render(
@@ -146,6 +147,34 @@ describe('ActivityDetailDrawer – header meta + actions', () => {
     const headerBtns = within(screen.getByTestId('detail-header'))
       .getAllByRole('button', { name: /记一笔/ })
     expect(headerBtns[0]).toBeDisabled()
+  })
+
+  test('canEdit=true renders [克隆] header button', () => {
+    renderDrawer({ canEdit: true })
+    const header = screen.getByTestId('detail-header')
+    expect(within(header).getByRole('button', { name: /克隆/ })).toBeInTheDocument()
+  })
+
+  test('canEdit=false hides [克隆] header button', () => {
+    renderDrawer({ canEdit: false })
+    expect(screen.queryByRole('button', { name: /克隆/ })).toBeNull()
+  })
+
+  test('backlog activity (day_id null) still shows [克隆] (candidates pool is cloneable)', () => {
+    renderDrawer({ canEdit: true, activity: makeActivity({ day_id: null }) })
+    const header = screen.getByTestId('detail-header')
+    expect(within(header).getByRole('button', { name: /克隆/ })).toBeInTheDocument()
+    // And it is NOT disabled (unlike [记一笔] which is disabled in backlog)
+    const btn = within(header).getByRole('button', { name: /克隆/ })
+    expect(btn).not.toBeDisabled()
+  })
+
+  test('clicking [克隆] calls onClone with activity id', () => {
+    const onClone = vi.fn()
+    renderDrawer({ onClone })
+    const header = screen.getByTestId('detail-header')
+    fireEvent.click(within(header).getByRole('button', { name: /克隆/ }))
+    expect(onClone).toHaveBeenCalledWith(10)
   })
 })
 

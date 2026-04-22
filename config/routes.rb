@@ -38,6 +38,7 @@ Rails.application.routes.draw do
   end
 
   resources :activities, only: [ :update, :destroy ] do
+    post :clone, on: :member
     resource :position, only: [ :update ], controller: :activity_positions
     resources :images, only: [ :create ], controller: :activity_images
     resource :participants, only: [ :update ], controller: :activity_participants

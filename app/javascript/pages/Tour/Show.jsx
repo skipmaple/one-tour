@@ -26,6 +26,7 @@ import { useInjectHeaderRight } from '../../layouts/HeaderSlot'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
+import { csrfToken } from '../../utils/csrf'
 
 // Hybrid collision: prefer the droppable the cursor is literally inside
 // (pointerWithin). Only when the pointer is outside every droppable — e.g.
@@ -181,6 +182,42 @@ export default function Show({
     setQuickExpenseActivityId(null)
     setInitialExpenseId(expenseId)
     setExpenseDrawerOpen(true)
+  }
+
+  // Mirrors the CREATE path in ActivityDrawer: fetch (not router.post) because
+  // the undo entry needs the new id from the response body. `cloningRef`
+  // guards against double-tap — without it, rapid clicks fire multiple POSTs
+  // and push duplicate undo entries with stale newIds.
+  const cloningRef = useRef(false)
+  const handleCloneActivity = async (activityId) => {
+    if (cloningRef.current) return
+    const src = activities.find((a) => a.id === activityId)
+    if (!src) return
+    cloningRef.current = true
+    try {
+      const res = await fetch(`/activities/${activityId}/clone`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const { id: newId } = await res.json()
+      router.reload({ only: [ 'activities', 'violations' ] })
+      undoStack.push({
+        label: `克隆 ${src.name}`,
+        undoFn: () => fetch(`/activities/${newId}`, {
+          method: 'DELETE',
+          headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
+        }).then((r) => {
+          if (!r.ok) throw new Error('删除失败')
+          router.reload({ only: [ 'activities', 'violations' ] })
+        }),
+      })
+    } catch (err) {
+      console.error('clone failed', err)
+      notifications.show({ message: '克隆失败', color: 'red' })
+    } finally {
+      cloningRef.current = false
+    }
   }
 
   const editingActivity = editor.activityId ? activities.find(a => a.id === editor.activityId) : null
@@ -431,6 +468,7 @@ export default function Show({
         canEdit={canEdit}
         onEdit={openEditFromDetail}
         onAddExpense={openAddExpenseForActivity}
+        onClone={handleCloneActivity}
         onFocusExpense={openExpenseById}
       />
 
