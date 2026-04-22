@@ -20,41 +20,11 @@ const fixtures = [
   { id: 3, name: '早餐', kind: 'food', citizen_level: 'tier_three', day_id: null, position: 3 },
 ]
 
-// Mantine Select renders a readonly combobox input. @testing-library/user-event
-// skips readonly inputs, so we open the dropdown with fireEvent.click (which
-// Mantine's onClick handler handles) and select options with fireEvent.click too.
-function openAndSelect(comboboxIndex, optionName) {
-  const inputs = document.querySelectorAll('input[role="combobox"]')
-  fireEvent.click(inputs[comboboxIndex])
-  fireEvent.click(screen.getByRole('option', { name: optionName }))
-}
-
 test('renders all activities by default', () => {
   renderIt(fixtures)
   expect(screen.getByText('赛里木湖')).toBeInTheDocument()
   expect(screen.getByText('独库公路')).toBeInTheDocument()
   expect(screen.getByText('早餐')).toBeInTheDocument()
-})
-
-test('filters by kind', () => {
-  renderIt(fixtures)
-  openAndSelect(0, '景')
-  expect(screen.getByText('赛里木湖')).toBeInTheDocument()
-  expect(screen.queryByText('独库公路')).not.toBeInTheDocument()
-  expect(screen.queryByText('早餐')).not.toBeInTheDocument()
-})
-
-test('filters by level', () => {
-  renderIt(fixtures)
-  openAndSelect(1, '三等')
-  expect(screen.getByText('早餐')).toBeInTheDocument()
-  expect(screen.queryByText('赛里木湖')).not.toBeInTheDocument()
-})
-
-test('shows empty state when filter matches nothing', () => {
-  renderIt(fixtures)
-  openAndSelect(0, '住')
-  expect(screen.getByText(/无匹配的候选/)).toBeInTheDocument()
 })
 
 test('shows "no backlog" message when activities is empty and readOnly', () => {
@@ -135,27 +105,6 @@ test('non-empty backlog: empty-state hint not rendered, toolbar shows both butto
   expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
   expect(screen.getAllByRole('button', { name: '加候选' })).toHaveLength(1)
   expect(screen.getAllByRole('button', { name: 'AI 帮选' })).toHaveLength(1)
-})
-
-test('filter hides all but "无匹配" does NOT show empty-CTA frame', () => {
-  render(
-    <MantineProvider>
-      <DndContext>
-        <BacklogList
-          activities={fixtures}
-          onAddActivity={() => {}}
-          onAskAI={() => {}}
-        />
-      </DndContext>
-    </MantineProvider>
-  )
-  // Filter to kind that no fixture matches
-  openAndSelect(0, '住')
-  expect(screen.getByText(/无匹配的候选/)).toBeInTheDocument()
-  // Still show top 加候选 (normal mode)
-  expect(screen.getByRole('button', { name: '加候选' })).toBeInTheDocument()
-  // Do NOT show empty-state three-button frame
-  expect(screen.queryByText(/先把想去的点塞进这里/)).not.toBeInTheDocument()
 })
 
 test('when open=false, renders a collapsed trigger instead of filters/list', () => {
@@ -284,4 +233,55 @@ test('card mouseenter calls onHoverActivity(id); mouseleave calls onClearHover',
   expect(onHoverActivity).toHaveBeenCalledWith(1) // fixtures[0].id === 1
   fireEvent.mouseLeave(firstCard)
   expect(onClearHover).toHaveBeenCalled()
+})
+
+test('renders activities as-is (no internal filtering)', () => {
+  renderIt([fixtures[0]])
+  expect(screen.getByText('赛里木湖')).toBeInTheDocument()
+  expect(screen.queryByText('早餐')).not.toBeInTheDocument()
+  expect(screen.queryByText('独库公路')).not.toBeInTheDocument()
+})
+
+test('shows filter banner when filterActive=true', () => {
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList activities={fixtures} filterActive />
+      </DndContext>
+    </MantineProvider>
+  )
+  expect(screen.getByText(/筛选中/)).toBeInTheDocument()
+})
+
+test('does NOT show filter banner when filterActive=false (default)', () => {
+  renderIt(fixtures)
+  expect(screen.queryByText(/筛选中/)).not.toBeInTheDocument()
+})
+
+test('shows "无匹配" inline message when activities is empty and filterActive', () => {
+  render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList activities={[]} filterActive />
+      </DndContext>
+    </MantineProvider>
+  )
+  expect(screen.getByText(/无匹配的活动/)).toBeInTheDocument()
+})
+
+test('filterActive forwards draggable=false to cards (data-draggable attr)', () => {
+  const { container } = render(
+    <MantineProvider>
+      <DndContext>
+        <BacklogList activities={fixtures} filterActive />
+      </DndContext>
+    </MantineProvider>
+  )
+  // data-draggable attribute is implemented in Task 8 (ActivityCard draggable prop).
+  // This test is expected to FAIL until Task 8 ships. That's OK — it guards the
+  // prop-passing contract between BacklogList and ActivityCard.
+  const cards = container.querySelectorAll('.ac-card')
+  cards.forEach(card => {
+    expect(card.getAttribute('data-draggable')).toBe('false')
+  })
 })
