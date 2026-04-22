@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useMediaQuery } from '@mantine/hooks'
 import { Group, TextInput, ActionIcon, Popover, Stack, Chip, Checkbox, Badge, Button, Indicator, Avatar, Divider, Tooltip } from '@mantine/core'
 import {
   IconSearch, IconFilter, IconX,
@@ -19,7 +20,9 @@ export default function ActivityFilterBar({
   active, activeCount, totalCount,
   members, author,
 }) {
+  const isMobile = useMediaQuery('(max-width: 640px)')
   const [popoverOpen, setPopoverOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const allPeople = [
     { user_id: author.user_id, name: author.name, avatar_url: author.avatar_url, isAuthor: true },
@@ -40,20 +43,60 @@ export default function ActivityFilterBar({
     <Group gap="xs" wrap="nowrap">
       <Divider orientation="vertical" />
 
-      <TextInput
-        size="xs"
-        w={180}
-        value={filter.q}
-        onChange={e => setQ(e.currentTarget.value)}
-        placeholder="搜索活动名或备注"
-        leftSection={<IconSearch size={14} />}
-        rightSection={filter.q ? (
-          <ActionIcon variant="subtle" size="xs" onClick={() => setQ('')} aria-label="清空搜索">
-            <IconX size={12} />
-          </ActionIcon>
-        ) : null}
-        aria-label="搜索活动"
-      />
+      {!isMobile && (
+        <TextInput
+          size="xs"
+          w={180}
+          value={filter.q}
+          onChange={e => setQ(e.currentTarget.value)}
+          placeholder="搜索活动名或备注"
+          leftSection={<IconSearch size={14} />}
+          rightSection={filter.q ? (
+            <ActionIcon variant="subtle" size="xs" onClick={() => setQ('')} aria-label="清空搜索">
+              <IconX size={12} />
+            </ActionIcon>
+          ) : null}
+          aria-label="搜索活动"
+        />
+      )}
+
+      {isMobile && (
+        <Popover
+          opened={searchOpen}
+          onChange={setSearchOpen}
+          position="bottom-start"
+          width={260}
+          withArrow
+        >
+          <Popover.Target>
+            <Tooltip label="搜索" withArrow>
+              <ActionIcon
+                variant={filter.q ? 'light' : 'subtle'}
+                size="md"
+                onClick={() => setSearchOpen(o => !o)}
+                aria-label="搜索"
+              >
+                <IconSearch size={16} />
+              </ActionIcon>
+            </Tooltip>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <TextInput
+              size="xs"
+              value={filter.q}
+              onChange={e => setQ(e.currentTarget.value)}
+              placeholder="搜索活动名或备注"
+              leftSection={<IconSearch size={14} />}
+              rightSection={filter.q ? (
+                <ActionIcon variant="subtle" size="xs" onClick={() => setQ('')} aria-label="清空搜索">
+                  <IconX size={12} />
+                </ActionIcon>
+              ) : null}
+              aria-label="搜索活动"
+            />
+          </Popover.Dropdown>
+        </Popover>
+      )}
 
       <Popover
         opened={popoverOpen}

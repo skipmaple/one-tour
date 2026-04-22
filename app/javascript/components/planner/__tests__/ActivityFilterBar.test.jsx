@@ -1,8 +1,17 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { MantineProvider } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import ActivityFilterBar from '../ActivityFilterBar'
+
+vi.mock('@mantine/hooks', async () => {
+  const actual = await vi.importActual('@mantine/hooks')
+  return {
+    ...actual,
+    useMediaQuery: vi.fn(),
+  }
+})
 
 const members = [
   { user_id: 1, name: 'Alice', avatar_url: null },
@@ -31,6 +40,13 @@ function renderBar(props = {}) {
 }
 
 describe('ActivityFilterBar', () => {
+  beforeEach(() => {
+    useMediaQuery.mockReturnValue(false) // desktop default
+  })
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('renders search input and filter icon button', () => {
     renderBar()
     expect(screen.getByRole('textbox', { name: /搜索活动/ })).toBeInTheDocument()
@@ -100,5 +116,27 @@ describe('ActivityFilterBar', () => {
     await screen.findByText('Bob')
     expect(screen.getAllByText(/Alice/).length).toBe(1)
     expect(screen.getByText('Bob')).toBeInTheDocument()
+  })
+})
+
+describe('ActivityFilterBar · mobile', () => {
+  beforeEach(() => {
+    useMediaQuery.mockReturnValue(true)
+  })
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('collapses search to icon button on mobile', () => {
+    renderBar()
+    expect(screen.queryByRole('textbox', { name: /搜索活动/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /搜索/ })).toBeInTheDocument()
+  })
+
+  it('clicking mobile search icon opens popover with search input', async () => {
+    const user = userEvent.setup()
+    renderBar()
+    await user.click(screen.getByRole('button', { name: /搜索/ }))
+    expect(await screen.findByRole('textbox', { name: /搜索活动/ })).toBeInTheDocument()
   })
 })
