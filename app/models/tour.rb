@@ -10,7 +10,13 @@ class Tour < ApplicationRecord
   has_many :route_legs, dependent: :destroy
   has_many :conversations, dependent: :destroy
 
-  validates :title, presence: true
+  # Title may be blank immediately after creation — the onboarding drawer
+  # requires 程名 before saving step 1, so real titles always land before a
+  # tour leaves setup. UI falls back to "未命名旅程" for rendering. Once the
+  # user accepts the constitution the tour is "live" and a real title becomes
+  # mandatory — this guards against API callers or future clients leaving an
+  # accepted tour permanently unnamed.
+  validates :title, presence: true, if: :constitution_accepted?
 
   before_create :seed_constitution_defaults
   after_create_commit :seed_first_day

@@ -1,11 +1,11 @@
 class Tour::TimelineSummary
-  def self.for(tour)
-    new(tour).to_h
+  def self.for(tour, violations: nil)
+    new(tour, violations: violations).to_h
   end
 
-  def initialize(tour)
+  def initialize(tour, violations: nil)
     @tour       = tour
-    @violations = Tour::ConstitutionCheck.for(tour)
+    @violations = violations || Tour::ConstitutionCheck.for(tour)
   end
 
   def to_h

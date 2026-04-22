@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react'
-import { usePage, router, Link } from '@inertiajs/react'
+import { usePage, router, Link, Head } from '@inertiajs/react'
 import {
   Container, Title, Stack, Table, TextInput, Group, Pagination,
   Text, Anchor,
 } from '@mantine/core'
 import { IconSearch } from '@tabler/icons-react'
 import { useDebouncedValue } from '@mantine/hooks'
-import AdminShell from '../../components/admin/AdminShell'
 
 function fmtDate(iso) { return new Date(iso).toLocaleDateString('zh-CN') }
 
 export default function ToursIndex() {
-  const { url, props } = usePage()
+  const { props } = usePage()
   const { tours, total, page, per_page, q, sort } = props
 
   const [search, setSearch] = useState(q)
@@ -34,7 +33,8 @@ export default function ToursIndex() {
   const totalPages = Math.max(1, Math.ceil(total / per_page))
 
   return (
-    <AdminShell currentPath={url.split('?')[0]}>
+    <>
+      <Head title="旅程" />
       <Container fluid px="md">
         <Stack gap="md">
           <Title order={2}>旅程</Title>
@@ -62,7 +62,7 @@ export default function ToursIndex() {
                 <Table.Tr key={t.id}>
                   <Table.Td>{t.id}</Table.Td>
                   <Table.Td>
-                    <Anchor component={Link} href={`/admin/tours/${t.id}`}>{t.title}</Anchor>
+                    <Anchor component={Link} href={`/admin/tours/${t.id}`}>{t.title || '未命名旅程'}</Anchor>
                   </Table.Td>
                   <Table.Td>
                     <Anchor component={Link} href={`/admin/users/${t.author_id}`}>
@@ -85,6 +85,6 @@ export default function ToursIndex() {
           </Group>
         </Stack>
       </Container>
-    </AdminShell>
+    </>
   )
 }

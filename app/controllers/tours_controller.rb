@@ -16,7 +16,8 @@ class ToursController < ApplicationController
 
   def show
     head :not_found and return unless @tour.visible_to?(current_user)
-    tour_violations = Tour::ConstitutionCheck.for(@tour).map(&:to_h)
+    tour_violation_structs = Tour::ConstitutionCheck.for(@tour)
+    tour_violations = tour_violation_structs.map(&:to_h)
     conv = @tour.conversations.find_by(user: current_user)
     render inertia: "Tour/Show", props: {
       tour: @tour.as_json.merge("editable_by_current_user" => @tour.editable_by?(current_user)),
@@ -48,13 +49,23 @@ class ToursController < ApplicationController
         name: @tour.author.name,
         avatar_url: @tour.author.display_avatar_url
       },
-      conversation_empty: !conv || !conv.messages.exists?
+      conversation_empty: !conv || !conv.messages.exists?,
+      summary: Tour::TimelineSummary.for(@tour, violations: tour_violation_structs),
+      constitution: @tour.constitution,
+      defaults: Constitution::DEFAULTS.deep_stringify_keys,
+      overrides: @tour.constraint_overrides
     }
   end
 
   def create
-    @tour = Tour.create!(author: current_user, **tour_params)
-    redirect_to tour_constitution_path(@tour)
+    # /tours POST may be called with an empty body (from "+ 新建旅程") or
+    # with a pre-filled `tour:` hash (from tests / admin tooling). Default
+    # `title` to '' so the DB NOT NULL constraint is satisfied; the frontend
+    # falls back to "未命名旅程" for display and the onboarding drawer
+    # requires a real name before finishing setup.
+    attrs = create_tour_params.to_h.reverse_merge("title" => "")
+    @tour = Tour.create!(author: current_user, **attrs)
+    redirect_to tour_path(@tour)
   end
 
   def update
@@ -78,8 +89,19 @@ class ToursController < ApplicationController
       head :not_found and return unless @tour
     end
 
+    # For update: tour key is required — PATCH /tours/:id with no body is
+    # a client error.
     def tour_params
       params.require(:tour).permit(
+        :title, :date_range, :vehicle, :team_size, :trip_style, :budget_per_person,
+        :archived, :currency, :timezone
+      )
+    end
+
+    # For create: tour key is optional (empty body → empty hash). Onboarding
+    # fills actual fields in a later PATCH.
+    def create_tour_params
+      params.fetch(:tour, {}).permit(
         :title, :date_range, :vehicle, :team_size, :trip_style, :budget_per_person,
         :archived, :currency, :timezone
       )

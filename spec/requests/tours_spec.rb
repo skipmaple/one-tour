@@ -51,13 +51,13 @@ RSpec.describe "Tours", type: :request do
   end
 
   describe "POST /tours" do
-    it "creates a tour and redirects to its constitution page" do
+    it "creates a tour and redirects to its show page" do
       login_as(user)
       expect {
         post "/tours", params: { tour: { title: "新伊犁" } }
       }.to change(Tour, :count).by(1)
       tour = Tour.last
-      expect(response).to redirect_to(tour_constitution_path(tour))
+      expect(response).to redirect_to(tour_path(tour))
     end
   end
 
@@ -126,6 +126,25 @@ RSpec.describe "Tours", type: :request do
       get "/tours/#{tour.id}"
       expect(response).to have_http_status(:ok)
       expect(response.body).to include('"conversation_empty":false')
+    end
+
+    it "includes a `summary` Inertia prop shaped like Tour::TimelineSummary.for" do
+      tour = create(:tour, author: user)
+      login_as(user)
+      get "/tours/#{tour.id}"
+      expect(response).to have_http_status(:ok)
+      page = inertia_page_from(response.body)
+      expect(page["props"]).to have_key("summary")
+      expect(page["props"]["summary"]).to eq(Tour::TimelineSummary.for(tour).deep_stringify_keys)
+    end
+
+    it "includes constitution, defaults, overrides in show props" do
+      tour = create(:tour, author: user)
+      login_as(user)
+      get "/tours/#{tour.id}"
+      expect(response).to have_http_status(:ok)
+      page = inertia_page_from(response.body)
+      expect(page["props"]).to include("constitution", "defaults", "overrides")
     end
   end
 

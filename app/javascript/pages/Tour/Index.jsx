@@ -2,14 +2,17 @@ import { Stack, Group, Title, Button, Table, Text, Badge } from '@mantine/core'
 import { Link, Head, router } from '@inertiajs/react'
 
 export default function Index({ tours }) {
-  const createTour = () => router.post('/tours', { tour: { title: '新旅程' } })
+  // Create with no title — onboarding step 1 requires 程名 before advancing,
+  // so users can't leave the tour in an anonymous state. List rows and
+  // headers fall back to "未命名旅程" if the user abandons before saving.
+  const createTour = () => router.post('/tours', {})
 
   return (
     <Stack gap="lg" p="md">
       <Head title="我的旅程" />
       <Group justify="space-between">
         <Title order={2}>我的旅程</Title>
-        <Button onClick={createTour}>+ 新建程</Button>
+        <Button onClick={createTour}>+ 新建旅程</Button>
       </Group>
 
       <Table striped highlightOnHover>
@@ -27,7 +30,7 @@ export default function Index({ tours }) {
         <Table.Tbody>
           {tours.map(t => (
             <Table.Tr key={t.id} style={{ opacity: t.archived ? 0.55 : 1 }}>
-              <Table.Td><Text fw={600}>{t.title}</Text></Table.Td>
+              <Table.Td><Text fw={600}>{t.title || '未命名旅程'}</Text></Table.Td>
               <Table.Td>
                 <Text size="sm">{t.date_range || '—'}</Text>
                 <Text size="xs" c="dimmed">{t.team_size ? `${t.team_size} 人` : ''}</Text>
@@ -44,7 +47,7 @@ export default function Index({ tours }) {
               <Table.Td>{t.my_role === 'author' ? '作者' : t.my_role === 'editor' ? '编辑' : t.my_role === 'reader' ? '只读' : t.my_role || '作者'}</Table.Td>
               <Table.Td>
                 <Button component={Link} href={openHref(t)} size="xs" variant="light">
-                  {(t.days_count ?? 0) > 0 ? '打开 →' : '继续设置 →'}
+                  打开 →
                 </Button>
               </Table.Td>
             </Table.Tr>
@@ -53,17 +56,14 @@ export default function Index({ tours }) {
       </Table>
 
       {tours.length === 0 && (
-        <Text c="dimmed" ta="center" py="xl">还没有旅程。点"+ 新建程"开始。</Text>
+        <Text c="dimmed" ta="center" py="xl">还没有旅程。点"+ 新建旅程"开始。</Text>
       )}
     </Stack>
   )
 }
 
-// Tours with no days yet haven't finished the guided-setup; send the user
-// back to the constitution page to complete it. Once days exist, jump
-// straight into the planner.
 export function openHref(t) {
-  return (t.days_count ?? 0) > 0 ? `/tours/${t.id}` : `/tours/${t.id}/constitution`
+  return `/tours/${t.id}`
 }
 
 // Relative Chinese formatter with ISO tooltip on hover (<Text title>).

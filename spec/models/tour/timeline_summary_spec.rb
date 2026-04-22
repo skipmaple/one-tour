@@ -45,5 +45,20 @@ RSpec.describe Tour::TimelineSummary do
       expect(result[:hard_count]).to be >= 1
       expect(result[:hard_count] + result[:soft_count]).to be > 0
     end
+
+    it "accepts pre-computed violations via keyword argument" do
+      violations = Tour::ConstitutionCheck.for(tour)
+      # Should not re-run ConstitutionCheck.for when violations: is provided.
+      expect(Tour::ConstitutionCheck).not_to receive(:for)
+      summary = described_class.for(tour, violations: violations)
+      expect(summary).to have_key(:hard_count)
+      expect(summary).to have_key(:soft_count)
+    end
+
+    it "computes violations internally if not provided (backward compat)" do
+      expect(Tour::ConstitutionCheck).to receive(:for).with(tour).and_call_original
+      summary = described_class.for(tour)
+      expect(summary).to have_key(:hard_count)
+    end
   end
 end

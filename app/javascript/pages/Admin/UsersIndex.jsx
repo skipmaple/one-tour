@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
-import { usePage, router, Link } from '@inertiajs/react'
+import { usePage, router, Link, Head } from '@inertiajs/react'
 import {
   Container, Title, Stack, Table, TextInput, Group, Pagination,
   Text, Anchor, Badge,
 } from '@mantine/core'
 import { IconSearch } from '@tabler/icons-react'
 import { useDebouncedValue } from '@mantine/hooks'
-import AdminShell from '../../components/admin/AdminShell'
 
 function fmtCost(cents) { return `¥${(cents / 100).toFixed(2)}` }
 function fmtNum(n)      { return n.toLocaleString() }
@@ -15,7 +14,7 @@ function fmtDate(iso)   { return new Date(iso).toLocaleDateString('zh-CN') }
 const USER_ROLE_LABEL = { admin: '管理员', user: '普通用户' }
 
 export default function UsersIndex() {
-  const { url, props } = usePage()
+  const { props } = usePage()
   const { users, total, page, per_page, q, sort } = props
 
   const [search, setSearch] = useState(q)
@@ -44,7 +43,8 @@ export default function UsersIndex() {
   const totalPages = Math.max(1, Math.ceil(total / per_page))
 
   return (
-    <AdminShell currentPath={url.split('?')[0]}>
+    <>
+      <Head title="用户" />
       <Container fluid px="md">
         <Stack gap="md">
           <Title order={2}>用户</Title>
@@ -96,7 +96,7 @@ export default function UsersIndex() {
           </Group>
         </Stack>
       </Container>
-    </AdminShell>
+    </>
   )
 }
 

@@ -36,6 +36,9 @@ class ConstraintOverridesController < ApplicationController
       else
         raw.is_a?(Hash) ? raw : {}
       end
-      hash.transform_values { |v| v =~ /\A\d+\z/ ? v.to_i : v }
+      # Inertia JSON sends scope values as their native type (e.g. day_index
+      # arrives as Integer). Only strings need the numeric-coerce pass; calling
+      # =~ on a non-String raises NoMethodError.
+      hash.transform_values { |v| v.is_a?(String) && v =~ /\A\d+\z/ ? v.to_i : v }
     end
 end

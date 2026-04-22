@@ -1,9 +1,8 @@
-import { usePage, Link } from '@inertiajs/react'
+import { usePage, Link, Head } from '@inertiajs/react'
 import {
   Container, Stack, Title, Card, Group, Text, Badge, SimpleGrid, Table, Anchor,
 } from '@mantine/core'
 import { IconArrowLeft } from '@tabler/icons-react'
-import AdminShell from '../../components/admin/AdminShell'
 
 function fmtCost(cents) {
   if (cents == null) return '—'
@@ -28,7 +27,8 @@ export default function ToursShow() {
   const { tour, members, days, conversation_stats: stats } = props
 
   return (
-    <AdminShell currentPath="/admin/tours">
+    <>
+      <Head title={tour.title || '未命名旅程'} />
       <Container size="lg" px="md">
         <Stack gap="md">
           <Anchor component={Link} href="/admin/tours">
@@ -37,7 +37,7 @@ export default function ToursShow() {
 
           {/* Tour profile */}
           <Card withBorder padding="md" radius="md">
-            <Title order={3}>{tour.title}</Title>
+            <Title order={3}>{tour.title || '未命名旅程'}</Title>
             <Text size="sm" mt={4}>
               作者：
               <Anchor component={Link} href={`/admin/users/${tour.author.id}`}>
@@ -123,6 +123,6 @@ export default function ToursShow() {
           </Card>
         </Stack>
       </Container>
-    </AdminShell>
+    </>
   )
 }
