@@ -415,3 +415,26 @@ test('edit payload preserves existing explicit participant_user_ids', async () =
   const [, data] = router.patch.mock.calls[0]
   expect(data.user_ids).toEqual([ 1, 2 ])
 })
+
+test('edit save invokes onClose on success (drawer closes)', async () => {
+  const onClose = vi.fn()
+  renderDrawer({
+    onClose,
+    mode: 'edit',
+    activity: {
+      id: 42, name: '赛里木湖', kind: 'scenic', citizen_level: 'tier_one',
+      day_id: 5, details: {},
+    },
+  })
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => expect(onClose).toHaveBeenCalled())
+})
+
+test('create save invokes onClose on success (drawer closes)', async () => {
+  global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 999, position: 1 }) })
+  const onClose = vi.fn()
+  renderDrawer({ onClose, targetDayId: 10 })
+  fireEvent.change(screen.getByLabelText('名称', { exact: false }), { target: { value: '午餐' } })
+  fireEvent.click(screen.getByRole('button', { name: '保存' }))
+  await waitFor(() => expect(onClose).toHaveBeenCalled())
+})

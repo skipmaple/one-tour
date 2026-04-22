@@ -169,7 +169,7 @@ function DetailDescSection({ activity }) {
   return (
     <>
       <Divider />
-      <Stack gap={6}>
+      <Stack gap="xs">
         <Text size="xs" c="dimmed">介绍</Text>
         <div data-testid="detail-desc">
           <MarkdownView source={activity.desc} />

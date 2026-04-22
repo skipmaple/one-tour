@@ -34,11 +34,25 @@ describe('MarkdownView', () => {
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
   })
 
-  it('escapes embedded HTML (XSS safe)', () => {
-    const { container } = wrap(<MarkdownView source="<script>alert(1)</script>" />)
+  it('strips embedded HTML tags entirely (XSS safe + clean UX)', () => {
+    const { container } = wrap(
+      <MarkdownView source={'Hello <script>alert(1)</script><img src=x onerror="alert(2)"> World'} />
+    )
+    // XSS safety: no script or img elements in DOM
     expect(container.querySelector('script')).toBeNull()
-    // The literal text should appear (escaped into the DOM, not executed)
-    expect(container.textContent).toContain('<script>')
+    expect(container.querySelector('img')).toBeNull()
+    // UX cleanliness: no literal "<script>" text either (dropped entirely by
+    // stripHtmlPlugin, not escaped)
+    expect(container.textContent).not.toContain('<script>')
+    expect(container.textContent).not.toContain('onerror')
+    // Surrounding markdown text is preserved
+    expect(container.textContent).toContain('Hello')
+    expect(container.textContent).toContain('World')
+  })
+
+  it('preserves literal < when not part of an HTML tag', () => {
+    const { container } = wrap(<MarkdownView source="I <3 markdown" />)
+    expect(container.textContent).toContain('<3 markdown')
   })
 
   it('treats a single newline as a line break (remark-breaks)', () => {

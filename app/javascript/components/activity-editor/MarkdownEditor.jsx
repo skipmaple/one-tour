@@ -89,8 +89,11 @@ export default function MarkdownEditor({ value, onChange, maxLength = MAX_LENGTH
     return { next, selStart: urlStart, selEnd: urlStart + 3 } // select "url"
   }
 
-  const len = (value || '').length
-  const counterColor = len > maxLength ? 'red' : len > maxLength * 0.9 ? 'orange' : 'dimmed'
+  // Byte count (UTF-8), not JS string length — the backend limit is expressed
+  // in bytes (Activity::DESC_MAX_BYTES). Counting code units would let CJK
+  // users see "16666 / 50000" then hit 422 at ~16,667 chars (3 bytes each).
+  const bytes = new TextEncoder().encode(value || '').length
+  const counterColor = bytes > maxLength ? 'red' : bytes > maxLength * 0.9 ? 'orange' : 'dimmed'
 
   return (
     <Stack gap={4}>
@@ -118,9 +121,8 @@ export default function MarkdownEditor({ value, onChange, maxLength = MAX_LENGTH
         autosize
         minRows={3}
         maxRows={30}
-        maxLength={maxLength}
       />
-      <Text size="xs" c={counterColor} ta="right">{len} / {maxLength}</Text>
+      <Text size="xs" c={counterColor} ta="right">{bytes} / {maxLength} 字节</Text>
     </Stack>
   )
 }

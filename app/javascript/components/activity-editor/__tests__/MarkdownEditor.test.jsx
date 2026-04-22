@@ -91,9 +91,19 @@ describe('MarkdownEditor', () => {
     expect(onChange).toHaveBeenLastCalledWith('标题')
   })
 
-  it('shows a character counter with / 50000 suffix', () => {
+  it('counts UTF-8 bytes (not JS code units) so CJK is accurate vs the server limit', () => {
+    // "你好" is 2 JS chars but 6 UTF-8 bytes (3 bytes per CJK char).
     wrap(<MarkdownEditor value="你好" onChange={() => {}} />)
-    expect(screen.getByText(/\/ 50000/)).toBeInTheDocument()
-    expect(screen.getByText(/^2/)).toBeInTheDocument()
+    expect(screen.getByText('6 / 50000 字节')).toBeInTheDocument()
+  })
+
+  it('counter shows 0 for empty value', () => {
+    wrap(<MarkdownEditor value="" onChange={() => {}} />)
+    expect(screen.getByText('0 / 50000 字节')).toBeInTheDocument()
+  })
+
+  it('counter matches ASCII length 1:1', () => {
+    wrap(<MarkdownEditor value={'x'.repeat(42)} onChange={() => {}} />)
+    expect(screen.getByText('42 / 50000 字节')).toBeInTheDocument()
   })
 })
