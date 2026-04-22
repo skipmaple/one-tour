@@ -77,4 +77,10 @@ describe('DayPanel', () => {
     expect(screen.queryByText(/D1/)).not.toBeInTheDocument()
     expect(screen.getByLabelText(/展开 日程/)).toBeInTheDocument()
   })
+
+  test('filterActive prop is forwarded to each DayColumn', () => {
+    renderPanel({ filterActive: true })
+    const banners = screen.getAllByText(/筛选中/)
+    expect(banners.length).toBeGreaterThanOrEqual(2)
+  })
 })
