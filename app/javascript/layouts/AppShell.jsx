@@ -8,7 +8,7 @@ import {
 } from '@tabler/icons-react'
 import SidebarNav from './sidebar/SidebarNav'
 import { useSidebarCollapsed } from './sidebar/useSidebarCollapsed'
-import { HeaderSlotProvider, useHeaderRightSlot } from './HeaderSlot'
+import { HeaderSlotProvider, useHeaderRightSlot, useHeaderLeftToolsSlot } from './HeaderSlot'
 
 const SITE_SUFFIX_RE = /\s*·\s*路书\s*$/
 
@@ -47,6 +47,7 @@ function AppShellInner({ children }) {
   const currentPath = url.split('?')[0]
   const title = useDocumentTitle()
   const rightSlot = useHeaderRightSlot()
+  const leftToolsSlot = useHeaderLeftToolsSlot()
 
   const { collapsed, toggle } = useSidebarCollapsed()
   const [mobileOpened, { toggle: toggleMobile }] = useDisclosure(false)
@@ -84,6 +85,7 @@ function AppShellInner({ children }) {
               : <IconLayoutSidebarLeftExpand size={20} />}
           </ActionIcon>
           <Text fw={600} size="sm">{title}</Text>
+          {leftToolsSlot}
           <Box style={{ flex: 1 }} />
           {rightSlot}
         </Group>
