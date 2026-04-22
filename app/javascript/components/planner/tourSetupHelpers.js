@@ -56,9 +56,12 @@ export function detectDateDaysConflict(range, days) {
 
 // Parse a stored tour.date_range string like "2025-05-01 ~ 2025-05-07"
 // into [startDate, endDate] (Date objects or [null, null] if unparseable).
+// Separator regex intentionally requires whitespace around the dash-style
+// chars — a bare `-` would split inside ISO dates (`2025-05-01` → 3 parts)
+// and make the parser drop every well-formed stored range.
 export function parseTourDateRange(dateRangeStr) {
   if (!dateRangeStr) return [null, null]
-  const parts = dateRangeStr.split(/[~\-–—]/).map(s => s.trim()).filter(Boolean)
+  const parts = dateRangeStr.split(/\s+[~\-–—]\s+/).map(s => s.trim()).filter(Boolean)
   if (parts.length === 2) {
     const d1 = new Date(parts[0])
     const d2 = new Date(parts[1])

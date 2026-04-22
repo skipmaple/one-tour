@@ -21,4 +21,21 @@ RSpec.describe "Tours::Constitutions", type: :request do
     patch tour_constitution_path(tour), params: { constitution: { max_tier_one_per_day: 4 } }
     expect(response).to have_http_status(:forbidden)
   end
+
+  # Regression: the GET show + the /tours/:id/timeline GET were retired
+  # when planner became the canonical view. Anyone re-adding these routes
+  # needs to also revisit ConstitutionDrawer / TimelineOverlay.
+  it "GET /tours/:id/constitution returns 404 (route deleted)" do
+    tour = create(:tour, author: user)
+    login_as(user)
+    get "/tours/#{tour.id}/constitution"
+    expect(response).to have_http_status(:not_found)
+  end
+
+  it "GET /tours/:id/timeline returns 404 (route deleted)" do
+    tour = create(:tour, author: user)
+    login_as(user)
+    get "/tours/#{tour.id}/timeline"
+    expect(response).to have_http_status(:not_found)
+  end
 end
