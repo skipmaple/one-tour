@@ -1,5 +1,5 @@
 import { TextInput, Select, Radio, Group, SimpleGrid, Stack, Text, NumberInput, Divider } from '@mantine/core'
-import { TimeInput } from '@mantine/dates'
+import { TimePicker } from '@mantine/dates'
 import { KIND_OPTIONS, KIND_ICONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS, KIND_SCHEMA } from './detailsSchema'
 import PoiSearchCombobox from './PoiSearchCombobox'
 import PresetChips from './PresetChips'
@@ -74,9 +74,14 @@ export default function CommonFields({
           ))}
         </SimpleGrid>
       </Radio.Group>
-      <Group grow align="flex-end">
-        <TimeInput
+      <Group grow align="flex-start">
+        <TimePicker
           label="开始时间"
+          format="24h"
+          clearable
+          minutesStep={5}
+          hoursInputLabel="小时"
+          minutesInputLabel="分钟"
           {...form.getInputProps('planned_start_at')}
         />
         <Stack gap={0} data-testid="duration-field">
