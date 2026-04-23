@@ -316,10 +316,13 @@ test('分段结构：位置 / 分类与时间 / 备注 / 类型细节 / 参与�
   expect(screen.queryByRole('button', { name: /更多设置/ })).not.toBeInTheDocument()
 })
 
-test('开始时间 是 TimeInput（type=time）', () => {
+test('开始时间 渲染为 TimePicker（3 个 number 输入：时/分/秒?）', () => {
   renderDrawer({ mode: 'create', targetDayId: 5 })
-  const input = screen.getByLabelText('开始时间', { exact: false })
-  expect(input).toHaveAttribute('type', 'time')
+  // Mantine TimePicker renders separate hours/minutes spinners rather than a
+  // single <input type="time">. Verify the label is present and the picker
+  // exposes at least the hours input (aria-label "小时" per Mantine default).
+  expect(screen.getByText('开始时间')).toBeInTheDocument()
+  expect(screen.getByLabelText(/小时|hours/i)).toBeInTheDocument()
 })
 
 test('时长 下方出现预设芯片（30/60/90/120/180），点击写入', () => {

@@ -5,8 +5,8 @@ import Show from '../Show'
 
 vi.mock('@inertiajs/react', () => ({
   Head: ({ children, title }) => null,
-  usePage: () => ({ props: { amap_js_api_key: '', amap_js_security_code: '' } }),
-  router: { patch: () => {}, post: () => {}, reload: () => {} },
+  usePage: () => ({ props: { amap_js_api_key: '', amap_js_security_code: '' }, url: '/tours/1' }),
+  router: { patch: () => {}, post: () => {}, reload: () => {}, replace: () => {} },
 }))
 
 // PlannerMap loads AMAP JS SDK via <script>; stub it out for unit tests.

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
-import { Text } from '@mantine/core'
+import { Text, Group } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { DndContext, DragOverlay, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
@@ -22,7 +22,9 @@ import ActivityDetailDrawer from '../../components/planner/ActivityDetailDrawer'
 import PlannerHeaderRight from '../../components/planner/PlannerHeaderRight'
 import ConstitutionDrawer from '../../components/planner/ConstitutionDrawer'
 import TimelineOverlay from '../../components/planner/TimelineOverlay'
+import ActivityFilterBar from '../../components/planner/ActivityFilterBar'
 import { useInjectHeaderRight } from '../../layouts/HeaderSlot'
+import { useActivityFilter } from '../../hooks/useActivityFilter'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
 import usePlannerLayout from '../../hooks/usePlannerLayout'
@@ -105,12 +107,28 @@ export default function Show({
     ? displayActivities.find(a => `activity-${a.id}` === activeId)
     : null
 
+  // Stable tourShape memo — keeps useActivityFilter's internal Set from
+  // thrashing on every render (same reason headerRight is memoized below).
+  const tourShape = useMemo(
+    () => ({
+      authorId: tour.author_id,
+      memberIds: (members || []).map(m => m.user_id),
+    }),
+    [tour.author_id, members]
+  )
+
+  const {
+    filter, setQ, setKind, setUids, reset,
+    active: filterActive, matches, activeCount, totalCount,
+  } = useActivityFilter({ activities: displayActivities, tour: tourShape })
+
   // Server returns activities in DB insertion order, not position order. After
   // any reorder, UPDATE pushes rows around the heap, so insertion order drifts
   // from position order — client must sort explicitly.
   const byPosition = (a, b) => a.position - b.position
-  const backlog = displayActivities.filter(a => !a.day_id).sort(byPosition)
-  const byDay = Object.fromEntries(days.map(d => [ d.id, displayActivities.filter(a => a.day_id === d.id).sort(byPosition) ]))
+  const filteredActivities = displayActivities.filter(matches)
+  const backlog = filteredActivities.filter(a => !a.day_id).sort(byPosition)
+  const byDay = Object.fromEntries(days.map(d => [ d.id, filteredActivities.filter(a => a.day_id === d.id).sort(byPosition) ]))
   const nextDayIndex = days.length === 0 ? 1 : Math.max(...days.map(d => d.day_index)) + 1
 
   // Violation acknowledge state
@@ -269,19 +287,34 @@ export default function Show({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tour.id])
 
-  // Inject memoized PlannerHeaderRight into AppShell header slot.
-  // useMemo is mandatory — without it, a new JSX element every render
-  // triggers setRight → re-render → new element → infinite loop.
+  // Inject memoized header-right contents. useMemo is mandatory — without
+  // it, a new JSX element every render triggers setRight → re-render →
+  // new element → infinite loop. Filter icon sits first (leftmost of the
+  // right group) per UX: same visual weight as other drawer-openers.
   const headerRight = useMemo(() => (
-    <PlannerHeaderRight
-      violations={violations}
-      onOpenConst={openConst}
-      onOpenTimeline={openTimeline}
-      onOpenExpense={() => setExpenseDrawerOpen(true)}
-      onOpenMembers={() => setMembersDrawerOpen(true)}
-      onOpenSettings={canEdit ? () => setSettingsOpen(true) : undefined}
-    />
-  ), [violations, openConst, openTimeline, canEdit])
+    <Group gap="xs" wrap="nowrap">
+      <ActivityFilterBar
+        filter={filter}
+        setQ={setQ}
+        setKind={setKind}
+        setUids={setUids}
+        reset={reset}
+        active={filterActive}
+        activeCount={activeCount}
+        totalCount={totalCount}
+        members={members || []}
+        author={author || { user_id: tour.author_id, name: '', email: '', avatar_url: null }}
+      />
+      <PlannerHeaderRight
+        violations={violations}
+        onOpenConst={openConst}
+        onOpenTimeline={openTimeline}
+        onOpenExpense={() => setExpenseDrawerOpen(true)}
+        onOpenMembers={() => setMembersDrawerOpen(true)}
+        onOpenSettings={canEdit ? () => setSettingsOpen(true) : undefined}
+      />
+    </Group>
+  ), [filter, setQ, setKind, setUids, reset, filterActive, activeCount, totalCount, members, author, tour.author_id, violations, openConst, openTimeline, canEdit])
   useInjectHeaderRight(headerRight)
 
   // True only during "first visit" onboarding — lets the planner dim itself
@@ -355,6 +388,7 @@ export default function Show({
             onClearHover={onClearHover}
             author={author}
             members={members}
+            filterActive={filterActive}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('candidates', 'days')}
@@ -384,6 +418,7 @@ export default function Show({
             onClearHover={onClearHover}
             author={author}
             members={members}
+            filterActive={filterActive}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('days', 'map')}
@@ -391,7 +426,7 @@ export default function Show({
           />
 
           <PlannerMap
-            activities={activities}
+            activities={displayActivities}
             days={days}
             routeLegs={route_legs || []}
             tourId={tour.id}
@@ -403,6 +438,7 @@ export default function Show({
             hoveredActivityIds={hoveredActivityIds}
             onMarkerHover={onMarkerHover}
             onMarkerLeave={onMarkerLeave}
+            matches={matches}
           />
           <ResizeHandle
             disabled={!layout.handleVisible('map', 'ai')}

@@ -61,10 +61,15 @@ wt_up() {
   [ -e .env ]              || ln -s "$MAIN_ROOT/.env" .env
   [ -e config/master.key ] || ln -s "$MAIN_ROOT/config/master.key" config/master.key
 
+  # Bind Vite to IPv4 127.0.0.1 explicitly. On macOS, Node's default
+  # 'localhost' bind can resolve to IPv6 (::1) only, which breaks the
+  # browser's IPv4 connection to vite-ruby's dev-server URL (mirrored
+  # from Rails' host). Pin to IPv4 so 127.0.0.1:<vite_port> always works.
   cat > .env.development.local <<EOF
 DATABASE_URL=postgres://postgres:postgres@localhost/$DB_NAME
 PORT=$rails_port
 VITE_RUBY_PORT=$vite_port
+VITE_RUBY_HOST=127.0.0.1
 EOF
 
   if ! docker exec "$PG_CONTAINER" psql -U postgres -lqt | cut -d'|' -f1 | grep -qw "$DB_NAME"; then

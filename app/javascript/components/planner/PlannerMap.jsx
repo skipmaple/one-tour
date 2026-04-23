@@ -173,6 +173,7 @@ function PlannerMapInner({
   hoveredActivityIds = null,
   onMarkerHover,
   onMarkerLeave,
+  matches = () => true,
 }) {
   const { amap_js_api_key, amap_js_security_code } = usePage().props
   const sdkState = useAmap(amap_js_api_key, amap_js_security_code)
@@ -221,15 +222,18 @@ function PlannerMapInner({
   )
 
   // Group activities by day_id (skip backlog) for polyline construction.
+  // matches gate is applied here so polylines between hidden activities are
+  // not drawn — same predicate that filters sentinel divs and markers.
   const activitiesByDay = useMemo(() => {
     const grouped = {}
     for (const a of activities) {
+      if (!matches(a)) continue
       if (a.day_id == null) continue
       if (!grouped[a.day_id]) grouped[a.day_id] = []
       grouped[a.day_id].push(a)
     }
     return grouped
-  }, [ activities ])
+  }, [ activities, matches ])
 
   // Nested lookup: route_legs[fromActivityId][toActivityId][mode] = leg
   // Used by buildPolylineConfigs to draw real road geometry when cached.
@@ -350,6 +354,7 @@ function PlannerMapInner({
 
     // Coerce Rails-serialized lat/lng strings to numbers, drop invalid
     const visible = filterActivitiesByViewMode(activities, viewMode)
+      .filter(matches)
       .map(a => ({ ...a, lat: parseFloat(a.lat), lng: parseFloat(a.lng) }))
       .filter(a => Number.isFinite(a.lat) && Number.isFinite(a.lng))
 
@@ -389,7 +394,7 @@ function PlannerMapInner({
       map.setZoomAndCenter(10, [ visible[0].lng, visible[0].lat ])
     }
     // visible.length === 0: don't move map (user keeps current view)
-  }, [ activities, dayIndexById, viewMode, theme, sdkState ])
+  }, [ activities, dayIndexById, viewMode, theme, sdkState, matches ])
 
   // Sync marker highlight state with hoveredActivityIds. Only touches markers
   // whose highlighted state actually changed (union of previous and next ids).
@@ -482,12 +487,30 @@ function PlannerMapInner({
     return () => observer.disconnect()
   }, [sdkState])
 
+  // Compute match lookup once for route-leg gate (stable for JSX + effects).
+  const matchById = useMemo(
+    () => new Map(activities.map(a => [a.id, matches(a)])),
+    [activities, matches]
+  )
+
   return (
     <Paper
       withBorder
       style={{ height: '100%', position: 'relative', overflow: 'hidden', background: '#fafafa' }}
     >
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+      {/* Hidden sentinel elements — queryable by tests; invisible in production. */}
+      <div style={{ display: 'none' }} aria-hidden="true">
+        {activities.filter(matches).map(a => (
+          <div key={a.id} data-activity-id={a.id} />
+        ))}
+        {routeLegs
+          .filter(leg => matchById.get(leg.from_activity_id) && matchById.get(leg.to_activity_id))
+          .map(leg => (
+            <div key={leg.id} data-route-leg-id={leg.id} />
+          ))
+        }
+      </div>
       {sdkState === 'ready' && !authFailed && (
         <MapToolbar>
           <ViewModeRadio value={viewMode} onChange={setViewMode} />
@@ -600,6 +623,7 @@ export default function PlannerMap({
   hoveredActivityIds,
   onMarkerHover,
   onMarkerLeave,
+  matches = () => true,
 }) {
   return (
     <PanelShell
@@ -619,6 +643,7 @@ export default function PlannerMap({
         hoveredActivityIds={hoveredActivityIds}
         onMarkerHover={onMarkerHover}
         onMarkerLeave={onMarkerLeave}
+        matches={matches}
       />
     </PanelShell>
   )

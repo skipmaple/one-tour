@@ -1,3 +1,7 @@
+import {
+  IconMountain, IconRoad, IconToolsKitchen2, IconBed, IconGasStation, IconCategory,
+} from '@tabler/icons-react'
+
 // Single source of truth for kind-specific detail fields.
 // field.type ∈ text | number_with_suffix | checkbox | select | autocomplete
 //   number_with_suffix: { suffix, presets?, max? }
@@ -57,6 +61,18 @@ export const KIND_OPTIONS = [
   { value: 'fuel',   label: '加油' },
   { value: 'other',  label: '其他' },
 ]
+
+// Canonical icon per kind — imported by ActivityCard, ActivityFilterBar,
+// and the kind Select in CommonFields so the same 行动 renders identical
+// glyphs in every surface. Change here propagates everywhere.
+export const KIND_ICONS = {
+  scenic: IconMountain,
+  road:   IconRoad,
+  food:   IconToolsKitchen2,
+  stay:   IconBed,
+  fuel:   IconGasStation,
+  other:  IconCategory,
+}
 
 export const CITIZEN_LEVEL_OPTIONS = [
   { value: 'tier_one',       label: '一等公民（核心）' },

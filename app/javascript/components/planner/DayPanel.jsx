@@ -34,6 +34,7 @@ export default function DayPanel({
   onClearHover,
   author,
   members,
+  filterActive = false,
 }) {
   const autoFitButton = (
     <UnstyledButton
@@ -99,6 +100,7 @@ export default function DayPanel({
             onClearHover={onClearHover}
             author={author}
             members={members}
+            filterActive={filterActive}
           />
         ))}
         <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />

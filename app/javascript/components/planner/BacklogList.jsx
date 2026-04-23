@@ -1,7 +1,6 @@
-import { useState, useMemo } from 'react'
-import { Text, Button, Group, Select, Stack } from '@mantine/core'
+import { Text, Button, Stack, Alert } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
-import { IconInbox } from '@tabler/icons-react'
+import { IconInbox, IconFilterFilled } from '@tabler/icons-react'
 import ActivityCard from './ActivityCard'
 import PanelShell from './PanelLayout/PanelShell'
 
@@ -19,24 +18,6 @@ const footerStyleRules = `
   }
 `
 
-const KIND_FILTER_OPTIONS = [
-  { value: '',       label: '所有类型' },
-  { value: 'scenic', label: '景' },
-  { value: 'road',   label: '路' },
-  { value: 'food',   label: '食' },
-  { value: 'stay',   label: '住' },
-  { value: 'fuel',   label: '油' },
-  { value: 'other',  label: '其他' },
-]
-
-const LEVEL_FILTER_OPTIONS = [
-  { value: '',               label: '所有等级' },
-  { value: 'tier_one',       label: '一等' },
-  { value: 'tier_two',       label: '二等' },
-  { value: 'tier_three',     label: '三等' },
-  { value: 'infrastructure', label: '基础' },
-]
-
 export default function BacklogList({
   activities,
   onAddActivity,
@@ -52,31 +33,16 @@ export default function BacklogList({
   onClearHover,
   author,
   members,
+  filterActive = false,
 }) {
-  const [kindFilter, setKindFilter] = useState('')
-  const [levelFilter, setLevelFilter] = useState('')
-
-  const filtered = useMemo(() => {
-    return activities.filter(a => {
-      if (kindFilter && a.kind !== kindFilter) return false
-      if (levelFilter && a.citizen_level !== levelFilter) return false
-      return true
-    })
-  }, [activities, kindFilter, levelFilter])
-
-  // Droppable uses full activities.length so dropped items are appended to
-  // the true end (not after the filtered subset).
   const { setNodeRef, isOver, active } = useDroppable({
     id: 'backlog',
     data: { dayId: null, position: activities.length + 1 }
   })
 
-  // Three-state drop zone visual: idle (no drag) → active (drag in progress
-  // but not hovering this droppable) → over (hovering this droppable).
   const dragState = active ? (isOver ? 'over' : 'active') : 'idle'
 
   const isEmpty = activities.length === 0
-  const hasFilter = kindFilter || levelFilter
 
   return (
     <PanelShell
@@ -86,11 +52,6 @@ export default function BacklogList({
       onToggle={onToggle}
       canToggle={canToggle}
       flexStyle={flexStyle}
-      headerExtra={hasFilter && !isEmpty && (
-        <Text size="xs" c="dimmed">
-          {filtered.length}/{activities.length}
-        </Text>
-      )}
     >
       <style>{footerStyleRules}</style>
       <div
@@ -109,11 +70,28 @@ export default function BacklogList({
           transition: 'border-color 120ms ease, background-color 120ms ease',
         }}
       >
-        {isEmpty && readOnly && (
+        {filterActive && (
+          <Alert
+            color="blue"
+            variant="light"
+            icon={<IconFilterFilled size={14} />}
+            mb="xs"
+            p="xs"
+            styles={{ message: { fontSize: 11 } }}
+          >
+            筛选中，清除后恢复拖拽
+          </Alert>
+        )}
+
+        {isEmpty && filterActive && (
+          <Text size="xs" c="dimmed" ta="center" py="md">无匹配的活动</Text>
+        )}
+
+        {isEmpty && !filterActive && readOnly && (
           <Text size="xs" c="gray.7">尚无候选</Text>
         )}
 
-        {isEmpty && !readOnly && (
+        {isEmpty && !filterActive && !readOnly && (
           <>
             <Stack
               gap="xs"
@@ -129,10 +107,6 @@ export default function BacklogList({
             >
               <Text size="xs" c="gray.7" ta="center">先把想去的点塞进这里，再拖到右侧日。</Text>
             </Stack>
-            {/* Responsive footer: stacks vertically when narrow, flips to
-                side-by-side at ≥ 200px via CSS container query. Container
-                queries beat media queries here because the backlog panel
-                can be resized to any width independent of viewport. */}
             <div className="backlog-footer-container" style={{ marginTop: 8 }}>
               <div className="backlog-footer-buttons">
                 {onAddActivity && (
@@ -152,34 +126,14 @@ export default function BacklogList({
 
         {!isEmpty && (
           <>
-            <Group gap={4} mb="xs">
-              <Select
-                data={KIND_FILTER_OPTIONS}
-                value={kindFilter}
-                onChange={v => setKindFilter(v || '')}
-                size="xs"
-                w={100}
-                allowDeselect={false}
-                aria-label="按类型筛选"
-              />
-              <Select
-                data={LEVEL_FILTER_OPTIONS}
-                value={levelFilter}
-                onChange={v => setLevelFilter(v || '')}
-                size="xs"
-                w={100}
-                allowDeselect={false}
-                aria-label="按等级筛选"
-              />
-            </Group>
-
             <Stack gap={4}>
-              {filtered.map(a => (
+              {activities.map(a => (
                 <ActivityCard
                   key={a.id}
                   activity={a}
                   onClick={onEditActivity}
                   readOnly={readOnly}
+                  draggable={!filterActive}
                   isHighlighted={hoveredActivityIds != null && hoveredActivityIds.includes(a.id)}
                   onHoverActivity={onHoverActivity}
                   onClearHover={onClearHover}
@@ -187,9 +141,6 @@ export default function BacklogList({
                   members={members}
                 />
               ))}
-              {filtered.length === 0 && (
-                <Text size="xs" c="dimmed">无匹配的候选。调整筛选或清空条件。</Text>
-              )}
             </Stack>
 
             {!readOnly && (onAddActivity || onAskAI) && (

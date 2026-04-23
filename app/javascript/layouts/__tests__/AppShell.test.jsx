@@ -107,4 +107,5 @@ describe('AppShell', () => {
     )
     expect(screen.getByTestId('right-slot')).toBeInTheDocument()
   })
+
 })
