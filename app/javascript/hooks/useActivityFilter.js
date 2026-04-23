@@ -1,5 +1,8 @@
 import { useMemo, useCallback, useEffect, useRef, useState } from 'react'
 import { router, usePage } from '@inertiajs/react'
+import { KIND_OPTIONS } from '../components/activity-editor/detailsSchema'
+
+const VALID_KINDS = new Set(KIND_OPTIONS.map(o => o.value))
 
 function collectStrings(value, acc) {
   if (value == null) return
@@ -103,14 +106,20 @@ function filterFromParams(params) {
   const q = params.get('q') || ''
   const kindRaw = params.get('kind') || ''
   const uidsRaw = params.get('uids') || ''
-  const kind = kindRaw ? kindRaw.split(',').filter(Boolean) : []
+  // Drop unknown kind values silently — a typo'd / stale URL param like
+  // `?kind=typo` otherwise activates the dimension with zero matches and
+  // hides every activity. The spec calls for ignoring unknowns here.
+  const kind = kindRaw ? kindRaw.split(',').filter(v => VALID_KINDS.has(v)) : []
   const uids = uidsRaw ? uidsRaw.split(',').map(Number).filter(n => Number.isFinite(n)) : []
   return { q, kind, uids }
 }
 
 function buildUrl(path, { q, kind, uids }) {
   const parts = []
-  if (q) parts.push(`q=${encodeURIComponent(q)}`)
+  // Trim q before persisting — core matcher treats whitespace-only as
+  // inactive, so the URL should not carry "%20%20" noise.
+  const qTrimmed = q.trim()
+  if (qTrimmed) parts.push(`q=${encodeURIComponent(qTrimmed)}`)
   if (kind.length > 0) parts.push(`kind=${kind.join(',')}`)
   if (uids.length > 0) parts.push(`uids=${uids.join(',')}`)
   const qs = parts.join('&')
@@ -137,7 +146,11 @@ export function useActivityFilter({ activities, tour }) {
 
   const [local, setLocal] = useState(urlFilter)
 
-  const urlKey = `${urlFilter.q}|${urlFilter.kind.join(',')}|${urlFilter.uids.join(',')}`
+  // Path included so that navigating between tours (e.g. /tours/42 →
+  // /tours/43) resets local state even when both URLs carry identical
+  // (or empty) filter params. Without path in the key, stale filter
+  // could persist across tour switches under preserveState navigation.
+  const urlKey = `${path}|${urlFilter.q}|${urlFilter.kind.join(',')}|${urlFilter.uids.join(',')}`
   useEffect(() => {
     setLocal(urlFilter)
     // eslint-disable-next-line react-hooks/exhaustive-deps

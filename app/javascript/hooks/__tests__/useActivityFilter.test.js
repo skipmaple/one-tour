@@ -267,4 +267,32 @@ describe('useActivityFilter · URL sync', () => {
     act(() => { vi.advanceTimersByTime(300) })
     expect(router.replace.mock.calls.length).toBe(callsBefore)
   })
+
+  it('ignores unknown kind values from URL', () => {
+    usePage.mockReturnValue({ url: '/tours/42?kind=typo,food' })
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    // Only 'food' survives the filter; 'typo' is dropped silently.
+    expect(result.current.filter.kind).toEqual(['food'])
+  })
+
+  it('whitespace-only q is stripped from URL on push', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setQ('   ') })
+    act(() => { vi.advanceTimersByTime(200) })
+    // URL should NOT carry a q param — core treats trimmed empty as inactive.
+    expect(router.replace).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/tours/42' })
+    )
+  })
+
+  it('re-syncs local state from URL when tour path changes', () => {
+    usePage.mockReturnValue({ url: '/tours/42?q=food' })
+    const { result, rerender } = renderHook(() => useActivityFilter({ activities, tour }))
+    expect(result.current.filter.q).toBe('food')
+    // Simulate navigation to a different tour with no filter params
+    usePage.mockReturnValue({ url: '/tours/43' })
+    rerender()
+    expect(result.current.filter.q).toBe('')
+    expect(result.current.filter.kind).toEqual([])
+  })
 })

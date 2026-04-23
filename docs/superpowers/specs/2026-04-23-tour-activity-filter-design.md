@@ -15,7 +15,7 @@
 ### In-Scope
 
 - **对象**: 仅 Activity
-- **入口**: Planner 主视图 Header 左侧工具槽（AppShell.Header 内）
+- **入口**: Planner 主视图 Header 右侧 —— `PlannerHeaderRight` 组的第一位（`IconFilter` ActionIcon，点击展开 Popover 包含所有控件）
 - **过滤维度（3 个，AND 组合）**:
   1. **关键词** — 匹配 `activity.name` + `activity.details` 中所有字符串值
   2. **类型 `kind`** — `scenic` / `road` / `food` / `stay` / `fuel` / `other`（多选 OR）
@@ -44,29 +44,31 @@
 
 ### 位置
 
-收进现有 `AppShell.Header`（高度 56px），与右侧已有 `PlannerHeaderRight`（宪法/总览/账单/成员/设置 5 个 ActionIcon）并列。语义分离：
+收进现有 `AppShell.Header`（高度 56px），作为 `PlannerHeaderRight` 的第一个 ActionIcon（在宪法/总览/账单/成员/设置 前）。所有控件（搜索 / 类型 / 参与人 / 计数 / 重置）折叠进 Popover，点击 Filter icon 展开：
 
 ```
-[Toggle] [Title] │ [Search 180px] [Filter] [ 12/37 ] [✕]   ←flex→   [宪/览/账/员/设]
-                 ↑                                                  ↑
-            新增左侧工具组                                    已有右侧抽屉组
-            （塑造视图用）                                    （打开抽屉用）
+[Toggle] [Title] ←────flex────→ [🔍Filter][宪/览/账/员/设]
+                                    ↑
+                               蓝色 dot indicator 表激活态
+                               点击展开 320px Popover
 ```
+
+**历史注**：最初设计把 Search input + 计数 + 重置并列放在 title 右侧（左工具槽）。实装后 UX review 认为视觉过密；合并成单一 Filter icon 更克制，视觉权重与其他右侧抽屉图标一致。
 
 ### 组件清单
 
 | 位置 | 组件 | 用法 |
 |---|---|---|
-| Title 右侧 | `Divider orientation="vertical"` | 视觉分界 |
-| 分界右 | `TextInput` 宽 180px，左 `IconSearch`，`IconX` 清空（有值时） | 关键词搜索 |
-| ↓ | `ActionIcon`（`IconFilter` + `Indicator` 红点）→ `Popover` 宽 280px | 展开 Kind + 参与人 |
-| ↓ | `Badge size="sm"` "X / Y" | 仅在筛选激活时显示 |
-| ↓ | `Button variant="subtle" size="compact-xs"` "重置" | 仅在筛选激活时显示 |
+| `PlannerHeaderRight` 首位 | `ActionIcon`（`IconFilter`）包在 `Indicator color="blue"` + `Tooltip "筛选"` 里 | 点击切换 Popover 开关；激活时蓝 dot 显现 |
+| Popover（320px，`position="bottom-end"`） | 见下 | 所有控件聚合在此 |
 
-### Filter Popover 内容
+### Filter Popover 内容（从上到下）
 
-- **Kind 多选** — `Chip.Group multiple`，6 个 Chip 横向：景点 / 路过 / 吃饭 / 住宿 / 加油 / 其他。每 Chip 前置 Tabler 图标（mapping 在实现期精选）。
-- **参与人多选** — `MultiSelect` 或 `Checkbox` 列表；选项 = 所有成员 + 作者；头像 + 姓名渲染。
+1. **搜索输入** — `TextInput size="xs"`，`data-autofocus`（打开即聚焦），`IconSearch` 左图标，`IconX` 清空（有值时）
+2. **类型多选** — `Chip.Group multiple`，6 个 Chip：景点 / 路段 / 餐饮 / 住宿 / 加油 / 其他。每 Chip 前置图标（与 `ActivityCard.KIND_ICONS` 同源）
+3. **参与人多选** — `Checkbox` 列表；作者 + 成员去重（作者显示"（作者）"后缀）；头像 + 姓名
+4. **Divider**
+5. **状态行** — `Badge "X / Y"`（激活时蓝色，否则灰色）+ 激活时显 `Button compact-xs "重置"`
 
 ### 交互规则
 
@@ -263,7 +265,7 @@ Tour/Show
 ### 功能验收
 
 **基础可见性**
-- [ ] Header 左侧显示 Search + Filter 按钮（无筛选态下不显示计数/重置）
+- [ ] Header 右侧首位显示 Filter icon（无筛选态下不显示 indicator dot；控件在 Popover 内）
 - [ ] Header 右侧既有 5 个 ActionIcon 位置不变
 - [ ] BacklogList 顶部不再显示本地类型/等级 Select
 

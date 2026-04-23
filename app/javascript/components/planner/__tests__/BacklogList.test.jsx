@@ -277,9 +277,8 @@ test('filterActive forwards draggable=false to cards (data-draggable attr)', () 
       </DndContext>
     </MantineProvider>
   )
-  // data-draggable attribute is implemented in Task 8 (ActivityCard draggable prop).
-  // This test is expected to FAIL until Task 8 ships. That's OK — it guards the
-  // prop-passing contract between BacklogList and ActivityCard.
+  // Guards the prop-passing contract between BacklogList and ActivityCard —
+  // `draggable={!filterActive}` must reach each card's DOM root.
   const cards = container.querySelectorAll('.ac-card')
   cards.forEach(card => {
     expect(card.getAttribute('data-draggable')).toBe('false')
