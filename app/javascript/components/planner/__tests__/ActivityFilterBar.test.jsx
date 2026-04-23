@@ -137,6 +137,8 @@ describe('ActivityFilterBar · mobile', () => {
     const user = userEvent.setup()
     renderBar()
     await user.click(screen.getByRole('button', { name: /搜索/ }))
-    expect(await screen.findByRole('textbox', { name: /搜索活动/ }, { timeout: 3000 })).toBeInTheDocument()
+    // Use aria-label lookup rather than role=textbox — more deterministic across
+    // environments (CI's jsdom has been flaky on role inference for bare inputs).
+    expect(await screen.findByLabelText('搜索活动', {}, { timeout: 3000 })).toBeInTheDocument()
   })
 })
