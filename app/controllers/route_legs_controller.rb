@@ -4,7 +4,7 @@ class RouteLegsController < ApplicationController
 
   before_action :require_login
   before_action :set_tour, only: [ :create ]
-  before_action :set_leg, only: [ :destroy ]
+  before_action :set_leg, only: [ :update, :destroy ]
   before_action :require_editor
   before_action :throttle!, only: [ :create ]
 
@@ -27,13 +27,27 @@ class RouteLegsController < ApplicationController
     respond_with_error(e.record.errors.full_messages.join("；"), status: :unprocessable_entity)
   end
 
+  def update
+    leg_params = params.require(:route_leg).permit(:distance_m_override, :duration_s_override, :note)
+    @leg.update!(
+      distance_m_override: leg_params[:distance_m_override],
+      duration_s_override: leg_params[:duration_s_override],
+      note:                leg_params[:note],
+      overridden_at:       Time.current,
+      overridden_by_id:    current_user.id,
+    )
+    render json: { id: @leg.id, overridden: true }
+  end
+
   def destroy
-    @leg.destroy!
-    if inertia_request?
-      redirect_to tour_path(@tour)
-    else
-      head :no_content
-    end
+    @leg.update!(
+      distance_m_override: nil,
+      duration_s_override: nil,
+      note:                nil,
+      overridden_at:       nil,
+      overridden_by_id:    nil,
+    )
+    render json: { id: @leg.id, overridden: false }
   end
 
   private
