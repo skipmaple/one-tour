@@ -1,10 +1,9 @@
 require "rails_helper"
 require "rake"
 
-RSpec.describe "route_leg_override rake tasks" do
+RSpec.describe "route_leg_override rake tasks", type: :task do
   before(:all) do
-    Rake.application.rake_require("tasks/route_leg_override", [ Rails.root.to_s + "/lib" ])
-    Rake::Task.define_task(:environment)
+    Rails.application.load_tasks if Rake::Task.tasks.empty?
   end
 
   let(:tour) { create(:tour) }
