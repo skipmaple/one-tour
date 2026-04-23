@@ -329,7 +329,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_23_165851) do
   add_foreign_key "route_legs", "activities", column: "from_activity_id", on_delete: :cascade
   add_foreign_key "route_legs", "activities", column: "to_activity_id", on_delete: :cascade
   add_foreign_key "route_legs", "tours", on_delete: :cascade
-  add_foreign_key "route_legs", "users", column: "overridden_by_id"
+  add_foreign_key "route_legs", "users", column: "overridden_by_id", on_delete: :nullify
   add_foreign_key "settlements", "tours"
   add_foreign_key "settlements", "users", column: "from_user_id"
   add_foreign_key "settlements", "users", column: "recorded_by_id"
