@@ -5,15 +5,20 @@ import {
   IconSearch, IconFilter, IconX,
   IconMountain, IconRoad, IconToolsKitchen2, IconBed, IconGasStation, IconDots,
 } from '@tabler/icons-react'
+import { KIND_OPTIONS as CANONICAL_KIND_OPTIONS } from '../activity-editor/detailsSchema'
 
-const KIND_OPTIONS = [
-  { value: 'scenic', label: '景点', Icon: IconMountain },
-  { value: 'road',   label: '路过', Icon: IconRoad },
-  { value: 'food',   label: '吃饭', Icon: IconToolsKitchen2 },
-  { value: 'stay',   label: '住宿', Icon: IconBed },
-  { value: 'fuel',   label: '加油', Icon: IconGasStation },
-  { value: 'other',  label: '其他', Icon: IconDots },
-]
+// Labels live in the activity editor's schema (single source of truth so
+// filter Chip text matches the editor's Select options). Icons are a UI
+// concern specific to the filter bar.
+const KIND_ICONS = {
+  scenic: IconMountain,
+  road:   IconRoad,
+  food:   IconToolsKitchen2,
+  stay:   IconBed,
+  fuel:   IconGasStation,
+  other:  IconDots,
+}
+const KIND_OPTIONS = CANONICAL_KIND_OPTIONS.map(o => ({ ...o, Icon: KIND_ICONS[o.value] }))
 
 export default function ActivityFilterBar({
   filter, setQ, setKind, setUids, reset,
