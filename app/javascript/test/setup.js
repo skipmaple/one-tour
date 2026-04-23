@@ -41,3 +41,10 @@ if (typeof navigator !== 'undefined' && !('clipboard' in navigator)) {
     configurable: true,
   })
 }
+
+// jsdom lacks Element.scrollIntoView; Mantine Select/Combobox calls it when
+// a keyboard-selected or clicked option is outside the viewport. In CI
+// Vitest treats unhandled errors as a run-level failure, so stub it here.
+if (typeof window !== 'undefined' && !window.Element.prototype.scrollIntoView) {
+  window.Element.prototype.scrollIntoView = function () {}
+}
