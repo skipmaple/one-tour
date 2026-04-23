@@ -2,17 +2,19 @@ import { useState } from 'react'
 import { Group, TextInput, ActionIcon, Popover, Stack, Chip, Checkbox, Badge, Button, Indicator, Avatar, Divider, Tooltip } from '@mantine/core'
 import {
   IconSearch, IconFilter, IconX,
-  IconMountain, IconRoad, IconToolsKitchen2, IconBed, IconGasStation, IconDots,
+  IconMountain, IconCar, IconToolsKitchen2, IconBed, IconGasStation, IconCategory,
 } from '@tabler/icons-react'
 import { KIND_OPTIONS as CANONICAL_KIND_OPTIONS } from '../activity-editor/detailsSchema'
 
+// Kept in lockstep with ActivityCard's KIND_ICONS so the same 行动 surfaces
+// identical glyphs everywhere — a mismatch is confusing.
 const KIND_ICONS = {
   scenic: IconMountain,
-  road:   IconRoad,
+  road:   IconCar,
   food:   IconToolsKitchen2,
   stay:   IconBed,
   fuel:   IconGasStation,
-  other:  IconDots,
+  other:  IconCategory,
 }
 const KIND_OPTIONS = CANONICAL_KIND_OPTIONS.map(o => ({ ...o, Icon: KIND_ICONS[o.value] }))
 
