@@ -1,7 +1,7 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import {
   IconMountain,
-  IconCar,
+  IconRoad,
   IconToolsKitchen2,
   IconBed,
   IconGasStation,
@@ -17,7 +17,7 @@ import '../../styles/activity-card.css'
 const KIND_ICONS = {
   scenic: IconMountain,
   food: IconToolsKitchen2,
-  road: IconCar,
+  road: IconRoad,
   stay: IconBed,
   fuel: IconGasStation,
   other: IconCategory,

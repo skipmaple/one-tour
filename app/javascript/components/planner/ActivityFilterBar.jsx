@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Group, TextInput, ActionIcon, Popover, Stack, Chip, Checkbox, Badge, Button, Indicator, Avatar, Divider, Tooltip } from '@mantine/core'
 import {
   IconSearch, IconFilter, IconX,
-  IconMountain, IconCar, IconToolsKitchen2, IconBed, IconGasStation, IconCategory,
+  IconMountain, IconRoad, IconToolsKitchen2, IconBed, IconGasStation, IconCategory,
 } from '@tabler/icons-react'
 import { KIND_OPTIONS as CANONICAL_KIND_OPTIONS } from '../activity-editor/detailsSchema'
 
@@ -10,7 +10,7 @@ import { KIND_OPTIONS as CANONICAL_KIND_OPTIONS } from '../activity-editor/detai
 // identical glyphs everywhere — a mismatch is confusing.
 const KIND_ICONS = {
   scenic: IconMountain,
-  road:   IconCar,
+  road:   IconRoad,
   food:   IconToolsKitchen2,
   stay:   IconBed,
   fuel:   IconGasStation,
