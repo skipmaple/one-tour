@@ -7,7 +7,7 @@ class Day < ApplicationRecord
   validates :day_index, presence: true, uniqueness: { scope: :tour_id }
 
   def driving_minutes_total
-    activities.where(kind: :road).sum("COALESCE((details->>'drive_min')::int, 0)")
+    leg_minutes + scenic_road_minutes
   end
 
   def tier_one_count
@@ -37,6 +37,18 @@ class Day < ApplicationRecord
   end
 
   private
+    def leg_minutes
+      RouteLeg
+        .where(from_activity_id: activities.pluck(:id))
+        .sum { |l| l.effective_duration_s.to_i } / 60
+    end
+
+    def scenic_road_minutes
+      activities
+        .where(kind: :road, citizen_level: :tier_one)
+        .sum { |a| a.details["drive_min"].to_i }
+    end
+
     def hard_violation?(violations)
       violations.any? do |v|
         level = v[:level] || v["level"]
