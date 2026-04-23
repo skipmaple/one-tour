@@ -1,6 +1,6 @@
 import { TextInput, Select, Radio, Group, SimpleGrid, Stack, Text, NumberInput, Divider } from '@mantine/core'
 import { TimeInput } from '@mantine/dates'
-import { KIND_OPTIONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS, KIND_SCHEMA } from './detailsSchema'
+import { KIND_OPTIONS, KIND_ICONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS, KIND_SCHEMA } from './detailsSchema'
 import PoiSearchCombobox from './PoiSearchCombobox'
 import PresetChips from './PresetChips'
 import DetailsFields from './DetailsFields'
@@ -52,6 +52,19 @@ export default function CommonFields({
         label="类型"
         data={KIND_OPTIONS}
         allowDeselect={false}
+        leftSection={(() => {
+          const Icon = KIND_ICONS[form.values.kind]
+          return Icon ? <Icon size={16} /> : null
+        })()}
+        renderOption={({ option }) => {
+          const Icon = KIND_ICONS[option.value]
+          return (
+            <Group gap="xs" wrap="nowrap">
+              {Icon ? <Icon size={16} /> : null}
+              <span>{option.label}</span>
+            </Group>
+          )
+        }}
         {...form.getInputProps('kind')}
       />
       <Radio.Group label="公民等级" {...form.getInputProps('citizen_level')}>

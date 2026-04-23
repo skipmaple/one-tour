@@ -1,10 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import {
-  IconMountain,
-  IconRoad,
-  IconToolsKitchen2,
-  IconBed,
-  IconGasStation,
   IconCategory,
   IconHourglass,
   IconMapPin,
@@ -12,16 +7,8 @@ import {
 } from '@tabler/icons-react'
 import { Avatar, Tooltip } from '@mantine/core'
 import { isFullRoster } from '../../lib/effectiveParticipants'
+import { KIND_ICONS } from '../activity-editor/detailsSchema'
 import '../../styles/activity-card.css'
-
-const KIND_ICONS = {
-  scenic: IconMountain,
-  food: IconToolsKitchen2,
-  road: IconRoad,
-  stay: IconBed,
-  fuel: IconGasStation,
-  other: IconCategory,
-}
 
 const KIND_CLASS = {
   scenic: 'ac-kind-scenic',
