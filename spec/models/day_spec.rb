@@ -24,8 +24,8 @@ RSpec.describe Day do
     let(:day) { create(:day, tour: tour, day_index: 2) }
 
     it "sums drive_min across road activities of this day" do
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 120 })
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 90 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 120 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 90 })
       create(:activity, tour: tour, day: day, kind: :scenic, details: { "foo" => 1 })
       expect(day.driving_minutes_total).to eq(210)
     end
@@ -69,17 +69,17 @@ RSpec.describe Day do
     end
 
     it "returns :green when driving < 120 min and no violations" do
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 90 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 90 })
       expect(day.intensity_derived([])).to eq(:green)
     end
 
     it "returns :yellow when driving is 120-360 min" do
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 240 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 240 })
       expect(day.intensity_derived([])).to eq(:yellow)
     end
 
     it "returns :red when driving > 360 min" do
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 400 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 400 })
       expect(day.intensity_derived([])).to eq(:red)
     end
 

@@ -252,6 +252,31 @@ RSpec.describe Activity do
     end
   end
 
+  describe "scenic road (kind=road, citizen_level=tier_one)" do
+    let(:tour) { create(:tour) }
+    let(:day)  { tour.days.first }
+
+    it "mirrors lat/lng/address from details.start_* on save" do
+      a = Activity.create!(
+        tour: tour, day: day, name: "独库公路",
+        kind: :road, citizen_level: :tier_one, position: 1,
+        details: {
+          "start_lat" => 42.9, "start_lng" => 83.5, "start_address" => "独库南入口",
+          "end_lat"   => 44.0, "end_lng"   => 84.7, "end_address"   => "独库北出口"
+        }
+      )
+      expect(a.lat.to_f).to eq(42.9)
+      expect(a.lng.to_f).to eq(83.5)
+      expect(a.address).to eq("独库南入口")
+    end
+
+    it "rejects kind=road with citizen_level != tier_one (model validation)" do
+      a = build(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_two)
+      expect(a).not_to be_valid
+      expect(a.errors[:citizen_level]).to include(/景观公路必须为 tier_one/)
+    end
+  end
+
   describe "#clone_for_same_day!" do
     let(:tour) { create(:tour) }
     let(:day)  { create(:day, tour: tour, day_index: 2) }

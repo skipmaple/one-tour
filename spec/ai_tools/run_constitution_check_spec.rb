@@ -4,7 +4,7 @@ RSpec.describe AITools::RunConstitutionCheck do
   it "returns violations hash" do
     tour = create(:tour)
     day = tour.days.first # D1 seeded by callback
-    create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 500 })
+    create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 500 })
     result = described_class.new(tour: tour).execute
     expect(result[:violations]).to be_an(Array)
     expect(result[:violations].first[:rule]).to eq(:max_daily_driving_minutes)

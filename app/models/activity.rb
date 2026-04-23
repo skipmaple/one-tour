@@ -25,6 +25,8 @@ class Activity < ApplicationRecord
   # consistent without joining activities in every query.
   after_update :sync_expense_days, if: :saved_change_to_day_id?
 
+  before_save :mirror_scenic_road_start_coords
+
   enum :kind, scenic: 0, road: 1, food: 2, stay: 3, fuel: 4, other: 5
   enum :citizen_level, tier_one: 0, tier_two: 1, tier_three: 2, infrastructure: 3
 
@@ -34,6 +36,7 @@ class Activity < ApplicationRecord
   validate  :details_size_within_limit
   validate  :desc_size_within_limit
   validate  :details_numeric_bounds
+  validate  :road_must_be_tier_one
 
   # Override default `as_json` so the `time`-typed `planned_start_at` column
   # serializes as an `HH:MM` string instead of Rails' default ISO 8601 datetime
@@ -125,6 +128,19 @@ class Activity < ApplicationRecord
   end
 
   private
+    def mirror_scenic_road_start_coords
+      return unless road? && tier_one?
+      d = details || {}
+      self.lat     = d["start_lat"]     if d["start_lat"].present?
+      self.lng     = d["start_lng"]     if d["start_lng"].present?
+      self.address = d["start_address"] if d["start_address"].present?
+    end
+
+    def road_must_be_tier_one
+      return unless road?
+      errors.add(:citizen_level, "景观公路必须为 tier_one") unless tier_one?
+    end
+
     def sync_expense_days
       expenses.activity.update_all(day_id: day_id)
     end
