@@ -93,4 +93,33 @@ RSpec.describe RouteLeg::Upsert do
       expect(tour.route_legs.count).to eq(2)
     end
   end
+
+  describe "scenic road endpoint resolution" do
+    let(:scenic) { create(:activity, :scenic_road, tour: tour, position: 2) }
+    let(:post_scenic) { create(:activity, tour: tour, lat: 45.0, lng: 85.0, position: 3) }
+
+    it "calls Amap with scenic start coords when scenic is TO" do
+      allow(fake_service).to receive(:fetch).and_return(fake_result)
+      described_class.new(
+        tour: tour, from_activity_id: from_act.id, to_activity_id: scenic.id,
+        mode: :driving, service: fake_service
+      ).call
+
+      expect(fake_service).to have_received(:fetch).with(
+        hash_including(to_lat: 42.9, to_lng: 83.5)
+      )
+    end
+
+    it "calls Amap with scenic end coords when scenic is FROM" do
+      allow(fake_service).to receive(:fetch).and_return(fake_result)
+      described_class.new(
+        tour: tour, from_activity_id: scenic.id, to_activity_id: post_scenic.id,
+        mode: :driving, service: fake_service
+      ).call
+
+      expect(fake_service).to have_received(:fetch).with(
+        hash_including(from_lat: 44.0, from_lng: 84.7)
+      )
+    end
+  end
 end

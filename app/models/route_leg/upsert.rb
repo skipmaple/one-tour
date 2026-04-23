@@ -46,9 +46,10 @@ class RouteLeg::Upsert
     end
     @cache_hit = false
 
+    args = RouteLeg.resolve_endpoint_coords(from_activity: from, to_activity: to)
     result = @service.fetch(
-      from_lat: from.lat.to_f, from_lng: from.lng.to_f,
-      to_lat:   to.lat.to_f,   to_lng:   to.lng.to_f,
+      from_lat: args[:from_lat].to_f, from_lng: args[:from_lng].to_f,
+      to_lat:   args[:to_lat].to_f,   to_lng:   args[:to_lng].to_f,
       mode:     @mode
     )
 
