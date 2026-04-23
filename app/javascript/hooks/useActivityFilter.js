@@ -145,7 +145,7 @@ export function useActivityFilter({ activities, tour }) {
 
   const pushUrl = useCallback((nextFilter) => {
     const nextUrl = buildUrl(path, nextFilter)
-    router.replace(nextUrl, { preserveState: true, preserveScroll: true, only: [] })
+    router.replace({ url: nextUrl, preserveState: true, preserveScroll: true })
   }, [path])
 
   const qDebounceRef = useRef(null)

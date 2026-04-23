@@ -193,8 +193,7 @@ describe('useActivityFilter · URL sync', () => {
     expect(router.replace).not.toHaveBeenCalled()
     act(() => { vi.advanceTimersByTime(200) })
     expect(router.replace).toHaveBeenCalledWith(
-      '/tours/42?q=%E9%A4%90',
-      expect.objectContaining({ preserveState: true, preserveScroll: true, only: [] })
+      expect.objectContaining({ url: '/tours/42?q=%E9%A4%90', preserveState: true, preserveScroll: true })
     )
   })
 
@@ -202,8 +201,7 @@ describe('useActivityFilter · URL sync', () => {
     const { result } = renderHook(() => useActivityFilter({ activities, tour }))
     act(() => { result.current.setKind(['food']) })
     expect(router.replace).toHaveBeenCalledWith(
-      '/tours/42?kind=food',
-      expect.objectContaining({ preserveState: true, preserveScroll: true })
+      expect.objectContaining({ url: '/tours/42?kind=food', preserveState: true, preserveScroll: true })
     )
   })
 
@@ -211,8 +209,7 @@ describe('useActivityFilter · URL sync', () => {
     const { result } = renderHook(() => useActivityFilter({ activities, tour }))
     act(() => { result.current.setUids([2, 3]) })
     expect(router.replace).toHaveBeenCalledWith(
-      '/tours/42?uids=2,3',
-      expect.objectContaining({ preserveState: true, preserveScroll: true })
+      expect.objectContaining({ url: '/tours/42?uids=2,3', preserveState: true, preserveScroll: true })
     )
   })
 
@@ -221,8 +218,7 @@ describe('useActivityFilter · URL sync', () => {
     const { result } = renderHook(() => useActivityFilter({ activities, tour }))
     act(() => { result.current.reset() })
     expect(router.replace).toHaveBeenCalledWith(
-      '/tours/42',
-      expect.objectContaining({ preserveState: true, preserveScroll: true })
+      expect.objectContaining({ url: '/tours/42', preserveState: true, preserveScroll: true })
     )
   })
 
@@ -232,8 +228,7 @@ describe('useActivityFilter · URL sync', () => {
     act(() => { result.current.setQ('') })
     act(() => { vi.advanceTimersByTime(200) })
     expect(router.replace).toHaveBeenCalledWith(
-      '/tours/42?kind=food',
-      expect.anything()
+      expect.objectContaining({ url: '/tours/42?kind=food' })
     )
   })
 
@@ -243,8 +238,7 @@ describe('useActivityFilter · URL sync', () => {
     // debounce pending — don't advance timer yet
     act(() => { result.current.setKind(['food']) })
     expect(router.replace).toHaveBeenLastCalledWith(
-      '/tours/42?q=%E9%A4%90&kind=food',
-      expect.anything()
+      expect.objectContaining({ url: '/tours/42?q=%E9%A4%90&kind=food' })
     )
     const callsBefore = router.replace.mock.calls.length
     // Advance past the debounce window — the stale timer should NOT fire a push
@@ -257,8 +251,7 @@ describe('useActivityFilter · URL sync', () => {
     act(() => { result.current.setQ('餐') })
     act(() => { result.current.setUids([2]) })
     expect(router.replace).toHaveBeenLastCalledWith(
-      '/tours/42?q=%E9%A4%90&uids=2',
-      expect.anything()
+      expect.objectContaining({ url: '/tours/42?q=%E9%A4%90&uids=2' })
     )
     const callsBefore = router.replace.mock.calls.length
     act(() => { vi.advanceTimersByTime(300) })
