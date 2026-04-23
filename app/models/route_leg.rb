@@ -2,6 +2,7 @@ class RouteLeg < ApplicationRecord
   belongs_to :tour
   belongs_to :from_activity, class_name: "Activity"
   belongs_to :to_activity,   class_name: "Activity"
+  belongs_to :overridden_by, class_name: "User", optional: true
 
   enum :mode, driving: 0, walking: 1, transit: 2
 
@@ -27,6 +28,18 @@ class RouteLeg < ApplicationRecord
   # Cached data is valid only if the endpoints haven't moved since fetch.
   def cache_valid?
     polyline.present? && endpoint_digest == expected_endpoint_digest
+  end
+
+  def overridden?
+    overridden_at.present?
+  end
+
+  def effective_distance_m
+    distance_m_override || distance_m
+  end
+
+  def effective_duration_s
+    duration_s_override || duration_s
   end
 
   private

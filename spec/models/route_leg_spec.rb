@@ -83,4 +83,58 @@ RSpec.describe RouteLeg do
       expect(walk).to be_valid
     end
   end
+
+  describe "override" do
+    let(:tour) { create(:tour) }
+    let(:from_act) { create(:activity, tour: tour, lat: 36.0, lng: 103.0) }
+    let(:to_act)   { create(:activity, tour: tour, lat: 37.0, lng: 104.0, position: 2) }
+    let(:leg) do
+      RouteLeg.create!(tour: tour, from_activity: from_act, to_activity: to_act,
+                       mode: :driving, distance_m: 100_000, duration_s: 3600,
+                       polyline: { "coords" => [] })
+    end
+
+    it "#overridden? is false when overridden_at is nil" do
+      expect(leg.overridden?).to be false
+    end
+
+    it "#overridden? is true when overridden_at is set" do
+      leg.update!(overridden_at: Time.current)
+      expect(leg.overridden?).to be true
+    end
+
+    it "#effective_distance_m returns override when present" do
+      leg.update!(distance_m_override: 120_000, overridden_at: Time.current)
+      expect(leg.effective_distance_m).to eq(120_000)
+    end
+
+    it "#effective_distance_m falls back to distance_m when override nil" do
+      expect(leg.effective_distance_m).to eq(100_000)
+    end
+
+    it "#effective_duration_s returns override when present" do
+      leg.update!(duration_s_override: 4000, overridden_at: Time.current)
+      expect(leg.effective_duration_s).to eq(4000)
+    end
+
+    it "#effective_duration_s falls back to duration_s when override nil" do
+      expect(leg.effective_duration_s).to eq(3600)
+    end
+  end
+
+  describe "#overridden_by association" do
+    it "belongs_to overridden_by (class User), optional" do
+      user = create(:user)
+      tour = create(:tour, author: user)
+      from_act = create(:activity, tour: tour, lat: 36.0, lng: 103.0)
+      to_act   = create(:activity, tour: tour, lat: 37.0, lng: 104.0, position: 2)
+      leg = RouteLeg.create!(tour: tour, from_activity: from_act, to_activity: to_act,
+                             mode: :driving, distance_m: 100_000, duration_s: 3600,
+                             polyline: { "coords" => [] })
+      expect(leg.overridden_by).to be_nil
+
+      leg.update!(overridden_by: user, overridden_at: Time.current)
+      expect(leg.overridden_by).to eq(user)
+    end
+  end
 end
