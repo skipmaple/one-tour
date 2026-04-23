@@ -443,3 +443,37 @@ test('create save invokes onClose on success (drawer closes)', async () => {
   fireEvent.click(screen.getByRole('button', { name: '保存' }))
   await waitFor(() => expect(onClose).toHaveBeenCalled())
 })
+
+describe('road kind (景观公路)', () => {
+  // Helper: open the kind Select and pick "景观公路"
+  async function switchToRoad() {
+    // Mantine Select renders a combobox input associated with the "类型" label
+    const kindInput = screen.getByRole('combobox', { name: '类型' })
+    fireEvent.click(kindInput)
+    // Wait for the dropdown option to appear, then click it
+    const option = await screen.findByRole('option', { name: '景观公路' })
+    fireEvent.click(option)
+  }
+
+  it('auto-sets citizen_level=tier_one when switching to road', async () => {
+    renderDrawer()
+    await switchToRoad()
+    // "一等公民（核心）" radio input should be checked
+    await waitFor(() => {
+      expect(screen.getByLabelText('一等公民（核心）')).toBeChecked()
+    })
+  })
+
+  it('disables non-tier_one radios when kind=road', async () => {
+    renderDrawer()
+    await switchToRoad()
+    // All radios except tier_one must be disabled
+    await waitFor(() => {
+      expect(screen.getByLabelText('二等公民（配角）')).toBeDisabled()
+      expect(screen.getByLabelText('三等公民（可删）')).toBeDisabled()
+      expect(screen.getByLabelText('基础设施（自动）')).toBeDisabled()
+    })
+    // tier_one itself should NOT be disabled
+    expect(screen.getByLabelText('一等公民（核心）')).not.toBeDisabled()
+  })
+})
