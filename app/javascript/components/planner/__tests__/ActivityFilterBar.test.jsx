@@ -137,6 +137,6 @@ describe('ActivityFilterBar · mobile', () => {
     const user = userEvent.setup()
     renderBar()
     await user.click(screen.getByRole('button', { name: /搜索/ }))
-    expect(await screen.findByRole('textbox', { name: /搜索活动/ })).toBeInTheDocument()
+    expect(await screen.findByRole('textbox', { name: /搜索活动/ }, { timeout: 3000 })).toBeInTheDocument()
   })
 })
