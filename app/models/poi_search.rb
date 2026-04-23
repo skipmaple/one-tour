@@ -22,11 +22,15 @@ class PoiSearch
     Array(data["pois"]).map do |poi|
       lng, lat = poi["location"].to_s.split(",").map(&:to_f)
       {
-        name:    poi["name"],
-        lat:     lat,
-        lng:     lng,
-        address: poi["address"],
-        type:    poi["type"]
+        name:     poi["name"],
+        lat:      lat,
+        lng:      lng,
+        address:  poi["address"],
+        type:     poi["type"],
+        pname:    poi["pname"],
+        cityname: poi["cityname"],
+        adname:   poi["adname"],
+        pcode:    poi["pcode"]
       }
     end
   end
