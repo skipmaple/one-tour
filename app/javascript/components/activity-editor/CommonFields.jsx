@@ -1,7 +1,7 @@
-import { TextInput, Select, Radio, Group, SimpleGrid, Stack, Text, NumberInput, Divider } from '@mantine/core'
+import { TextInput, Select, Radio, Group, SimpleGrid, Stack, NumberInput, Divider } from '@mantine/core'
 import { TimePicker } from '@mantine/dates'
 import { KIND_OPTIONS, KIND_ICONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS, KIND_SCHEMA } from './detailsSchema'
-import PoiSearchCombobox from './PoiSearchCombobox'
+import LocationPicker from './LocationPicker'
 import PresetChips from './PresetChips'
 import DetailsFields from './DetailsFields'
 import CollapsibleSection from './CollapsibleSection'
@@ -26,6 +26,7 @@ export default function CommonFields({
   form, onPoiPick, kind, details, onDetailsChange,
   author, members, canEdit,
   participantUserIds, onParticipantsChange,
+  regionHint, nearbyCenter,
 }) {
   const filledCount = countFilledDetails(kind, details)
   const totalMembers = 1 + (members?.length || 0)
@@ -35,16 +36,28 @@ export default function CommonFields({
     <Stack gap="md">
       {/* 段 1：位置 */}
       <Divider label="位置" labelPosition="left" />
-      <PoiSearchCombobox onPick={onPoiPick} />
+      <LocationPicker
+        value={form.values.lat && form.values.lng ? {
+          name: form.values.name || '未命名',
+          lat: Number(form.values.lat),
+          lng: Number(form.values.lng),
+          address: form.values.address || '',
+          pname: form.values.pname || '',
+          cityname: form.values.cityname || '',
+          adname: form.values.adname || '',
+          type: form.values.type || '',
+        } : null}
+        onChange={onPoiPick}
+        regionHint={regionHint}
+        nearbyCenter={nearbyCenter}
+        disabled={!canEdit}
+      />
       <TextInput
         label="名称"
         required
         maxLength={80}
         {...form.getInputProps('name')}
       />
-      {form.values.address && (
-        <Text size="xs" c="dimmed">地址：{form.values.address}</Text>
-      )}
 
       {/* 段 2：分类与时间 */}
       <Divider label="分类与时间" labelPosition="left" />

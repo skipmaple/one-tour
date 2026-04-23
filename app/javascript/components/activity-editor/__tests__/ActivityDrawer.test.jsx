@@ -21,17 +21,19 @@ vi.mock('../../../hooks/useUndoStack', () => ({
   UNDO_CAP: 10,
 }))
 
-// Mock PoiSearchCombobox so tests can drive POI picks via a button instead of
+// Mock LocationPicker so tests can drive POI picks via a button instead of
 // the real debounce/combobox/keyboard flow (which is covered separately).
-vi.mock('../PoiSearchCombobox', () => ({
-  default: ({ onPick }) => (
-    <div data-testid="poi-stub">
-      <button type="button" onClick={() => onPick({ name: '兰州大学(地铁站)', lat: 36.05, lng: 103.82, address: '兰州城关区天水南路' })}>
-        pick-lanzhou
-      </button>
-      <button type="button" onClick={() => onPick({ name: '米生拉', lat: 29.77, lng: 87.25, address: '谢通门县 · 地名' })}>
-        pick-misheng
-      </button>
+vi.mock('../LocationPicker', () => ({
+  default: ({ onChange }) => (
+    <div data-testid="location-picker-stub">
+      <button type="button" onClick={() => onChange({
+        name: '兰州大学(地铁站)', lat: 36.05, lng: 103.82, address: '兰州城关区天水南路',
+        pname: '甘肃省', cityname: '兰州市', adname: '城关区', type: '地铁站'
+      })}>pick-lanzhou</button>
+      <button type="button" onClick={() => onChange({
+        name: '米生拉', lat: 29.77, lng: 87.25, address: '谢通门县 · 地名',
+        pname: '西藏自治区', cityname: '日喀则市', adname: '谢通门县', type: '地名'
+      })}>pick-misheng</button>
     </div>
   ),
 }))
@@ -165,10 +167,9 @@ test('re-picking a POI overwrites the auto-filled name, but not a user-typed one
   // Another pick → name must be preserved
   fireEvent.click(screen.getByRole('button', { name: 'pick-lanzhou' }))
   await waitFor(() => {
-    // address should have updated
-    expect(screen.getByText(/兰州城关区天水南路/)).toBeInTheDocument()
+    // name should remain as user typed, not overwritten by the pick
+    expect(nameInput).toHaveValue('我的自定义名字')
   })
-  expect(nameInput).toHaveValue('我的自定义名字')
 })
 
 test('form clears when switching from edit to create mode', async () => {
@@ -226,7 +227,7 @@ test('form clears when switching from edit to create mode', async () => {
   expect(screen.queryByText(/兰州南关十字东500米/)).not.toBeInTheDocument()
 })
 
-test('shows persisted address (prefixed "地址：", no emoji) when editing', () => {
+test('editing activity with location renders LocationPicker (no raw coords in drawer)', () => {
   renderDrawer({
     mode: 'edit',
     activity: {
@@ -241,8 +242,9 @@ test('shows persisted address (prefixed "地址：", no emoji) when editing', ()
       details: {},
     },
   })
-  expect(screen.getByText('地址：甘肃省兰州市城关区南关十字东500米')).toBeInTheDocument()
-  // Coords should NOT be rendered (see spec 2026-04-18-activity-drawer-redesign — decision D)
+  // LocationPicker stub is rendered; location display is handled by LocationPicker
+  expect(screen.getByTestId('location-picker-stub')).toBeInTheDocument()
+  // Raw coordinates should NOT be rendered directly in the drawer
   expect(screen.queryByText(/36\.0590,\s*103\.8320/)).not.toBeInTheDocument()
 })
 

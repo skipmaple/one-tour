@@ -17,6 +17,7 @@ const EMPTY_FORM_VALUES = {
   lat: '',
   lng: '',
   address: '',
+  pname: '', cityname: '', adname: '', type: '',
   planned_start_at: '',
   planned_duration_min: '',
   desc: '',
@@ -58,6 +59,10 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
         lat: activity.lat ?? '',
         lng: activity.lng ?? '',
         address: activity.address || '',
+        pname: activity.pname || '',
+        cityname: activity.cityname || '',
+        adname: activity.adname || '',
+        type: activity.type || '',
         planned_start_at: activity.planned_start_at || '',
         planned_duration_min: activity.planned_duration_min ?? '',
         desc: activity.desc || '',
@@ -89,7 +94,20 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     setDetails(cleaned)
   }
 
-  const handlePoiPick = ({ name, lat, lng, address }) => {
+  const handlePoiPick = (picked) => {
+    if (picked === null) {
+      // User clicked 重选: clear all POI-sourced fields
+      form.setFieldValue('lat', '')
+      form.setFieldValue('lng', '')
+      form.setFieldValue('address', '')
+      form.setFieldValue('pname', '')
+      form.setFieldValue('cityname', '')
+      form.setFieldValue('adname', '')
+      form.setFieldValue('type', '')
+      poiFilledName.current = ''
+      return
+    }
+    const { name, lat, lng, address, pname, cityname, adname, type } = picked
     const current = form.values.name
     if (!current || current === poiFilledName.current) {
       form.setFieldValue('name', name)
@@ -98,6 +116,10 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     form.setFieldValue('lat', lat)
     form.setFieldValue('lng', lng)
     form.setFieldValue('address', address || '')
+    form.setFieldValue('pname', pname || '')
+    form.setFieldValue('cityname', cityname || '')
+    form.setFieldValue('adname', adname || '')
+    form.setFieldValue('type', type || '')
   }
 
   const handleClose = () => {
@@ -113,6 +135,31 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     }
   }
 
+  // Auto-derive city hint from sibling activities in the same day, falling
+  // back to tour-wide majority. Users can × it inside LocationPicker.
+  const cityHint = (() => {
+    const pool = (allActivities || []).filter(a => a.id !== activity?.id)
+    const sameDay = pool.filter(a => a.day_id === targetDayId)
+    const src = sameDay.length > 0 ? sameDay : pool
+    const counts = {}
+    src.forEach(a => {
+      const city = a.cityname
+      if (city) counts[city] = (counts[city] || 0) + 1
+    })
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+    return top ? top[0] : null
+  })()
+
+  const nearbyCenter = (() => {
+    const pool = (allActivities || []).filter(
+      a => a.id !== activity?.id && a.day_id === targetDayId && a.lat && a.lng
+    )
+    if (pool.length === 0) return null
+    const avgLat = pool.reduce((s, a) => s + Number(a.lat), 0) / pool.length
+    const avgLng = pool.reduce((s, a) => s + Number(a.lng), 0) / pool.length
+    return { lat: avgLat, lng: avgLng }
+  })()
+
   const handleSave = async () => {
     if (form.validate().hasErrors) return
     setSaving(true)
@@ -127,12 +174,13 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       }
     }
 
+    const { pname, cityname, adname, type, ...formValues } = form.values
     const payload = {
       activity: {
-        ...form.values,
-        planned_duration_min: form.values.planned_duration_min === '' ? null : Number(form.values.planned_duration_min),
-        lat: form.values.lat === '' ? null : Number(form.values.lat),
-        lng: form.values.lng === '' ? null : Number(form.values.lng),
+        ...formValues,
+        planned_duration_min: formValues.planned_duration_min === '' ? null : Number(formValues.planned_duration_min),
+        lat: formValues.lat === '' ? null : Number(formValues.lat),
+        lng: formValues.lng === '' ? null : Number(formValues.lng),
         details: cleanDetails,
       },
       user_ids: participantUserIds ?? [],
@@ -292,6 +340,8 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
               canEdit={canEdit}
               participantUserIds={participantUserIds}
               onParticipantsChange={setParticipantUserIds}
+              regionHint={cityHint}
+              nearbyCenter={nearbyCenter}
             />
           </Tabs.Panel>
 
