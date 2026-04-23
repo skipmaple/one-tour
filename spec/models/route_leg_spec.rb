@@ -137,4 +137,29 @@ RSpec.describe RouteLeg do
       expect(leg.overridden_by).to eq(user)
     end
   end
+
+  describe "endpoint digest with scenic road" do
+    let(:tour) { create(:tour) }
+    let(:prev) { create(:activity, tour: tour, lat: 36.0, lng: 103.0, position: 1) }
+    let(:scenic) { create(:activity, :scenic_road, tour: tour, position: 2) }
+
+    it "uses scenic road's details.start as TO endpoint digest input" do
+      # When scenic is TO, use its start_lat/start_lng (entering the scenic road)
+      digest_args = RouteLeg.resolve_endpoint_coords(from_activity: prev, to_activity: scenic)
+      expect(digest_args[:from_lat].to_f).to eq(36.0)
+      expect(digest_args[:from_lng].to_f).to eq(103.0)
+      expect(digest_args[:to_lat].to_f).to eq(42.9)
+      expect(digest_args[:to_lng].to_f).to eq(83.5)
+    end
+
+    it "uses scenic road's details.end as FROM endpoint digest input" do
+      # When scenic is FROM, use its end_lat/end_lng (leaving the scenic road)
+      next_act = create(:activity, tour: tour, lat: 45.0, lng: 85.0, position: 3)
+      digest_args = RouteLeg.resolve_endpoint_coords(from_activity: scenic, to_activity: next_act)
+      expect(digest_args[:from_lat].to_f).to eq(44.0)
+      expect(digest_args[:from_lng].to_f).to eq(84.7)
+      expect(digest_args[:to_lat].to_f).to eq(45.0)
+      expect(digest_args[:to_lng].to_f).to eq(85.0)
+    end
+  end
 end

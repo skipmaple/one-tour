@@ -17,10 +17,37 @@ class RouteLeg < ApplicationRecord
     Digest::SHA1.hexdigest("#{coords.join(',')}|#{mode}")
   end
 
+  # Resolve "real" endpoint coords for leg computation. For tier_one road
+  # activities (景观公路), use details.start_* when activity is TO (entering)
+  # and details.end_* when activity is FROM (leaving). Other activities use
+  # their lat/lng directly.
+  def self.resolve_endpoint_coords(from_activity:, to_activity:)
+    from_lat, from_lng = resolve_for(from_activity, role: :from)
+    to_lat,   to_lng   = resolve_for(to_activity,   role: :to)
+    { from_lat: from_lat, from_lng: from_lng, to_lat: to_lat, to_lng: to_lng }
+  end
+
+  def self.resolve_for(activity, role:)
+    if activity.kind == "road" && activity.citizen_level == "tier_one"
+      d = activity.details || {}
+      if role == :from
+        [ d["end_lat"], d["end_lng"] ]
+      else
+        [ d["start_lat"], d["start_lng"] ]
+      end
+    else
+      [ activity.lat, activity.lng ]
+    end
+  end
+  private_class_method :resolve_for
+
   def expected_endpoint_digest
+    args = self.class.resolve_endpoint_coords(
+      from_activity: from_activity, to_activity: to_activity
+    )
     self.class.compute_endpoint_digest(
-      from_lat: from_activity.lat, from_lng: from_activity.lng,
-      to_lat:   to_activity.lat,   to_lng:   to_activity.lng,
+      from_lat: args[:from_lat], from_lng: args[:from_lng],
+      to_lat:   args[:to_lat],   to_lng:   args[:to_lng],
       mode:     mode
     )
   end
