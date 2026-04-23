@@ -151,9 +151,9 @@ namespace :admin do
 end
 
 # OAuth
-match "/auth/:provider/callback", via: [:get, :post]
-post  "/auth/email/send"
-post  "/auth/email/verify"
+match "/auth/:provider/callback", to: "sessions#create",      via: [ :get, :post ]
+post  "/auth/email/send",          to: "sessions#send_code"
+post  "/auth/email/verify",        to: "sessions#verify_code"
 ```
 
 偏好 REST 资源而非自定义 action(详见 [STYLE.md](STYLE.md))。
