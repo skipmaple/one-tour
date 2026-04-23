@@ -54,6 +54,7 @@ Rails.application.routes.draw do
   resources :route_legs, only: [ :destroy ]
 
   get "/poi_search", to: "poi_searches#index"
+  get "/amap_direction", to: "amap_directions#show"
 
   # Admin namespace
   namespace :admin do
