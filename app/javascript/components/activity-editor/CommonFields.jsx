@@ -79,9 +79,13 @@ export default function CommonFields({
           label="开始时间"
           format="24h"
           clearable
+          withDropdown
           minutesStep={5}
           hoursInputLabel="小时"
           minutesInputLabel="分钟"
+          presets={[
+            { label: '常用时段', values: ['07:00', '09:00', '12:00', '14:00', '18:00', '20:00'] },
+          ]}
           {...form.getInputProps('planned_start_at')}
         />
         <Stack gap={0} data-testid="duration-field">
