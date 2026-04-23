@@ -1,4 +1,4 @@
-import { TextInput, Select, Radio, Group, SimpleGrid, Stack, NumberInput, Divider } from '@mantine/core'
+import { TextInput, Select, Radio, Group, SimpleGrid, Stack, NumberInput, Divider, Text } from '@mantine/core'
 import { TimePicker } from '@mantine/dates'
 import { KIND_OPTIONS, KIND_ICONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS, KIND_SCHEMA } from './detailsSchema'
 import LocationPicker from './LocationPicker'
@@ -7,6 +7,7 @@ import DetailsFields from './DetailsFields'
 import CollapsibleSection from './CollapsibleSection'
 import MarkdownEditor from './MarkdownEditor'
 import ParticipantsSection from './ParticipantsSection'
+import useAmapDirection from '../../hooks/useAmapDirection'
 
 function countFilledDetails(kind, details) {
   const schema = KIND_SCHEMA[kind] || []
@@ -20,6 +21,76 @@ function countFilledDetails(kind, details) {
 function participantSummary(value, memberCount) {
   if (value === null) return `默认全员 · ${memberCount} 人`
   return `${value.length} / ${memberCount} 人`
+}
+
+function RoadLocationSection({ form, details, onDetailsChange, onScenicRoadChange, regionHint, canEdit }) {
+  const d = details || {}
+  const start = d.start_lat ? {
+    name: d.start_name,
+    lat: Number(d.start_lat),
+    lng: Number(d.start_lng),
+    address: d.start_address,
+    pname: d.start_pname,
+    cityname: d.start_cityname,
+    adname: d.start_adname,
+  } : null
+
+  const end = d.end_lat ? {
+    name: d.end_name,
+    lat: Number(d.end_lat),
+    lng: Number(d.end_lng),
+    address: d.end_address,
+    pname: d.end_pname,
+    cityname: d.end_cityname,
+    adname: d.end_adname,
+  } : null
+
+  const amapCoords = (start && end) ? {
+    from: { lat: start.lat, lng: start.lng },
+    to:   { lat: end.lat,   lng: end.lng }
+  } : null
+  const { status, data } = useAmapDirection(amapCoords)
+
+  const handleChange = ({ start: nextStart, end: nextEnd }) => {
+    onScenicRoadChange({ start: nextStart, end: nextEnd })
+  }
+
+  const updateDetailField = (key, value) => {
+    onDetailsChange({ ...(details || {}), [key]: value })
+  }
+
+  return (
+    <Stack gap="sm">
+      <LocationPicker
+        mode="dual"
+        value={{ start, end }}
+        onChange={handleChange}
+        regionHint={regionHint}
+        disabled={!canEdit}
+      />
+      <Group grow>
+        <NumberInput
+          label="里程" min={0}
+          value={d.km ?? ''}
+          onChange={v => updateDetailField('km', v === '' ? null : Number(v))}
+          rightSection={<Text size="xs" c="dimmed" pr="xs">km</Text>}
+          rightSectionWidth={40}
+          description={data ? `AMAP: ${Math.round(data.distance_m / 1000)} km` : null}
+        />
+        <NumberInput
+          label="驾驶时长" min={0}
+          value={d.drive_min ?? ''}
+          onChange={v => updateDetailField('drive_min', v === '' ? null : Number(v))}
+          rightSection={<Text size="xs" c="dimmed" pr="xs">分钟</Text>}
+          rightSectionWidth={56}
+          description={data ? `AMAP: ${Math.round(data.duration_s / 60)} 分钟` : null}
+        />
+      </Group>
+      {status === 'error' && (
+        <Text size="xs" c="red">AMAP 预估失败，请手动输入里程和时长</Text>
+      )}
+    </Stack>
+  )
 }
 
 export default function CommonFields({
@@ -36,22 +107,33 @@ export default function CommonFields({
     <Stack gap="md">
       {/* 段 1：位置 */}
       <Divider label="位置" labelPosition="left" />
-      <LocationPicker
-        value={form.values.lat && form.values.lng ? {
-          name: form.values.name || '未命名',
-          lat: Number(form.values.lat),
-          lng: Number(form.values.lng),
-          address: form.values.address || '',
-          pname: form.values.pname || '',
-          cityname: form.values.cityname || '',
-          adname: form.values.adname || '',
-          type: form.values.type || '',
-        } : null}
-        onChange={onPoiPick}
-        regionHint={regionHint}
-        nearbyCenter={nearbyCenter}
-        disabled={!canEdit}
-      />
+      {kind === 'road' ? (
+        <RoadLocationSection
+          form={form}
+          details={details}
+          onDetailsChange={onDetailsChange}
+          onScenicRoadChange={onPoiPick}
+          regionHint={regionHint}
+          canEdit={canEdit}
+        />
+      ) : (
+        <LocationPicker
+          value={form.values.lat && form.values.lng ? {
+            name: form.values.name || '未命名',
+            lat: Number(form.values.lat),
+            lng: Number(form.values.lng),
+            address: form.values.address || '',
+            pname: form.values.pname || '',
+            cityname: form.values.cityname || '',
+            adname: form.values.adname || '',
+            type: form.values.type || '',
+          } : null}
+          onChange={onPoiPick}
+          regionHint={regionHint}
+          nearbyCenter={nearbyCenter}
+          disabled={!canEdit}
+        />
+      )}
       <TextInput
         label="名称"
         required
@@ -83,7 +165,8 @@ export default function CommonFields({
       <Radio.Group label="公民等级" {...form.getInputProps('citizen_level')}>
         <SimpleGrid cols={2} spacing="xs" mt={4}>
           {CITIZEN_LEVEL_OPTIONS.map(o => (
-            <Radio key={o.value} value={o.value} label={o.label} />
+            <Radio key={o.value} value={o.value} label={o.label}
+                   disabled={form.values.kind === 'road' && o.value !== 'tier_one'} />
           ))}
         </SimpleGrid>
       </Radio.Group>

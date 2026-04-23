@@ -86,6 +86,9 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
   // When kind changes, keep only the keys that belong to the new kind's schema
   const handleKindChange = (newKind) => {
     form.setFieldValue('kind', newKind)
+    if (newKind === 'road') {
+      form.setFieldValue('citizen_level', 'tier_one')
+    }
     const validKeys = (KIND_SCHEMA[newKind] || []).map(f => f.key)
     const cleaned = {}
     for (const k of validKeys) {
@@ -95,8 +98,44 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
   }
 
   const handlePoiPick = (picked) => {
+    const kind = form.values.kind
+    if (kind === 'road') {
+      // Road kind: picked shape is { start, end } objects (or null for clear)
+      const d = { ...(details || {}) }
+      if (picked?.start) {
+        d.start_name = picked.start.name
+        d.start_lat = picked.start.lat
+        d.start_lng = picked.start.lng
+        d.start_address = picked.start.address
+        d.start_pname = picked.start.pname
+        d.start_cityname = picked.start.cityname
+        d.start_adname = picked.start.adname
+      } else if (picked && picked.start === null) {
+        delete d.start_name; delete d.start_lat; delete d.start_lng
+        delete d.start_address; delete d.start_pname; delete d.start_cityname; delete d.start_adname
+      }
+      if (picked?.end) {
+        d.end_name = picked.end.name
+        d.end_lat = picked.end.lat
+        d.end_lng = picked.end.lng
+        d.end_address = picked.end.address
+        d.end_pname = picked.end.pname
+        d.end_cityname = picked.end.cityname
+        d.end_adname = picked.end.adname
+      } else if (picked && picked.end === null) {
+        delete d.end_name; delete d.end_lat; delete d.end_lng
+        delete d.end_address; delete d.end_pname; delete d.end_cityname; delete d.end_adname
+      }
+      setDetails(d)
+      // Name fallback: if empty, use start_name - end_name
+      if (!form.values.name && d.start_name && d.end_name) {
+        form.setFieldValue('name', `${d.start_name} - ${d.end_name}`)
+      }
+      return
+    }
+
+    // Non-road (existing behavior)
     if (picked === null) {
-      // User clicked 重选: clear all POI-sourced fields
       form.setFieldValue('lat', '')
       form.setFieldValue('lng', '')
       form.setFieldValue('address', '')
