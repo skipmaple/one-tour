@@ -7,17 +7,42 @@ import { IconX, IconMapPin } from '@tabler/icons-react'
 import LocationPickerMap from './LocationPickerMap'
 
 /**
- * Unified location picker. Search → result list with province/city → selected
- * summary chip → draggable mini-map.
+ * Unified location picker. Supports two modes:
  *
- * Props:
- *   value:       { name, lat, lng, address, pname, cityname, adname, type } | null
- *   onChange:    (next) => void
- *   regionHint:  string? — city name to bias search (default open, user can close)
+ * mode="single" (default):
+ *   value:    { name, lat, lng, address, pname, cityname, adname, type } | null
+ *   onChange: (next) => void
+ *
+ * mode="dual":
+ *   value:    { start, end } — each field is a single-mode value or null
+ *   onChange: ({ start, end }) => void
+ *
+ * Shared props (all modes):
+ *   regionHint:   string? — city name to bias search (default open, user can close)
  *   nearbyCenter: { lat, lng }? — passed to backend as near_lat/near_lng
- *   disabled:    boolean
+ *   disabled:     boolean
  */
-export default function LocationPicker({ value, onChange, regionHint, nearbyCenter, disabled }) {
+export default function LocationPicker({ mode = 'single', value, onChange, ...rest }) {
+  if (mode === 'dual') {
+    const handleStart = (start) => onChange({ ...value, start })
+    const handleEnd   = (end)   => onChange({ ...value, end })
+    return (
+      <Stack gap="md">
+        <div>
+          <Text size="sm" fw={500} mb="xs">起点</Text>
+          <SingleLocationPicker value={value?.start} onChange={handleStart} {...rest} />
+        </div>
+        <div>
+          <Text size="sm" fw={500} mb="xs">终点</Text>
+          <SingleLocationPicker value={value?.end} onChange={handleEnd} {...rest} />
+        </div>
+      </Stack>
+    )
+  }
+  return <SingleLocationPicker value={value} onChange={onChange} {...rest} />
+}
+
+function SingleLocationPicker({ value, onChange, regionHint, nearbyCenter, disabled }) {
   const [query, setQuery] = useState('')
   const [candidates, setCandidates] = useState([])
   const [loading, setLoading] = useState(false)

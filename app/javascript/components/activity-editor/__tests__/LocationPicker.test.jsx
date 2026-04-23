@@ -92,3 +92,38 @@ describe('LocationPicker (single)', () => {
     expect(screen.getByRole('button', { name: /关闭城市/ })).toBeInTheDocument()
   })
 })
+
+describe('LocationPicker (dual)', () => {
+  it('renders two searches stacked', () => {
+    render(
+      <MantineProvider>
+        <LocationPicker mode="dual" value={{ start: null, end: null }} onChange={vi.fn()} />
+      </MantineProvider>
+    )
+    expect(screen.getByText('起点')).toBeInTheDocument()
+    expect(screen.getByText('终点')).toBeInTheDocument()
+  })
+
+  it('onChange fires with { start, end } shape in dual mode', async () => {
+    const onChange = vi.fn()
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ candidates: [
+        { name: '独库南入口', lat: 42.9, lng: 83.5, pname: '新疆', cityname: '阿克苏', adname: '库车' }
+      ]})
+    })
+    render(
+      <MantineProvider>
+        <LocationPicker mode="dual" value={{ start: null, end: null }} onChange={onChange} />
+      </MantineProvider>
+    )
+    const inputs = screen.getAllByPlaceholderText(/输入地名/)
+    fireEvent.change(inputs[0], { target: { value: '独库' } })
+    await waitFor(() => expect(screen.getByText('独库南入口')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('独库南入口'))
+    expect(onChange).toHaveBeenCalledWith({
+      start: expect.objectContaining({ name: '独库南入口' }),
+      end: null,
+    })
+  })
+})
