@@ -83,7 +83,7 @@ function renderField(field, value, set) {
 }
 
 export default function DetailsFields({ kind, details, onChange }) {
-  const schema = KIND_SCHEMA[kind] || []
+  const schema = (KIND_SCHEMA[kind] || []).filter(f => !f.hidden)
   if (schema.length === 0) return null
 
   const set = (key, value) => onChange({ ...details, [key]: value })
