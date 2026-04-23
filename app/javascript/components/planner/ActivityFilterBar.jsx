@@ -68,7 +68,7 @@ export default function ActivityFilterBar({
             size="xs"
             value={filter.q}
             onChange={e => setQ(e.currentTarget.value)}
-            placeholder="搜索活动名或备注"
+            placeholder="搜索行动名或备注"
             leftSection={<IconSearch size={14} />}
             rightSection={filter.q ? (
               <ActionIcon variant="subtle" size="xs" onClick={() => setQ('')} aria-label="清空搜索">
