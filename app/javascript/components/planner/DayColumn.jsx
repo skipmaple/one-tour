@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 import { DAY_COLOR } from '../../lib/dayColors'
 import { Alert, Paper, Text, Stack, Group, Button } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
@@ -6,6 +6,7 @@ import { IconAlertTriangleFilled, IconFilterFilled } from '@tabler/icons-react'
 import ActivityCard from './ActivityCard'
 import RoadConnector from './RoadConnector'
 import DayMetricBar from '../DayMetricBar'
+import RouteLegEditModal from './RouteLegEditModal'
 
 const INTENSITY_COLORS = {
   green:  '#4caf50',
@@ -35,6 +36,13 @@ export default function DayColumn({
 }) {
   const maxH = Math.round((constitution?.max_daily_driving_minutes || 420) / 60)
   const maxTier1 = constitution?.max_tier_one_per_day || 3
+
+  const [editingLeg, setEditingLeg] = useState(null)
+  const handleLegClick = useCallback((leg) => {
+    const from = activities.find(a => a.id === leg.from_activity_id)
+    const to   = activities.find(a => a.id === leg.to_activity_id)
+    setEditingLeg({ ...leg, from_activity_name: from?.name, to_activity_name: to?.name })
+  }, [activities])
 
   const driveMin = activities
     .filter(a => a.kind === 'road')
@@ -155,6 +163,7 @@ export default function DayColumn({
             onHoverConnector={onHoverConnector}
             onClearHover={onClearHover}
             dayColorName={dayColorName}
+            onClick={handleLegClick}
           />
         )
         lastEmittedWasConnector = true
@@ -181,6 +190,7 @@ export default function DayColumn({
   }
 
   return (
+    <>
     <Paper withBorder style={{ flex: '0 0 200px', display: 'flex', flexDirection: 'column' }}>
       <div
         data-testid="day-header"
@@ -267,6 +277,8 @@ export default function DayColumn({
         {day.buffer_day && <Text size="xs" c="dimmed">机动</Text>}
       </Stack>
     </Paper>
+    <RouteLegEditModal opened={!!editingLeg} leg={editingLeg} onClose={() => setEditingLeg(null)} />
+    </>
   )
 }
 
