@@ -1,19 +1,21 @@
 # OneTour
 
-一个协作式的旅行攻略应用,把 Markdown + YAML 的行程描述渲染成交互式地图手册。作者写 Markdown,读者看地图。
+协作式的多人行程规划器:同一个 Tour 下,作者与成员一起把"去哪几天 / 每天排什么活动 / 谁付了钱 / 谁欠谁"一次讲清。
 
-- 📝 Markdown 编辑器(CodeMirror 6),支持 YAML frontmatter 结构化行程
-- 🗺️ Leaflet 地图渲染路线、每日行程、兴趣点
-- 👥 多人协作:作者、编辑者、读者三种角色
-- 🔐 OAuth 登录(GitHub / Google / 飞书 / 邮箱验证码)
-- 🤖 AI 助手对行程内容进行问答和改写
+- 📅 Planner:`Tour → Day → Activity` 三层结构,外加 backlog 待选池,支持拖拽排程 / 跨日迁移 / 一键克隆
+- 🗺️ 地图与路线:Leaflet + 高德(AMAP)Web / JS API,每日路线段(Route Legs)由高德 directions 预算、POI 搜索直连高德 REST
+- 💰 费用与结算:`activity/day/tour` 三种作用域、`equal/percentage/custom/individual` 四种分摊策略、小票上传;独立的 Settlement 记账
+- 👥 协作:作者 + editor / reader 两级成员;成员自动进入活动参与者候选
+- 🔐 登录:GitHub / Google / 飞书 / 邮箱验证码;开发环境一键 Developer Login
+- 🤖 AI 助手:每个 (Tour, 当前用户) 一个会话,Action Cable 流式返回
+- 🛠️ Admin 视图:`/admin` 下查看全站用户与 Tour
 - 📦 Kamal + Docker 一键部署
 
 ## 技术栈
 
-**后端** Rails 8.0 · PostgreSQL · SolidQueue / SolidCache / SolidCable · Active Storage (Cloudflare R2) · OmniAuth · ruby_llm
+**后端** Rails 8.0 · PostgreSQL · SolidQueue / SolidCache / SolidCable · Active Storage(Cloudflare R2)· OmniAuth · ruby_llm
 
-**前端** React 19 · Inertia.js · Mantine UI 9 · Leaflet · CodeMirror 6 · Vite
+**前端** React 19.2 · Inertia.js 3 · Mantine UI 9 · Leaflet 1.9 · CodeMirror 6 · Vite 8
 
 **架构要点** 不使用独立 REST API。Rails 控制器通过 Inertia 直接渲染 React 组件,页面组件位于 `app/javascript/pages/{Controller}/{Action}.jsx`,与路由一一对应。
 
@@ -35,13 +37,17 @@ bin/dev          # 同时启动 Rails + Vite (Procfile.dev)
 
 应用运行于 <http://localhost:3000>。
 
-**开发登录**: 登录页面点 "Developer Login" 按钮即可(OmniAuth developer strategy,仅开发环境可用,无需配置任何 OAuth provider)。
+**开发登录**:登录页面点 "Developer Login"(OmniAuth developer strategy,仅开发环境可用,无需配置任何 OAuth provider)。
 
 ### 环境变量
 
-复制 [.env.example](.env.example) 为 `.env`,按需填入。开发环境只有想测试真实 OAuth / LLM / 地图服务时才需要配置;默认不配置也能用开发登录跑起来。
+复制 [.env.example](.env.example) 为 `.env`,按需填入:
 
-生产环境的所有密钥通过 `.env.production`(不提交)管理,Kamal 部署时由 [.kamal/secrets](.kamal/secrets) 动态读取。
+- **OAuth**(GitHub / Google / 飞书)——开发环境用 Developer Login 可全留空
+- **LLM**(RubyLLM)——默认指向本机 LM Studio(`OPENAI_API_BASE=http://localhost:1234/v1`);切云端提供商改 `OPENAI_API_KEY` / `OPENAI_API_BASE` / `LLM_MODEL` 三项
+- **AMAP**——需要**两把** key:`AMAP_API_KEY`(后端 POI 搜索,Web 服务平台)+ `AMAP_JS_API_KEY` / `AMAP_JS_API_SECURITY_CODE`(前端地图与路径,Web 端 JS 平台)。同一应用下分别建 key;JS key 的域名白名单记得加 `localhost` 与生产域名
+
+生产所有密钥通过 `.env.production`(不提交)管理,Kamal 部署时由 [.kamal/secrets](.kamal/secrets) 动态读取。
 
 ## 常用命令
 
@@ -55,103 +61,135 @@ npm run test:watch                       # 前端测试 watch 模式
 
 # 数据库
 bin/rails db:create db:migrate
-bin/rails db:seed         # 创建 admin@example.com,从兄弟目录 ../tour-of-xinjiang 读取示例攻略
 
 # 代码检查
 bundle exec rubocop       # rubocop-rails-omakase 风格
 bundle exec brakeman      # 安全扫描
 ```
 
-## 内容模型
+## 领域模型
 
-每本攻略是一段 Markdown,开头为 YAML frontmatter,描述行程结构:
-
-```yaml
----
-title: 新疆环线
-dates: "2024-09-01 ~ 2024-09-15"
-vehicle: 自驾
-days:
-  - date: 2024-09-01
-    coordinates: [43.8256, 87.6168]
-    schedule:
-      - "10:00 乌鲁木齐出发"
-    lodging: 喀纳斯民宿
-    pois:
-      - name: 喀纳斯湖
-        coordinates: [48.7254, 87.0234]
-        tags: [湖泊, 必去]
----
-
-# 正文 Markdown...
+```
+Tour
+├── constitution            # JSONB "行程共识"(出行规则);accept 后 title 变必填
+├── TourMembership × N      # role: reader (0) / editor (1)
+├── Day × N                 # day_index 排序;intensity: green / yellow / red
+│   └── Activity × N        # position 排序
+├── Activity(backlog)       # day_id 为空的活动放待选池
+│   ├── kind: scenic / road / food / stay / fuel / other
+│   ├── participants        # 通过 ActivityParticipant 挂到 User
+│   ├── images              # Active Storage 附件
+│   └── expenses / budgets  # 活动作用域的费用与预算
+├── Expense                 # scope: activity / day / tour
+│   ├── category: food / fuel / lodging / ticket / refund / misc
+│   ├── split_strategy: equal / percentage / custom / individual
+│   ├── ExpenseSplit × N
+│   └── ExpenseReceipt × N  # 小票(Active Storage)
+├── TourBudget              # 预算(可挂在 activity / day / tour 任一层)
+├── RouteLeg                # 相邻活动间的一段路线(高德 directions)
+├── Settlement              # 某人 → 某人的一次结算转账
+└── Conversation            # 每个 (Tour, 当前用户) 一个 AI 会话
 ```
 
-**双解析** 相同内容在两处解析:
-- 后端 [FrontmatterParser](app/services/frontmatter_parser.rb) 保存时校验 + 填充 `frontmatter_cache` JSONB
-- 前端 [useFrontmatter](app/javascript/hooks/useFrontmatter.js) 编辑时实时预览
-
-**发布条件** frontmatter 无解析错误 + 有 `title` + **每一天必须有 `coordinates`**(地图渲染所需)。
+**Activity 双重身份** `day_id` 非空 = 排进某天的某个位置;为空 = 丢进 backlog 待选池。planner UI 通过 `PATCH /activities/:id/position` 在两者与各自顺序之间调整。
 
 ## 权限模型
 
-模型层统一校验,见 `Guidebook`:
+模型层统一校验,见 [app/models/tour.rb](app/models/tour.rb):
 
 | 方法 | 含义 |
 |---|---|
 | `owned_by?(user)` | 是否作者 |
 | `editable_by?(user)` | 作者或 editor 成员 |
-| `visible_to?(user)` | 已发布(任何人可见)或作者/成员(私密) |
+| `visible_to?(user)` | 作者或成员 |
 
-`GuidebookMembership.role` 枚举:`reader` (0) / `editor` (1)。只有作者能发布、撤回、删除、管理成员。
+`TourMembership.role` 枚举:`reader` (0) / `editor` (1)。只有作者能转移、删除、管理成员。
 
-## 自动保存
+`/admin` 命名空间另有独立鉴权,见 `Admin::*` 控制器。
 
-[useAutoSave](app/javascript/hooks/useAutoSave.js) 在用户停止输入 5 秒后以 `router.put` 保存一次,并在离开页面时提示未保存。没有 WebSocket 实时协作,多人并发编辑按 last-write-wins 处理。
+## 费用与结算
+
+四字段账簿模型(全文在 [app/models/expense/summarize.rb](app/models/expense/summarize.rb),动这段前先读类头注释):
+
+- `paid_cents` **刻意排除** `individual`(各付各)支出 —— 这些是付款人给自己花的钱,不进入结算账簿。曾因把它纳入产生过"幽灵应收"
+- `my_spend_cents` = 我承担的分摊 + 我自己的 individual 支出 —— 预算卡片读的"我实际掏了多少"数字
+- 其余两字段(`owed` / `owing`)在 `current_user_balance` 方法注释里展开
+
+## 路由概览
+
+```ruby
+resources :tours, except: [ :new, :edit ] do
+  resource  :constitution                            # 行程共识(update + accept)
+  resources :members                                 # TourMembership
+  resources :days do
+    resources :activities, only: [ :create ]        # 创建进某天
+  end
+  resources :backlog_activities, only: [ :create ]   # 创建进待选池
+  resources :expenses,    only: [ :create ]
+  resources :budgets,     only: [ :create ]
+  resources :settlements, only: [ :create ]
+  resources :route_legs,  only: [ :create ]
+  resource  :conversation do                         # AI 对话(单个)
+    resources :messages, only: [ :create ]
+  end
+end
+
+resources :activities, only: [ :update, :destroy ] do
+  post :clone, on: :member
+  resource  :position                                # 跨日 / 跨 backlog 排序
+  resources :images
+  resource  :participants
+end
+
+resources :expenses,    only: [ :update, :destroy ]
+resources :settlements, only: [ :destroy ]
+resources :route_legs,  only: [ :destroy ]
+
+namespace :admin do
+  resources :users
+  resources :tours
+end
+
+# OAuth
+match "/auth/:provider/callback", to: "sessions#create",      via: [ :get, :post ]
+post  "/auth/email/send",          to: "sessions#send_code"
+post  "/auth/email/verify",        to: "sessions#verify_code"
+```
+
+偏好 REST 资源而非自定义 action(详见 [STYLE.md](STYLE.md))。
 
 ## 项目结构
 
 ```
 app/
-├── controllers/            # Inertia 控制器,薄层
-├── models/                 # 富模型,权限与业务逻辑在这里
-│   └── guidebook.rb
-├── services/
-│   └── frontmatter_parser.rb
+├── controllers/
+│   ├── tours/                      # Tour 作用域子资源(constitution 等)
+│   ├── conversations/              # AI 消息
+│   ├── admin/                      # /admin 命名空间
+│   └── profiles/                   # 当前用户 profile + avatar
+├── models/                         # 富模型,权限与业务逻辑在这里
+│   ├── tour.rb day.rb activity.rb
+│   ├── tour_membership.rb activity_participant.rb
+│   ├── expense.rb expense_split.rb expense_receipt.rb tour_budget.rb settlement.rb
+│   ├── route_leg.rb
+│   └── expense/summarize.rb        # 费用汇总的"账簿立场"
+├── jobs/
+│   └── chat_stream_job.rb          # AI 流式响应(Action Cable)
 └── javascript/
     ├── entrypoints/inertia.jsx
-    ├── pages/              # 对应 Rails controller/action
-    │   ├── Guidebook/
-    │   │   ├── Index.jsx Edit.jsx Show.jsx Settings.jsx
-    │   └── Auth/Login.jsx
+    ├── pages/{Tour,Auth,Admin}/    # Inertia 页面
     ├── components/
+    │   ├── activity-editor/        # CommonFields / DetailsFields / MarkdownEditor / ParticipantsSection
+    │   └── planner/                # DayColumn / BacklogList / ActivityCard / ActivityFilterBar / PlannerMap
     └── hooks/
 
 config/
-├── routes.rb               # REST 资源,见下
-└── deploy.yml              # Kamal 部署配置
+├── routes.rb
+├── deploy.yml                      # Kamal
+└── storage.yml                     # Active Storage (R2)
 
-spec/                       # RSpec + FactoryBot + WebMock
+spec/                               # RSpec + FactoryBot + WebMock
 ```
-
-## 路由概览
-
-```ruby
-resources :guidebooks do
-  resource :publication                    # 发布 / 撤回
-  resources :memberships                   # 共享成员
-  resources :images                        # 图片上传
-  resources :conversations do              # AI 对话
-    resources :messages
-  end
-end
-
-# OAuth
-match "/auth/:provider/callback"
-post  "/auth/email/send"
-post  "/auth/email/verify"
-```
-
-偏好新的 REST 资源而非自定义 action(详见 [STYLE.md](STYLE.md))。
 
 ## 部署
 
@@ -187,7 +225,7 @@ kamal app logs -f
    | `DEPLOY_SSH_KNOWN_HOSTS` | `ssh-keyscan 45.63.23.136` 的输出 |
 
 3. (强烈推荐)在 environment settings 里勾 **Required reviewers** 把自己加进去 —— 作为人工刹车,防止手滑点按钮
-4. (推荐)勾 **Deployment branches** → Selected branches → `main` — 只允许从 main 触发
+4. (推荐)勾 **Deployment branches** → Selected branches → `main` —— 只允许从 main 触发
 
 **触发部署**:
 

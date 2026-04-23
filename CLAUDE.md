@@ -10,7 +10,7 @@ Guidance for Claude Code working on this repo. Human-facing setup and command re
 
 CI runs **only** `bin/rubocop`, `bin/brakeman`, and `npm audit` — no tests. If you did not run these locally, the change is unverified:
 
-- `mise exec -- bundle exec rspec` — Ruby tests (RSpec)
+- `bundle exec rspec` — Ruby tests (RSpec; see the PATH gotcha below if this hits system Ruby 2.6)
 - `npm test` — JS tests (Vitest)
 - `bin/rubocop -f github` — Ruby lint (CI-matching format)
 - `bin/brakeman --no-pager` — Ruby security scan
@@ -31,8 +31,9 @@ Do not proceed without explicit user confirmation for:
 
 Each entry below is "if you see X, consider Y" — match on the trigger, don't memorize as timeless fact.
 
-- **`bundle exec` failing with bundler/Ruby version error** — On some local setups, shebang `/usr/bin/env ruby` resolves to macOS system Ruby 2.6, which cannot load this project's bundler. Work around with `mise exec -- bundle exec ...` or an explicit `BUNDLER_VERSION=...`. Applies to `rspec`, `rubocop`, `kamal` equally.
-- **Starting a dev server in a secondary worktree** — `bin/dev` collides with the main worktree (fixed port 9000, shared DB, stale Vite modules). Use `bin/worktree-dev up` / `down` — it picks free ports (9100+/3100+), creates an isolated Postgres DB via `docker exec one-tour-postgres createdb`, symlinks `.env` + `config/master.key` from main, and writes `.env.development.local` so dotenv-rails layers `DATABASE_URL` + `PORT` + `VITE_RUBY_PORT` over defaults. It goes through `mise exec -- bundle exec rails/vite` to bypass the shebang-to-system-Ruby-2.6 trap. `KEEP_DB=1 bin/worktree-dev down` preserves the DB across restarts. Assumes Postgres is in the `one-tour-postgres` Docker container (not host-native) — revisit when team grows.
+
+- **`bundle exec` / `bin/rails` failing under Ruby 2.6 with "Could not find 'bundler'…"** — macOS `/etc/zprofile`'s `path_helper` re-orders PATH so `/usr/bin` lands before the mise shims `~/.zshenv` prepended. Fix once in `~/.zshrc` after `eval "$(mise activate zsh)"`: `export PATH="$HOME/.local/share/mise/shims:$PATH"`. `mise exec --` inherits the same broken PATH, so it doesn't help; in an unfixed shell, use `PATH="$(mise where ruby)/bin:$PATH" bin/...`. Applies to `rspec`, `rubocop`, `kamal`.
+- **Starting a dev server in a secondary worktree** — `bin/dev` collides with the main worktree (fixed port 9000, shared DB, stale Vite modules). Use `bin/worktree-dev up` / `down` — it picks free ports (9100+/3100+), creates an isolated Postgres DB via `docker exec one-tour-postgres createdb`, symlinks `.env` + `config/master.key` from main, and writes `.env.development.local` so dotenv-rails layers `DATABASE_URL` + `PORT` + `VITE_RUBY_PORT` over defaults. `KEEP_DB=1 bin/worktree-dev down` preserves the DB across restarts. Assumes Postgres is in the `one-tour-postgres` Docker container (not host-native) — revisit when team grows.
 - **Tuning `ChatStreamJob` `max_tokens`** — On SiliconFlow this parameter is near-total context, not an output cap. Leave ~10k for input (current cap: 32_768, not 128K). Verify against the provider's current docs if the provider changes.
 - **Editing `ChatStreamJob#replay_history`** — Kimi degrades into token loops ("DIN DIN DIN…") when prior degenerate output is replayed. The filter is load-bearing — don't remove it without re-testing long conversations.
 - **`Message#tool_calls` / `#metadata`** — Both jsonb columns are provisioned but always `nil`/empty in current prod data. Don't read them as if populated; don't drop them either — they exist for forthcoming tool-calling support.
