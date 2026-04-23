@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Drawer, Button, Group, Stack, Tabs } from '@mantine/core'
+import { Drawer, Button, Group, Stack, Tabs, Text } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
@@ -201,6 +201,36 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
 
   const handleSave = async () => {
     if (form.validate().hasErrors) return
+
+    // If coords changed for an activity with overridden adjacent legs, confirm
+    const affected = affectedLegsFromEdit(
+      { ...form.values, details, kind: form.values.kind, citizen_level: form.values.citizen_level },
+      activity,
+      routeLegs
+    )
+    if (affected.length > 0) {
+      const names = affected
+        .map(l => `${l.from_activity_name || '起'} → ${l.to_activity_name || '止'}`)
+        .join('、')
+      const confirmed = await new Promise(resolve => {
+        modals.openConfirmModal({
+          title: '检测到驾驶段手动调整将被重置',
+          children: (
+            <div>
+              <Text size="sm">以下驾驶段的 km / 时长 / 备注手动调整会被清空并回到高德原始值：</Text>
+              <Text size="sm" fw={500} mt="xs">{names}</Text>
+              <Text size="sm" c="dimmed" mt="xs">（因为起/终点坐标发生了变化）</Text>
+            </div>
+          ),
+          labels: { confirm: '继续保存', cancel: '取消' },
+          confirmProps: { color: 'orange' },
+          onConfirm: () => resolve(true),
+          onCancel: () => resolve(false),
+        })
+      })
+      if (!confirmed) return
+    }
+
     setSaving(true)
 
     // Build payload: only include detail keys from current kind's schema
@@ -426,6 +456,32 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       </Stack>
     </Drawer>
   )
+}
+
+// Given an edited activity and all known legs, return legs whose digest will
+// invalidate because the activity's relevant coords are changing. For road
+// kind, "relevant coords" = details.start/end; for others, activity.lat/lng.
+function affectedLegsFromEdit(edited, originalActivity, routeLegs) {
+  if (!originalActivity) return []  // create mode, no legs yet
+  const id = originalActivity.id
+  const related = (routeLegs || []).filter(
+    l => l.from_activity_id === id || l.to_activity_id === id
+  )
+  if (related.length === 0) return []
+
+  const coordsChanged = (() => {
+    if (edited.kind === 'road' && edited.citizen_level === 'tier_one') {
+      const d0 = originalActivity.details || {}
+      const d1 = edited.details || {}
+      return d0.start_lat !== d1.start_lat || d0.start_lng !== d1.start_lng ||
+             d0.end_lat !== d1.end_lat   || d0.end_lng !== d1.end_lng
+    }
+    return Number(originalActivity.lat) !== Number(edited.lat) ||
+           Number(originalActivity.lng) !== Number(edited.lng)
+  })()
+  if (!coordsChanged) return []
+
+  return related.filter(l => l.overridden_at != null)
 }
 
 function csrfToken() {

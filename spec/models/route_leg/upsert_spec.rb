@@ -94,6 +94,27 @@ RSpec.describe RouteLeg::Upsert do
     end
   end
 
+  describe "override cleanup when coords change" do
+    it "clears override on refetch after endpoint moves" do
+      allow(fake_service).to receive(:fetch).and_return(fake_result)
+      leg = call_upsert
+      leg.update!(
+        distance_m_override: 500_000, duration_s_override: 30_000,
+        note: "绕行", overridden_at: Time.current
+      )
+
+      # User moves "to" coords → triggers refetch
+      to_act.update!(lat: 40.0, lng: 85.0)
+      call_upsert
+
+      leg.reload
+      expect(leg.distance_m_override).to be_nil
+      expect(leg.duration_s_override).to be_nil
+      expect(leg.note).to be_nil
+      expect(leg.overridden_at).to be_nil
+    end
+  end
+
   describe "scenic road endpoint resolution" do
     let(:scenic) { create(:activity, :scenic_road, tour: tour, position: 2) }
     let(:post_scenic) { create(:activity, tour: tour, lat: 45.0, lng: 85.0, position: 3) }

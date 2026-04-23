@@ -58,7 +58,13 @@ class RouteLeg::Upsert
       duration_s:      result[:duration_s],
       polyline:        result[:polyline],
       endpoint_digest: leg.expected_endpoint_digest,
-      fetched_at:      Time.current
+      fetched_at:      Time.current,
+      # Clear override: coords changed, old manual adjustment is stale
+      distance_m_override: nil,
+      duration_s_override: nil,
+      note:             nil,
+      overridden_at:    nil,
+      overridden_by_id: nil
     )
     leg.save!
     leg
