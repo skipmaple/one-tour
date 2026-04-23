@@ -1,17 +1,8 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { MantineProvider } from '@mantine/core'
-import { useMediaQuery } from '@mantine/hooks'
 import ActivityFilterBar from '../ActivityFilterBar'
-
-vi.mock('@mantine/hooks', async () => {
-  const actual = await vi.importActual('@mantine/hooks')
-  return {
-    ...actual,
-    useMediaQuery: vi.fn(),
-  }
-})
 
 const members = [
   { user_id: 1, name: 'Alice', avatar_url: null },
@@ -39,106 +30,105 @@ function renderBar(props = {}) {
   )
 }
 
+// Opens the popover (all controls live inside) and returns the user-event session.
+async function openPopover() {
+  const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: /筛选/ }))
+  // Wait for one of the popover contents to confirm it's mounted.
+  await screen.findByText('类型')
+  return user
+}
+
 describe('ActivityFilterBar', () => {
-  beforeEach(() => {
-    useMediaQuery.mockReturnValue(false) // desktop default
-  })
-  afterEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('renders search input and filter icon button', () => {
+  it('renders only the filter icon button in the header', () => {
     renderBar()
-    expect(screen.getByRole('textbox', { name: /搜索活动/ })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /筛选/ })).toBeInTheDocument()
-  })
-
-  it('hides count badge and reset button when no filter active', () => {
-    renderBar({ active: false })
+    // Search input, count, reset should NOT be rendered until the popover opens.
+    expect(screen.queryByLabelText('搜索活动')).not.toBeInTheDocument()
     expect(screen.queryByText(/^\d+\s*\/\s*\d+$/)).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '重置' })).not.toBeInTheDocument()
   })
 
-  it('shows count "X / Y" and reset button when filter active', () => {
-    renderBar({ active: true, activeCount: 3, totalCount: 10 })
-    expect(screen.getByText('3 / 10')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '重置' })).toBeInTheDocument()
-  })
-
-  it('typing in search calls setQ', () => {
-    const setQ = vi.fn()
-    renderBar({ setQ })
-    fireEvent.change(screen.getByRole('textbox', { name: /搜索活动/ }), {
-      target: { value: '餐' },
-    })
-    expect(setQ).toHaveBeenCalledWith('餐')
-  })
-
-  it('filter.q controls input value (controlled component)', () => {
-    renderBar({ filter: { q: '赛里木', kind: [], uids: [] } })
-    expect(screen.getByRole('textbox', { name: /搜索活动/ })).toHaveValue('赛里木')
-  })
-
-  it('clicking reset calls reset()', () => {
-    const reset = vi.fn()
-    renderBar({ active: true, reset })
-    fireEvent.click(screen.getByRole('button', { name: '重置' }))
-    expect(reset).toHaveBeenCalled()
-  })
-
-  it('opens popover and shows Kind chips when filter button clicked', async () => {
-    const user = userEvent.setup()
+  it('opens popover on click and reveals search / type / participants / count', async () => {
     renderBar()
-    await user.click(screen.getByRole('button', { name: /筛选/ }))
-    expect(await screen.findByText('景点')).toBeInTheDocument()
+    await openPopover()
+    expect(await screen.findByLabelText('搜索活动')).toBeInTheDocument()
+    expect(screen.getByText('景点')).toBeInTheDocument()
     expect(screen.getByText('路段')).toBeInTheDocument()
     expect(screen.getByText('餐饮')).toBeInTheDocument()
     expect(screen.getByText('住宿')).toBeInTheDocument()
     expect(screen.getByText('加油')).toBeInTheDocument()
     expect(screen.getByText('其他')).toBeInTheDocument()
+    expect(screen.getByText('10 / 10')).toBeInTheDocument()
   })
 
-  it('popover clicks on Kind chip call setKind with updated list', async () => {
-    const user = userEvent.setup()
+  it('reset button is hidden inside popover when not active', async () => {
+    renderBar({ active: false })
+    await openPopover()
+    expect(screen.queryByRole('button', { name: '重置' })).not.toBeInTheDocument()
+  })
+
+  it('reset button appears inside popover when active, and clicking it fires reset()', async () => {
+    const reset = vi.fn()
+    renderBar({ active: true, activeCount: 3, reset })
+    const user = await openPopover()
+    expect(screen.getByText('3 / 10')).toBeInTheDocument()
+    const resetLabel = await screen.findByText('重置')
+    await user.click(resetLabel)
+    expect(reset).toHaveBeenCalled()
+  })
+
+  it('typing in popover search calls setQ', async () => {
+    const setQ = vi.fn()
+    renderBar({ setQ })
+    const user = await openPopover()
+    await user.type(screen.getByLabelText('搜索活动'), '餐')
+    expect(setQ).toHaveBeenCalledWith('餐')
+  })
+
+  it('filter.q controls popover input value', async () => {
+    renderBar({ filter: { q: '赛里木', kind: [], uids: [] } })
+    await openPopover()
+    expect(screen.getByLabelText('搜索活动')).toHaveValue('赛里木')
+  })
+
+  it('clicking a Kind chip calls setKind with updated list', async () => {
     const setKind = vi.fn()
     renderBar({ setKind })
-    await user.click(screen.getByRole('button', { name: /筛选/ }))
-    await user.click(await screen.findByText('餐饮'))
+    const user = await openPopover()
+    await user.click(screen.getByText('餐饮'))
     expect(setKind).toHaveBeenCalledWith(['food'])
   })
 
   it('popover lists participants (author + members, deduplicated)', async () => {
-    const user = userEvent.setup()
     renderBar()
-    await user.click(screen.getByRole('button', { name: /筛选/ }))
+    await openPopover()
     // Author is Alice (user_id=1); members include Alice and Bob.
     // Alice should appear exactly once despite being in both.
-    await screen.findByText('Bob')
     expect(screen.getAllByText(/Alice/).length).toBe(1)
     expect(screen.getByText('Bob')).toBeInTheDocument()
   })
-})
 
-describe('ActivityFilterBar · mobile', () => {
-  beforeEach(() => {
-    useMediaQuery.mockReturnValue(true)
-  })
-  afterEach(() => {
-    vi.clearAllMocks()
-  })
+  it('filter-active prop toggles the Mantine Indicator dot visibility', () => {
+    // Inactive: Mantine Indicator doesn't render its `.mantine-Indicator-indicator`
+    // child element at all. Active: it renders one. Observing presence is the
+    // most stable signal for the "active state badge" across Mantine versions.
+    const base = {
+      setQ: vi.fn(), setKind: vi.fn(), setUids: vi.fn(), reset: vi.fn(),
+      activeCount: 10, totalCount: 10, members, author,
+    }
+    const { rerender } = render(
+      <MantineProvider>
+        <ActivityFilterBar filter={{ q: '', kind: [], uids: [] }} active={false} {...base} />
+      </MantineProvider>
+    )
+    expect(document.querySelector('.mantine-Indicator-indicator')).toBeNull()
 
-  it('collapses search to icon button on mobile', () => {
-    renderBar()
-    expect(screen.queryByRole('textbox', { name: /搜索活动/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /搜索/ })).toBeInTheDocument()
-  })
-
-  it('clicking mobile search icon opens popover with search input', async () => {
-    const user = userEvent.setup()
-    renderBar()
-    await user.click(screen.getByRole('button', { name: /搜索/ }))
-    // Use aria-label lookup rather than role=textbox — more deterministic across
-    // environments (CI's jsdom has been flaky on role inference for bare inputs).
-    expect(await screen.findByLabelText('搜索活动', {}, { timeout: 3000 })).toBeInTheDocument()
+    rerender(
+      <MantineProvider>
+        <ActivityFilterBar filter={{ q: '餐', kind: [], uids: [] }} active={true} {...base} />
+      </MantineProvider>
+    )
+    expect(document.querySelector('.mantine-Indicator-indicator')).not.toBeNull()
   })
 })

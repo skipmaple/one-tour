@@ -1,15 +1,11 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
-const HeaderSlotContext = createContext({
-  right: null, setRight: () => {},
-  leftTools: null, setLeftTools: () => {},
-})
+const HeaderSlotContext = createContext({ right: null, setRight: () => {} })
 
 export function HeaderSlotProvider({ children }) {
   const [right, setRight] = useState(null)
-  const [leftTools, setLeftTools] = useState(null)
   return (
-    <HeaderSlotContext.Provider value={{ right, setRight, leftTools, setLeftTools }}>
+    <HeaderSlotContext.Provider value={{ right, setRight }}>
       {children}
     </HeaderSlotContext.Provider>
   )
@@ -25,16 +21,4 @@ export function useInjectHeaderRight(node) {
     setRight(node)
     return () => setRight(null)
   }, [node, setRight])
-}
-
-export function useHeaderLeftToolsSlot() {
-  return useContext(HeaderSlotContext).leftTools
-}
-
-export function useInjectHeaderLeftTools(node) {
-  const { setLeftTools } = useContext(HeaderSlotContext)
-  useEffect(() => {
-    setLeftTools(node)
-    return () => setLeftTools(null)
-  }, [node, setLeftTools])
 }

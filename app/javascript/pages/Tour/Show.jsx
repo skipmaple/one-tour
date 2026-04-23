@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
-import { Text } from '@mantine/core'
+import { Text, Group } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { DndContext, DragOverlay, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
@@ -23,7 +23,7 @@ import PlannerHeaderRight from '../../components/planner/PlannerHeaderRight'
 import ConstitutionDrawer from '../../components/planner/ConstitutionDrawer'
 import TimelineOverlay from '../../components/planner/TimelineOverlay'
 import ActivityFilterBar from '../../components/planner/ActivityFilterBar'
-import { useInjectHeaderRight, useInjectHeaderLeftTools } from '../../layouts/HeaderSlot'
+import { useInjectHeaderRight } from '../../layouts/HeaderSlot'
 import { useActivityFilter } from '../../hooks/useActivityFilter'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
@@ -287,38 +287,35 @@ export default function Show({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tour.id])
 
-  // Inject memoized PlannerHeaderRight into AppShell header slot.
-  // useMemo is mandatory — without it, a new JSX element every render
-  // triggers setRight → re-render → new element → infinite loop.
+  // Inject memoized header-right contents. useMemo is mandatory — without
+  // it, a new JSX element every render triggers setRight → re-render →
+  // new element → infinite loop. Filter icon sits first (leftmost of the
+  // right group) per UX: same visual weight as other drawer-openers.
   const headerRight = useMemo(() => (
-    <PlannerHeaderRight
-      violations={violations}
-      onOpenConst={openConst}
-      onOpenTimeline={openTimeline}
-      onOpenExpense={() => setExpenseDrawerOpen(true)}
-      onOpenMembers={() => setMembersDrawerOpen(true)}
-      onOpenSettings={canEdit ? () => setSettingsOpen(true) : undefined}
-    />
-  ), [violations, openConst, openTimeline, canEdit])
+    <Group gap="xs" wrap="nowrap">
+      <ActivityFilterBar
+        filter={filter}
+        setQ={setQ}
+        setKind={setKind}
+        setUids={setUids}
+        reset={reset}
+        active={filterActive}
+        activeCount={activeCount}
+        totalCount={totalCount}
+        members={members || []}
+        author={author || { user_id: tour.author_id, name: '', email: '', avatar_url: null }}
+      />
+      <PlannerHeaderRight
+        violations={violations}
+        onOpenConst={openConst}
+        onOpenTimeline={openTimeline}
+        onOpenExpense={() => setExpenseDrawerOpen(true)}
+        onOpenMembers={() => setMembersDrawerOpen(true)}
+        onOpenSettings={canEdit ? () => setSettingsOpen(true) : undefined}
+      />
+    </Group>
+  ), [filter, setQ, setKind, setUids, reset, filterActive, activeCount, totalCount, members, author, tour.author_id, violations, openConst, openTimeline, canEdit])
   useInjectHeaderRight(headerRight)
-
-  // Inject memoized ActivityFilterBar into AppShell header's left-tools slot.
-  // useMemo is mandatory for the same reason as headerRight above.
-  const filterBarNode = useMemo(() => (
-    <ActivityFilterBar
-      filter={filter}
-      setQ={setQ}
-      setKind={setKind}
-      setUids={setUids}
-      reset={reset}
-      active={filterActive}
-      activeCount={activeCount}
-      totalCount={totalCount}
-      members={members || []}
-      author={author || { user_id: tour.author_id, name: '', email: '', avatar_url: null }}
-    />
-  ), [filter, setQ, setKind, setUids, reset, filterActive, activeCount, totalCount, members, author, tour.author_id])
-  useInjectHeaderLeftTools(filterBarNode)
 
   // True only during "first visit" onboarding — lets the planner dim itself
   // behind the drawer so the map / chat / backlog don't distract.

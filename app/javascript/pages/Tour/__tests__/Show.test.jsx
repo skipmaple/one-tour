@@ -37,9 +37,7 @@ vi.mock('@dnd-kit/core', () => ({
 
 vi.mock('../../../layouts/HeaderSlot', () => ({
   useInjectHeaderRight: () => {},
-  useInjectHeaderLeftTools: () => {},
   useHeaderRightSlot: () => null,
-  useHeaderLeftToolsSlot: () => null,
   HeaderSlotProvider: ({ children }) => <>{children}</>,
 }))
 

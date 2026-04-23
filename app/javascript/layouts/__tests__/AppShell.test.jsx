@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { MantineProvider } from '@mantine/core'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import AppShell from '../AppShell'
-import { useInjectHeaderRight, useInjectHeaderLeftTools } from '../HeaderSlot'
+import { useInjectHeaderRight } from '../HeaderSlot'
 
 vi.mock('@inertiajs/react', () => ({
   usePage: () => ({
@@ -108,23 +108,4 @@ describe('AppShell', () => {
     expect(screen.getByTestId('right-slot')).toBeInTheDocument()
   })
 
-  it('renders content injected by useInjectHeaderLeftTools', () => {
-    // Consumers of useInjectHeaderLeftTools must memoize the node — passing a fresh
-    // JSX element every render would create a new reference and make the
-    // hook's useEffect re-fire infinitely (setLeftTools → re-render → new node →
-    // setLeftTools). Task 1 uses useMemo; the test mirrors that contract.
-    function Injector() {
-      const node = useMemo(() => <span data-testid="left-slot">tools</span>, [])
-      useInjectHeaderLeftTools(node)
-      return <div />
-    }
-    render(
-      <MantineProvider>
-        <AppShell>
-          <Injector />
-        </AppShell>
-      </MantineProvider>,
-    )
-    expect(screen.getByTestId('left-slot')).toBeInTheDocument()
-  })
 })
