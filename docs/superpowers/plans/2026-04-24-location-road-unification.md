@@ -2931,6 +2931,21 @@ mise exec -- bundle exec kamal app exec --reuse "bin/rails route_leg_override:re
 mise exec -- bundle exec kamal app exec --reuse "bin/rails route_leg_override:delete_low_tier_road"
 ```
 
+- [ ] **Step 4: 修历史 route_leg 的 duration=0（AMAP v5 parser bug 修前的遗产）**
+
+PR1 修了 `AmapDirectionService` 漏读 v5 shape 的 `path.cost.duration`，
+但历史 route_leg 的 `duration_s=0` 不会自动修（cache_valid? 看 polyline + digest
+都在）。这个 rake 把"有距离无时长"的 leg 批量 refetch：
+
+```bash
+# 先 dry run 看命中多少条
+mise exec -- bundle exec kamal app exec --reuse "DRY_RUN=1 bin/rails route_leg_maintenance:refetch_zero_duration"
+# 人工确认数量合理后真跑
+mise exec -- bundle exec kamal app exec --reuse "bin/rails route_leg_maintenance:refetch_zero_duration"
+```
+
+幂等：跑完再跑一次应该报 `Found 0 legs`。
+
 ### Task H.5: Spot check
 
 - [ ] **Step 1: 后台核查**
