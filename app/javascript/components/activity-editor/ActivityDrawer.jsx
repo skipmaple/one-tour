@@ -52,6 +52,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
   // create mode we therefore reset the snapshot explicitly.
   useEffect(() => {
     if (opened && isEdit && activity) {
+      const d = activity.details || {}
       form.setValues({
         name: activity.name || '',
         kind: activity.kind || 'scenic',
@@ -59,10 +60,12 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
         lat: activity.lat ?? '',
         lng: activity.lng ?? '',
         address: activity.address || '',
-        pname: activity.pname || '',
-        cityname: activity.cityname || '',
-        adname: activity.adname || '',
-        type: activity.type || '',
+        // pname/cityname/adname/type 持久化在 details jsonb；
+        // 读回到 form 顶层临时字段方便 LocationPicker 展示
+        pname: d.pname || '',
+        cityname: d.cityname || '',
+        adname: d.adname || '',
+        type: d.type || '',
         planned_start_at: activity.planned_start_at || '',
         planned_duration_min: activity.planned_duration_min ?? '',
         desc: activity.desc || '',
@@ -83,15 +86,20 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     if (opened) setActiveTab('basic')
   }, [opened, isEdit, activity?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When kind changes, keep only the keys that belong to the new kind's schema
+  // When kind changes, keep only the keys that belong to the new kind's schema.
+  // pname/cityname/adname/type 是跨 kind 的消歧义信息，保留。
   const handleKindChange = (newKind) => {
     form.setFieldValue('kind', newKind)
     if (newKind === 'road') {
       form.setFieldValue('citizen_level', 'tier_one')
     }
     const validKeys = (KIND_SCHEMA[newKind] || []).map(f => f.key)
+    const preserved = [ 'pname', 'cityname', 'adname', 'type' ]
     const cleaned = {}
     for (const k of validKeys) {
+      if (details[k] !== undefined) cleaned[k] = details[k]
+    }
+    for (const k of preserved) {
       if (details[k] !== undefined) cleaned[k] = details[k]
     }
     setDetails(cleaned)
@@ -182,7 +190,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     const src = sameDay.length > 0 ? sameDay : pool
     const counts = {}
     src.forEach(a => {
-      const city = a.cityname
+      const city = a.details?.cityname
       if (city) counts[city] = (counts[city] || 0) + 1
     })
     const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
@@ -243,7 +251,16 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       }
     }
 
+    // 持久化省市区消歧义信息到 details（非 road kind；road 有自己的 start_*/end_*）
+    // 让后续新建活动能从同日 activities.details.cityname 推断区域锚定 chip。
     const { pname, cityname, adname, type, ...formValues } = form.values
+    if (kind !== 'road') {
+      if (pname)    cleanDetails.pname = pname
+      if (cityname) cleanDetails.cityname = cityname
+      if (adname)   cleanDetails.adname = adname
+      if (type)     cleanDetails.type = type
+    }
+
     const payload = {
       activity: {
         ...formValues,

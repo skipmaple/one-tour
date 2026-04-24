@@ -444,6 +444,61 @@ test('create save invokes onClose on success (drawer closes)', async () => {
   await waitFor(() => expect(onClose).toHaveBeenCalled())
 })
 
+describe('省市区消歧义持久化 (details jsonb)', () => {
+  it('create payload 把 pname/cityname/adname/type 写进 activity.details', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 777, position: 1 }) })
+    renderDrawer({ mode: 'create', targetDayId: 5 })
+    fireEvent.click(screen.getByRole('button', { name: 'pick-lanzhou' }))
+    await waitFor(() => expect(screen.getByLabelText('名称', { exact: false })).toHaveValue('兰州大学(地铁站)'))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/tours/1/days/5/activities',
+        expect.objectContaining({
+          body: expect.stringMatching(/"cityname":"兰州市"/),
+        })
+      )
+    })
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body)
+    expect(body.activity.details).toMatchObject({
+      pname: '甘肃省',
+      cityname: '兰州市',
+      adname: '城关区',
+      type: '地铁站',
+    })
+    // 顶层不应该携带这 4 个字段（后端 strong params 会忽略）
+    expect(body.activity.cityname).toBeUndefined()
+    expect(body.activity.pname).toBeUndefined()
+  })
+
+  it('edit mode 从 activity.details 读回省市区字段', async () => {
+    const { router } = await import('@inertiajs/react')
+    router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())
+    renderDrawer({
+      mode: 'edit',
+      activity: {
+        id: 88, name: '春丽和金刚小酒馆', kind: 'food', citizen_level: 'tier_three',
+        day_id: 5, lat: 28.18, lng: 113.00, address: '福达银座5楼',
+        details: { pname: '湖南省', cityname: '长沙市', adname: '岳麓区', type: '餐饮' },
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => {
+      expect(router.patch).toHaveBeenCalledWith(
+        '/activities/88',
+        expect.objectContaining({
+          activity: expect.objectContaining({
+            details: expect.objectContaining({
+              pname: '湖南省', cityname: '长沙市', adname: '岳麓区', type: '餐饮',
+            }),
+          }),
+        }),
+        expect.anything()
+      )
+    })
+  })
+})
+
 describe('road kind (景观公路)', () => {
   // Helper: open the kind Select and pick "景观公路"
   async function switchToRoad() {
