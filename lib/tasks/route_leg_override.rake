@@ -2,7 +2,8 @@ namespace :route_leg_override do
   desc "Migrate low-tier road activities to route_leg override (DRY_RUN=1 to preview)"
   task migrate_low_tier_road: :environment do
     dry_run = ENV["DRY_RUN"] == "1"
-    report = { processed: 0, migrated: 0, orphaned: [], with_attachments: [] }
+    report = { processed: 0, migrated: 0, skipped_already_migrated: 0,
+               orphaned: [], with_attachments: [], amap_failed: [] }
 
     Activity.where(kind: :road).where.not(citizen_level: :tier_one).find_each do |road|
       report[:processed] += 1
@@ -24,10 +25,27 @@ namespace :route_leg_override do
 
       next if dry_run
 
-      leg = RouteLeg::Upsert.new(
-        tour: road.tour, from_activity_id: prev_act.id, to_activity_id: next_act.id,
-        mode: :driving
-      ).call
+      # Per-iteration rescue：单个 leg 的 AMAP 调用失败（ROUTE_FAIL 等）不应
+      # 中断整个 rake。继续处理后续 activity，最后报告失败列表让 ops 人工补。
+      begin
+        leg = RouteLeg::Upsert.new(
+          tour: road.tour, from_activity_id: prev_act.id, to_activity_id: next_act.id,
+          mode: :driving
+        ).call
+      rescue AmapDirectionService::Error => e
+        report[:amap_failed] << { id: road.id, name: road.name,
+                                  prev_id: prev_act.id, next_id: next_act.id,
+                                  error: e.message[0..120] }
+        next
+      end
+
+      # 幂等：rake 中途崩溃后 re-run 时，已 migrated 的 leg（accumulator 模式
+      # 否则会 double）跳过。用户老 override 在前置检查（migrate 前 0 条）
+      # 已确认，所以 overridden_at.present? 就是这个 rake 留下的。
+      if leg.overridden_at.present?
+        report[:skipped_already_migrated] += 1
+        next
+      end
 
       # 源字段可能缺失（老数据里只填了 name/desc 没填 km/drive_min）。别把
       # nil.to_f → 0 写成 override——那会让 effective_* 返 0、覆盖掉 AMAP
@@ -62,10 +80,15 @@ namespace :route_leg_override do
     puts "DRY_RUN" if dry_run
     puts "处理活动数: #{report[:processed]}"
     puts "已迁移到 override: #{report[:migrated]}"
+    puts "已跳过（重跑时已迁移过）: #{report[:skipped_already_migrated]}"
     puts "孤立首/末活动（数据丢失）: #{report[:orphaned].size}"
     report[:orphaned].each { |r| puts "  - id=#{r[:id]} name=#{r[:name]}" }
     puts "关联 expense/image: #{report[:with_attachments].size}"
     report[:with_attachments].each { |r| puts "  - id=#{r[:id]} type=#{r[:type]}" }
+    puts "AMAP 路径计算失败（需人工补 override）: #{report[:amap_failed].size}"
+    report[:amap_failed].each do |r|
+      puts "  - id=#{r[:id]} name=#{r[:name]} (prev=#{r[:prev_id]} next=#{r[:next_id]}) err: #{r[:error]}"
+    end
   end
 
   desc "Rename scenic road details keys from_name/to_name → start_name/end_name"
