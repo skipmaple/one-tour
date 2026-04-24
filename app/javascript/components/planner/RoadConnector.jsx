@@ -28,8 +28,11 @@ function ConnectorText({ km, min }) {
   return <span>{parts.join(' · ')}</span>
 }
 
-// Synthesized variant — clickable, from a route_leg only. Clicking opens
-// RouteLegEditModal to override km / drive_min / note.
+// Synthesized variant — from a route_leg only. Clickable when onClick is
+// provided (i.e., user is not in readOnly mode); otherwise renders as a
+// passive line. Backend authorize_editor would 403 unauthorized PATCH/DELETE
+// anyway, but disabling the click prevents readOnly viewers from seeing
+// a Modal that they can never successfully save.
 function SynthesizedConnector({
   leg,
   isHighlighted = false,
@@ -49,10 +52,12 @@ function SynthesizedConnector({
   const overridden = leg.overridden_at != null
   const amapKm = leg.distance_m != null ? Math.round(leg.distance_m / 1000) : null
   const amapMin = leg.duration_s != null ? Math.round(leg.duration_s / 60) : null
+  const clickable = typeof onClick === 'function'
   const classes = [
     'rc-line',
     'rc-synthesized',
     isHighlighted ? 'rc-highlighted' : '',
+    clickable ? '' : 'rc-readonly',
   ].filter(Boolean).join(' ')
 
   const handleMouseEnter = () => {
@@ -70,7 +75,7 @@ function SynthesizedConnector({
       data-day-color={dayColorName}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={() => onClick?.(leg)}
+      onClick={clickable ? (() => onClick(leg)) : undefined}
     >
       <IconCar size={12} stroke={2} aria-hidden="true" />
       <ConnectorText km={km} min={min} />

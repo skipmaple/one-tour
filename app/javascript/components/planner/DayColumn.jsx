@@ -114,15 +114,11 @@ export default function DayColumn({
   // connector activities any more.
   const renderedItems = []
   let prevCardActivity = null // last ActivityCard activity, for synthesis lookup
-  // Track the last emitted item's type explicitly — don't rely on React key
-  // string conventions (keys are for reconciliation, not control flow).
-  let lastEmittedWasConnector = false
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i]
 
-    // Before emitting, check if we should synthesize a connector between
-    // prevCardActivity and this one (only when there was no connector between them).
-    if (prevCardActivity && !lastEmittedWasConnector) {
+    // Before emitting this card, synthesize a connector to bridge from prev card.
+    if (prevCardActivity) {
       const leg = routeLegByPair[prevCardActivity.id]?.[a.id]
       if (leg) {
         renderedItems.push(
@@ -136,10 +132,9 @@ export default function DayColumn({
             onHoverConnector={onHoverConnector}
             onClearHover={onClearHover}
             dayColorName={dayColorName}
-            onClick={handleLegClick}
+            onClick={readOnly ? undefined : handleLegClick}
           />
         )
-        lastEmittedWasConnector = true
       }
     }
 
@@ -159,7 +154,6 @@ export default function DayColumn({
       />
     )
     prevCardActivity = a
-    lastEmittedWasConnector = false
   }
 
   return (
@@ -250,7 +244,9 @@ export default function DayColumn({
         {day.buffer_day && <Text size="xs" c="dimmed">机动</Text>}
       </Stack>
     </Paper>
-    <RouteLegEditModal opened={!!editingLeg} leg={editingLeg} onClose={() => setEditingLeg(null)} />
+    {!readOnly && (
+      <RouteLegEditModal opened={!!editingLeg} leg={editingLeg} onClose={() => setEditingLeg(null)} />
+    )}
     </>
   )
 }

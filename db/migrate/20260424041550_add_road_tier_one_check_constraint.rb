@@ -8,9 +8,17 @@ class AddRoadTierOneCheckConstraint < ActiveRecord::Migration[8.0]
   # kind enum: scenic=0 road=1 food=2 stay=3 fuel=4 other=5
   # citizen_level enum: tier_one=0 tier_two=1 tier_three=2 infrastructure=3
   # 约束：NOT (kind = 1 AND citizen_level != 0)
+  #
+  # 用 NOT VALID + validate_check_constraint 两步法：第一步只加 schema 约束
+  # （AccessExclusiveLock 短暂），第二步全表 validate（ShareUpdateExclusive，
+  # 不阻塞读写）。当前 activities 表 ~200 行不痛，但保留这个 pattern 做
+  # 大表兜底——将来加新 constraint 不用回头改。
   def change
     add_check_constraint :activities,
       "NOT (kind = 1 AND citizen_level != 0)",
-      name: "road_must_be_tier_one"
+      name: "road_must_be_tier_one",
+      validate: false
+
+    validate_check_constraint :activities, name: "road_must_be_tier_one"
   end
 end
