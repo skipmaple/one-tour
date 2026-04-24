@@ -42,6 +42,38 @@ RSpec.describe AmapDirectionService do
       expect(result[:polyline]["bounds"]["sw"]).to eq([ 81.0, 43.3 ])
       expect(result[:polyline]["bounds"]["ne"]).to eq([ 82.1, 44.6 ])
     end
+
+    # Regression: AMAP v5 driving 默认不返 path["duration"]，只在请求 show_fields=cost
+    # 时给 path.cost.duration（秒）。下发时长为 0 的 bug 就是这里——parser 要能读 v5 shape。
+    it "reads duration from path.cost.duration (AMAP v5 shape)" do
+      v5_body = {
+        status: "1",
+        route: {
+          paths: [
+            {
+              distance: "101673",
+              # 注意：顶层没有 duration 字段
+              cost: { duration: "7022", tolls: "0", traffic_lights: "12" },
+              steps: [ { polyline: "87.62,43.83;88.12,43.88" } ]
+            }
+          ]
+        }
+      }.to_json
+      stub_request(:get, /restapi\.amap\.com\/v5\/direction\/driving/)
+        .to_return(status: 200, body: v5_body)
+
+      result = service.fetch(from_lat: 43.83, from_lng: 87.62, to_lat: 43.88, to_lng: 88.12, mode: :driving)
+      expect(result[:distance_m]).to eq(101_673)
+      expect(result[:duration_s]).to eq(7022)
+    end
+
+    it "requests show_fields=polyline,cost in the URL" do
+      stub = stub_request(:get, /restapi\.amap\.com\/v5\/direction\/driving/)
+               .with(query: hash_including("show_fields" => "polyline,cost"))
+               .to_return(status: 200, body: driving_body)
+      service.fetch(from_lat: 44.6, from_lng: 81.0, to_lat: 43.3, to_lng: 82.1, mode: :driving)
+      expect(stub).to have_been_requested
+    end
   end
 
   describe "walking endpoint" do

@@ -7,8 +7,13 @@
 # is responsible for translating to HTTP 502 / rate limiting / etc.
 #
 # Amap v5 response shape (driving/walking):
-#   { status:"1", route: { paths: [ { distance:"418000", duration:"22980",
+#   { status:"1", route: { paths: [ { distance:"418000",
+#                                      cost:{ duration:"22980", tolls:..., traffic_lights:... },
 #                                      steps:[{polyline:"lng,lat;lng,lat;..."}, ...] } ] } }
+#
+# NOTE: v5 的 driving API 默认响应里 **没有 duration 字段**——必须请求 show_fields
+# 包含 "cost" 才会返回 path.cost.duration（秒）。老的 v3 API path["duration"] 直接
+# 就有。我们统一从 path.cost.duration 读，并 fallback 到 path["duration"] 兼容。
 #
 # Transit is a different shape and significantly more complex (bus+metro
 # transfers); for MVP we only expose driving + walking. Transit will raise
@@ -51,7 +56,7 @@ class AmapDirectionService
         "origin"      => "#{from_lng},#{from_lat}",
         "destination" => "#{to_lng},#{to_lat}",
         "output"      => "JSON",
-        "show_fields" => "polyline"
+        "show_fields" => "polyline,cost"
       })
       parse_route(data)
     rescue Error => e
@@ -85,12 +90,19 @@ class AmapDirectionService
       coords = extract_coords(first)
       {
         distance_m: first["distance"].to_i,
-        duration_s: first["duration"].to_i,
+        duration_s: extract_duration_s(first),
         polyline: {
           "coords" => coords,
           "bounds" => compute_bounds(coords)
         }
       }
+    end
+
+    # v5: path.cost.duration（秒）。v3/老响应：path["duration"]。取先找到的。
+    def extract_duration_s(path)
+      cost_dur = path.dig("cost", "duration")
+      return cost_dur.to_i if cost_dur.present?
+      path["duration"].to_i
     end
 
     def extract_coords(path)
