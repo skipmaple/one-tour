@@ -49,16 +49,6 @@ test('road + tier_one activity renders as ActivityCard, not RoadConnector', () =
   expect(container.querySelector('.rc-line')).toBeNull()
 })
 
-test('road + non-tier_one activity renders as RoadConnector, not ActivityCard', () => {
-  const activities = [
-    { id: 2, name: '乌鲁木齐→百丽丹霞', kind: 'road', citizen_level: 'infrastructure', position: 1, day_id: 10, details: { km: 28, drive_min: 40 } },
-  ]
-  const { container } = renderInDnd(
-    <DayColumn day={{ id: 10, day_index: 1 }} activities={activities} constitution={null} />
-  )
-  expect(container.querySelector('.rc-line')).toBeInTheDocument()
-  expect(container.querySelector('.ac-card')).toBeNull()
-})
 
 test('synthesizes a read-only RoadConnector between adjacent ActivityCards when route_leg exists', () => {
   const activities = [
@@ -89,27 +79,6 @@ test('synthesizes connector when route_leg.mode is the Rails string "driving"', 
   expect(container.querySelector('.rc-line.rc-synthesized')).toBeInTheDocument()
 })
 
-test('does not synthesize between two cards when a connector activity is between them', () => {
-  const activities = [
-    { id: 7, name: '景点A', kind: 'scenic', citizen_level: 'tier_two', position: 1, day_id: 10, details: {} },
-    { id: 8, name: 'A→B',  kind: 'road',   citizen_level: 'infrastructure', position: 2, day_id: 10, details: { km: 40, drive_min: 60 } },
-    { id: 9, name: '景点B', kind: 'scenic', citizen_level: 'tier_two', position: 3, day_id: 10, details: {} },
-  ]
-  const routeLegs = [
-    // A → B leg would synthesize a connector if nothing was between them, but
-    // activity id=8 already renders as an activity-backed connector so synthesis
-    // must be suppressed.
-    { from_activity_id: 7, to_activity_id: 9, mode: 'driving', distance_m: 40000, duration_s: 3600 },
-  ]
-  const { container } = renderInDnd(
-    <DayColumn day={{ id: 10, day_index: 1 }} activities={activities} constitution={null} routeLegs={routeLegs} />
-  )
-  // Exactly ONE connector (the activity-backed one), never a synthesized
-  expect(container.querySelectorAll('.rc-line')).toHaveLength(1)
-  expect(container.querySelector('.rc-line.rc-synthesized')).toBeNull()
-  // Both cards still render
-  expect(container.querySelectorAll('.ac-card')).toHaveLength(2)
-})
 
 test('applies .ac-highlighted to the ActivityCard whose id is in hoveredActivityIds', () => {
   const activities = [

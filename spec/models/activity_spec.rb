@@ -276,20 +276,10 @@ RSpec.describe Activity do
       expect(a.errors[:citizen_level]).to include(/景观公路必须为 tier_one/)
     end
 
-    # Regression: PR1 窗口期内数据库里存在历史低 tier road 记录，如果 validation
-    # 对任何 save 都触发，拖拽改 position / 改 name 都会被无辜阻塞。Gate 设计：
-    # 只在新建或 kind/citizen_level 变化时校验。
-    it "allows editing existing low-tier road activity without changing kind/citizen_level" do
-      # 建一条"历史"低 tier road（跳过 validation 模拟迁移前的库存数据）
-      old = build(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_two,
-                  lat: 36.0, lng: 103.0, position: 1)
-      old.save!(validate: false)
-
-      # 只改 name/details——不改 kind/citizen_level——应该能保存
-      old.name = "新名字"
-      expect(old.save).to be true
-      expect(old.errors).to be_empty
-    end
+    # NOTE: PR1 窗口期内有 "allows editing existing low-tier road activity"
+    # 测试覆盖 gate 设计（只在 new_record? || kind/citizen_level 变化时校验），
+    # 但 PR2 加了 DB check constraint 后历史低 tier road 不再可能存在（无法
+    # 用 save!(validate: false) 绕过 DB 层），该测试场景失效，删除。
 
     it "rejects switching an existing road activity's citizen_level away from tier_one" do
       a = create(:activity, :scenic_road, tour: tour, day: day, position: 1)

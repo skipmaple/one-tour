@@ -300,6 +300,14 @@
 .rc-line.rc-synthesized:hover {
   opacity: 1.0;
 }
+/* readOnly 模式（reader 角色或非 author）：不可点击。Backend 也会 403，
+   但 UX 不该让用户走到那一步。 */
+.rc-line.rc-synthesized.rc-readonly {
+  cursor: default;
+}
+.rc-line.rc-synthesized.rc-readonly:hover {
+  opacity: 0.85;
+}
 /* Overridden marker: 低调汇报——11px 铅笔图标 + hover tooltip 看原值。
    不抢主数据视觉权重，不折行；悬浮才显示细节。 */
 .rc-overridden-mark {
