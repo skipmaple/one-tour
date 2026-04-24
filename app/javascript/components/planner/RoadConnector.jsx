@@ -1,5 +1,6 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { IconCar } from '@tabler/icons-react'
+import { IconCar, IconPencil } from '@tabler/icons-react'
+import { Tooltip } from '@mantine/core'
 import '../../styles/activity-card.css'
 
 // km is already in km (user-filled on activity.details), while route_leg.distance_m
@@ -61,6 +62,8 @@ function SynthesizedConnector({
     ? Math.round(leg.duration_s_override / 60)
     : (leg.duration_s != null ? Math.round(leg.duration_s / 60) : undefined)
   const overridden = leg.overridden_at != null
+  const amapKm = leg.distance_m != null ? Math.round(leg.distance_m / 1000) : null
+  const amapMin = leg.duration_s != null ? Math.round(leg.duration_s / 60) : null
   const classes = [
     'rc-line',
     'rc-synthesized',
@@ -86,7 +89,18 @@ function SynthesizedConnector({
     >
       <IconCar size={12} stroke={2} aria-hidden="true" />
       <ConnectorText km={km} min={min} />
-      {overridden && <span className="rc-overridden-badge">已调整</span>}
+      {overridden && (
+        <Tooltip
+          label={`已调整 · 高德原: ${amapKm ?? '—'} km / ${amapMin ?? '—'} 分钟`}
+          withArrow position="top" openDelay={300}
+        >
+          <IconPencil
+            size={11} stroke={2}
+            className="rc-overridden-mark"
+            aria-label="此驾驶段已手动调整"
+          />
+        </Tooltip>
+      )}
     </div>
   )
 }

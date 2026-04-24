@@ -300,13 +300,17 @@
 .rc-line.rc-synthesized:hover {
   opacity: 1.0;
 }
-.rc-overridden-badge {
-  font-size: 10px;
-  color: var(--mantine-color-blue-6);
-  padding: 1px 6px;
-  border: 1px solid var(--mantine-color-blue-3);
-  border-radius: 8px;
-  margin-left: auto;
+/* Overridden marker: 低调汇报——11px 铅笔图标 + hover tooltip 看原值。
+   不抢主数据视觉权重，不折行；悬浮才显示细节。 */
+.rc-overridden-mark {
+  color: var(--mantine-color-blue-5);
+  opacity: 0.6;
+  margin-left: 4px;
+  flex-shrink: 0;
+  transition: opacity 120ms ease;
+}
+.rc-line:hover .rc-overridden-mark {
+  opacity: 1;
 }
 
 /* Active drag state (matches ActivityCard.ac-dragging) */
