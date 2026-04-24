@@ -93,6 +93,74 @@ RSpec.describe "route_leg_override rake tasks", type: :task do
     end
   end
 
+  # 隔离：与 main describe 的 before do 共享 stub 不冲突
+  describe "route_leg_override:migrate_low_tier_road resilience" do
+    let(:iso_tour) { create(:tour) }
+    let(:iso_day) { iso_tour.days.first }
+
+    # Rake task 是全局状态——跨测试 invoke 不会自动 reenable，必须显式重置。
+    before { Rake::Task["route_leg_override:migrate_low_tier_road"].reenable }
+
+    # Regression: 单条 leg AMAP ROUTE_FAIL 不应中断整个 rake。
+    it "rescues AMAP failure on a single pair and continues" do
+      bad_prev = create(:activity, tour: iso_tour, day: iso_day, lat: 36.0, lng: 103.0, position: 30)
+      bad_road = build(:activity, tour: iso_tour, day: iso_day, kind: :road, citizen_level: :tier_two,
+                       lat: 36.5, lng: 103.5, position: 31, name: "无路径段",
+                       details: { "km" => 100, "drive_min" => 90 })
+      bad_road.save!(validate: false)
+      bad_next = create(:activity, tour: iso_tour, day: iso_day, lat: 37.0, lng: 104.0, position: 32)
+
+      good_prev = create(:activity, tour: iso_tour, day: iso_day, lat: 38.0, lng: 105.0, position: 40)
+      good_road = build(:activity, tour: iso_tour, day: iso_day, kind: :road, citizen_level: :tier_two,
+                        lat: 38.5, lng: 105.5, position: 41, name: "正常段",
+                        details: { "km" => 50, "drive_min" => 60 })
+      good_road.save!(validate: false)
+      good_next = create(:activity, tour: iso_tour, day: iso_day, lat: 39.0, lng: 106.0, position: 42)
+
+      allow_any_instance_of(AmapDirectionService).to receive(:fetch) do |_, **kwargs|
+        # bad_road's pair: prev (lat 36, lng 103) → next (lat 37, lng 104). AMAP raise.
+        if (kwargs[:from_lat] - 36.0).abs < 0.01 && (kwargs[:to_lat] - 37.0).abs < 0.01
+          raise AmapDirectionService::Error, "AMAP 错误：ROUTE_FAIL"
+        end
+        { distance_m: 50_000, duration_s: 3600, polyline: { "coords" => [] } }
+      end
+
+      expect {
+        Rake::Task["route_leg_override:migrate_low_tier_road"].invoke
+      }.not_to raise_error
+
+      good_leg = RouteLeg.find_by(from_activity_id: good_prev.id, to_activity_id: good_next.id)
+      expect(good_leg).to be_present
+      expect(good_leg.distance_m_override).to eq(50_000)
+      bad_leg = RouteLeg.find_by(from_activity_id: bad_prev.id, to_activity_id: bad_next.id)
+      expect(bad_leg).to be_nil  # AMAP failed, no leg created
+    end
+
+    # Regression: re-running rake should not double-count override on already-migrated legs.
+    it "is idempotent: skips legs already overridden by previous run" do
+      bare_prev = create(:activity, tour: iso_tour, day: iso_day, lat: 36.0, lng: 103.0, position: 50)
+      idem_road = build(:activity, tour: iso_tour, day: iso_day, kind: :road, citizen_level: :tier_two,
+                        lat: 36.5, lng: 103.5, position: 51, name: "幂等测试",
+                        details: { "km" => 100, "drive_min" => 90 })
+      idem_road.save!(validate: false)
+      bare_next = create(:activity, tour: iso_tour, day: iso_day, lat: 37.0, lng: 104.0, position: 52)
+
+      allow_any_instance_of(AmapDirectionService).to receive(:fetch).and_return(
+        distance_m: 80_000, duration_s: 5400, polyline: { "coords" => [] }
+      )
+
+      Rake::Task["route_leg_override:migrate_low_tier_road"].invoke
+      leg = RouteLeg.find_by(from_activity_id: bare_prev.id, to_activity_id: bare_next.id)
+      first_dist = leg.distance_m_override
+      expect(first_dist).to eq(100_000)
+
+      Rake::Task["route_leg_override:migrate_low_tier_road"].reenable
+      Rake::Task["route_leg_override:migrate_low_tier_road"].invoke
+      leg.reload
+      expect(leg.distance_m_override).to eq(first_dist)  # 没 double
+    end
+  end
+
   describe "route_leg_override:rename_scenic_road_details" do
     it "renames from_name/to_name to start_name/end_name for tier_one road" do
       a = create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one,
