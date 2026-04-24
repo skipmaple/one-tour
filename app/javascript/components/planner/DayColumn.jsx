@@ -44,7 +44,10 @@ export default function DayColumn({
     setEditingLeg({ ...leg, from_activity_name: from?.name, to_activity_name: to?.name })
   }, [activities])
 
-  const driveMin = activities
+  // driveMin 来自后端 Day#driving_minutes_total (hybrid sum: route_legs effective
+  // duration + 景观公路 drive_min)。fallback 到老逻辑（纯 activity.drive_min）以防
+  // 老数据 / route_legs 还没加载。
+  const driveMin = day.driving_minutes_total ?? activities
     .filter(a => a.kind === 'road')
     .reduce((sum, a) => sum + (parseInt(a.details?.drive_min || 0, 10) || 0), 0)
   const driveH = Math.round(driveMin / 60 * 10) / 10
