@@ -117,7 +117,6 @@ RSpec.describe "route_leg_override rake tasks", type: :task do
       good_road.save!(validate: false)
       good_next = create(:activity, tour: iso_tour, day: iso_day, lat: 39.0, lng: 106.0, position: 42)
 
-      bad_id = bad_road.id
       allow_any_instance_of(AmapDirectionService).to receive(:fetch) do |_, **kwargs|
         # bad_road's pair: prev (lat 36, lng 103) → next (lat 37, lng 104). AMAP raise.
         if (kwargs[:from_lat] - 36.0).abs < 0.01 && (kwargs[:to_lat] - 37.0).abs < 0.01

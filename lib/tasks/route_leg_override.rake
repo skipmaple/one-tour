@@ -25,6 +25,19 @@ namespace :route_leg_override do
 
       next if dry_run
 
+      # 幂等前置检查：先查现有 leg 是否已 overridden（rake 中途崩 re-run 场景）。
+      # 放在 Upsert 之前能 (a) 省掉 find_or_initialize_by 的查询；(b) 避免 cache
+      # invalid 时的 AMAP 调用；(c) 防止 endpoint_changed 分支可能清掉 override。
+      # 用户老 override 在 migrate 前已确认 0 条，所以 overridden_at.present?
+      # 就是本 rake 留下的。
+      existing_leg = road.tour.route_legs.find_by(
+        from_activity_id: prev_act.id, to_activity_id: next_act.id, mode: :driving
+      )
+      if existing_leg&.overridden_at.present?
+        report[:skipped_already_migrated] += 1
+        next
+      end
+
       # Per-iteration rescue：单个 leg 的 AMAP 调用失败（ROUTE_FAIL 等）不应
       # 中断整个 rake。继续处理后续 activity，最后报告失败列表让 ops 人工补。
       begin
@@ -36,14 +49,6 @@ namespace :route_leg_override do
         report[:amap_failed] << { id: road.id, name: road.name,
                                   prev_id: prev_act.id, next_id: next_act.id,
                                   error: e.message[0..120] }
-        next
-      end
-
-      # 幂等：rake 中途崩溃后 re-run 时，已 migrated 的 leg（accumulator 模式
-      # 否则会 double）跳过。用户老 override 在前置检查（migrate 前 0 条）
-      # 已确认，所以 overridden_at.present? 就是这个 rake 留下的。
-      if leg.overridden_at.present?
-        report[:skipped_already_migrated] += 1
         next
       end
 
