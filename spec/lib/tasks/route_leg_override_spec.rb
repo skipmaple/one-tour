@@ -53,6 +53,44 @@ RSpec.describe "route_leg_override rake tasks", type: :task do
     ensure
       ENV.delete("DRY_RUN")
     end
+
+    # Regression: 源 activity 没填 km/drive_min 时，不要 nil.to_f → 0 写
+    # distance_m_override: 0（这会让 effective 返 0 覆盖 AMAP 原值）。
+    it "does not write 0 override when source activity has no km/drive_min" do
+      bare_prev = create(:activity, tour: tour, day: day, lat: 36.0, lng: 103.0, position: 10)
+      bare_road = build(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_two,
+                        lat: 36.5, lng: 103.5, position: 11,
+                        name: "无数据 road", details: {})  # 没有 km/drive_min
+      bare_road.save!(validate: false)
+      bare_next = create(:activity, tour: tour, day: day, lat: 37.0, lng: 104.0, position: 12)
+
+      Rake::Task["route_leg_override:migrate_low_tier_road"].reenable
+      Rake::Task["route_leg_override:migrate_low_tier_road"].invoke
+
+      leg = RouteLeg.find_by(from_activity_id: bare_prev.id, to_activity_id: bare_next.id)
+      if leg  # leg 创建了，但 override 字段应保持 nil（note 会承载 road.name）
+        expect(leg.distance_m_override).to be_nil
+        expect(leg.duration_s_override).to be_nil
+        # note 承载信息——overridden_at 设了合理（至少有 note）
+        expect(leg.note).to include("无数据 road")
+      end
+    end
+
+    it "only writes present fields (partial km, missing drive_min)" do
+      partial_prev = create(:activity, tour: tour, day: day, lat: 36.0, lng: 103.0, position: 20)
+      partial_road = build(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_two,
+                           lat: 36.5, lng: 103.5, position: 21, name: "只有里程的 road",
+                           details: { "km" => 80 })  # 没 drive_min
+      partial_road.save!(validate: false)
+      partial_next = create(:activity, tour: tour, day: day, lat: 37.0, lng: 104.0, position: 22)
+
+      Rake::Task["route_leg_override:migrate_low_tier_road"].reenable
+      Rake::Task["route_leg_override:migrate_low_tier_road"].invoke
+
+      leg = RouteLeg.find_by(from_activity_id: partial_prev.id, to_activity_id: partial_next.id)
+      expect(leg.distance_m_override).to eq(80_000)
+      expect(leg.duration_s_override).to be_nil  # 源字段缺失，不写 0
+    end
   end
 
   describe "route_leg_override:rename_scenic_road_details" do

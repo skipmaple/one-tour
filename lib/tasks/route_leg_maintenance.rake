@@ -1,8 +1,12 @@
 namespace :route_leg_maintenance do
   # 历史数据修复：AMAP v5 parser 在修复前会把所有 route_leg 的 duration_s 存成 0
   # （v5 把 duration 藏在 path.cost.duration 里，需要 show_fields=cost）。
-  # 这个任务：把 `duration_s=0 AND distance_m>0` 的 leg 的 endpoint_digest 清空，
-  # 然后立刻 refetch（不依赖用户下次触发 RouteLegsBatch）。
+  # 这个任务：把 `duration_s=0 AND distance_m>0` 的 leg 的 polyline 清空（设为
+  # 空 hash），然后立刻 refetch。**不要动 endpoint_digest**——如果清 digest，
+  # Upsert#call 的 gate `leg.endpoint_digest != leg.expected_endpoint_digest`
+  # 会把 nil != hash 当成 endpoint 变化，清掉用户的手动 override 数据。
+  # 清 polyline 就够——cache_valid? 判定 `polyline.present? && digest == expected`，
+  # polyline 空就会走 fetch 路径；digest 不动，Upsert 看出"端点没变"→保留 override。
   #
   # 幂等：跑第二遍看不到 duration=0 的 leg 就是 no-op。
   # 节流：AmapDirectionService 自带 CUQPS 退避重试，无需本 rake 额外节流。

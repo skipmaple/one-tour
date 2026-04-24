@@ -29,18 +29,31 @@ namespace :route_leg_override do
         mode: :driving
       ).call
 
-      km = road.details["km"].to_f
-      drive_min = road.details["drive_min"].to_i
-      note = [ road.name, road.desc ].reject { |s| s.nil? || s.strip.empty? }.join(" · ")
+      # 源字段可能缺失（老数据里只填了 name/desc 没填 km/drive_min）。别把
+      # nil.to_f → 0 写成 override——那会让 effective_* 返 0、覆盖掉 AMAP
+      # 原值。只迁实际有值的字段；都没值就跳过（activity 稍后被单独删除）。
+      km_raw = road.details["km"]
+      drive_min_raw = road.details["drive_min"]
+      km = km_raw.present? ? km_raw.to_f : nil
+      drive_min = drive_min_raw.present? ? drive_min_raw.to_i : nil
+      note_text = [ road.name, road.desc ].reject { |s| s.nil? || s.strip.empty? }.join(" · ")
+
+      has_km = km.present? && km > 0
+      has_min = drive_min.present? && drive_min > 0
+      has_note = note_text.present?
+
+      unless has_km || has_min || has_note
+        # 无可迁移数据，跳过（activity 在后续 delete 任务里清理）
+        next
+      end
 
       ActiveRecord::Base.transaction do
-        leg.update!(
-          distance_m_override: (leg.distance_m_override || 0) + (km * 1000).round,
-          duration_s_override: (leg.duration_s_override || 0) + (drive_min * 60),
-          note: [ leg.note, note ].reject { |s| s.nil? || s.strip.empty? }.join(" / ").presence,
-          overridden_at: Time.current,
-          overridden_by_id: road.tour.author_id,
-        )
+        merged_note = [ leg.note, note_text ].reject { |s| s.nil? || s.strip.empty? }.join(" / ").presence
+
+        attrs = { overridden_at: Time.current, overridden_by_id: road.tour.author_id, note: merged_note }
+        attrs[:distance_m_override] = (leg.distance_m_override || 0) + (km * 1000).round if has_km
+        attrs[:duration_s_override] = (leg.duration_s_override || 0) + (drive_min * 60)    if has_min
+        leg.update!(attrs)
       end
       report[:migrated] += 1
     end

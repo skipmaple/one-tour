@@ -508,8 +508,17 @@ function affectedLegsFromEdit(edited, originalActivity, routeLegs) {
     const nb = b == null || b === '' ? null : Number(b)
     return na === nb || (Number.isNaN(na) && Number.isNaN(nb))
   }
+
+  // 切换 tier_one road 与否 → backend resolve_endpoint_coords 的 source 字段
+  // 从 activity.lat/lng 翻到 details.start_*/end_*（或反向）。原始坐标字段
+  // 看起来没变（镜像关系），但实际 endpoint_digest 会变，Upsert 会清 override。
+  // 这种 kind/citizen_level 切换必须触发 confirm，即便坐标字段比较"等值"。
+  const wasTierOneRoad = originalActivity.kind === 'road' && originalActivity.citizen_level === 'tier_one'
+  const isTierOneRoad = edited.kind === 'road' && edited.citizen_level === 'tier_one'
+  const scenicRoadRoleChanged = wasTierOneRoad !== isTierOneRoad
+
   const coordsChanged = (() => {
-    if (edited.kind === 'road' && edited.citizen_level === 'tier_one') {
+    if (isTierOneRoad) {
       const d0 = originalActivity.details || {}
       const d1 = edited.details || {}
       return !numEq(d0.start_lat, d1.start_lat) || !numEq(d0.start_lng, d1.start_lng) ||
@@ -518,7 +527,7 @@ function affectedLegsFromEdit(edited, originalActivity, routeLegs) {
     return !numEq(originalActivity.lat, edited.lat) ||
            !numEq(originalActivity.lng, edited.lng)
   })()
-  if (!coordsChanged) return []
+  if (!scenicRoadRoleChanged && !coordsChanged) return []
 
   return related.filter(l => l.overridden_at != null)
 }

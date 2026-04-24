@@ -49,9 +49,18 @@ function SingleLocationPicker({ value, onChange, regionHint, nearbyCenter, disab
   const [error, setError] = useState(null)
   const [activeRegion, setActiveRegion] = useState(regionHint || null)
   const timerRef = useRef(null)
+  const requestIdRef = useRef(0)  // 请求序号，防 out-of-order
   const combobox = useCombobox()
 
   useEffect(() => { setActiveRegion(regionHint || null) }, [regionHint])
+
+  // Unmount cleanup：清 debounce timer + 让后续 inflight 请求回来时被忽略。
+  useEffect(() => {
+    return () => {
+      clearTimeout(timerRef.current)
+      requestIdRef.current = -1  // 后续任何 myId !== -1 比较一律忽略
+    }
+  }, [])
 
   const search = useCallback((q) => {
     if (q.trim().length === 0) {
@@ -64,6 +73,11 @@ function SingleLocationPicker({ value, onChange, regionHint, nearbyCenter, disab
     if (activeRegion) params.set('region_hint', activeRegion)
     if (nearbyCenter?.lat) params.set('near_lat', nearbyCenter.lat)
     if (nearbyCenter?.lng) params.set('near_lng', nearbyCenter.lng)
+
+    // 自增 request id；稍慢的老请求回来时 myId < current → 忽略
+    requestIdRef.current += 1
+    const myId = requestIdRef.current
+
     fetch(`/poi_search?${params}`)
       .then(res => {
         if (!res.ok) {
@@ -72,18 +86,22 @@ function SingleLocationPicker({ value, onChange, regionHint, nearbyCenter, disab
         return res.json()
       })
       .then(data => {
+        if (myId !== requestIdRef.current) return  // stale, ignore
         const next = Array.isArray(data?.candidates) ? data.candidates : []
         setCandidates(next)
         if (next.length > 0) combobox.openDropdown()
         else combobox.closeDropdown()
       })
       .catch((err) => {
-        // 任何错误（429 / 4xx / 5xx / 网络）都清结果，不要让 stale 候选项在 UI 上误导用户
+        if (myId !== requestIdRef.current) return
         setCandidates([])
         combobox.closeDropdown()
         setError(err?.message === 'RATE_LIMIT' ? '搜索太频繁，请稍后重试' : '搜索失败')
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (myId !== requestIdRef.current) return
+        setLoading(false)
+      })
   }, [activeRegion, nearbyCenter?.lat, nearbyCenter?.lng, combobox])
 
   const handleSelect = (idx) => {
