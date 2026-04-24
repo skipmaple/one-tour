@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_23_165851) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_24_041550) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -62,6 +62,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_23_165851) do
     t.index [ "tour_id", "day_id", "position" ], name: "index_activities_on_tour_id_and_day_id_and_position"
     t.index [ "tour_id", "kind", "citizen_level" ], name: "index_activities_on_tour_id_and_kind_and_citizen_level"
     t.index [ "tour_id" ], name: "index_activities_on_tour_id"
+    t.check_constraint "NOT (kind = 1 AND citizen_level <> 0)", name: "road_must_be_tier_one"
   end
 
   create_table "activity_images", force: :cascade do |t|
