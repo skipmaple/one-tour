@@ -456,7 +456,22 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
 
         </Tabs>
 
-        <Group justify="space-between" mt="md" pt="md" style={{ borderTop: '1px solid #eee' }}>
+        {/* Sticky footer: 保存 / 取消 始终贴在 Drawer 视区底部，
+            不用滚到最底才能找到。配合 Drawer.body 的 overflow 自动处理。
+            负边距 + padding 让它横向铺满、吃掉 Drawer 的 padding="md" 空隙。 */}
+        <Group
+          justify="space-between"
+          p="md"
+          style={{
+            position: 'sticky',
+            bottom: 'calc(-1 * var(--mantine-spacing-md))',
+            marginInline: 'calc(-1 * var(--mantine-spacing-md))',
+            marginBottom: 'calc(-1 * var(--mantine-spacing-md))',
+            background: 'var(--mantine-color-body)',
+            borderTop: '1px solid var(--mantine-color-gray-3)',
+            zIndex: 2,
+          }}
+        >
           <Group>
             <Button onClick={handleSave} loading={saving}>保存</Button>
             <Button variant="default" onClick={handleClose}>取消</Button>
