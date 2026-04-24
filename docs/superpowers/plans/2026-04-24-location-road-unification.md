@@ -2599,7 +2599,24 @@ git commit -m "feat: 坐标变化时清空 override + 前端保存前确认"
 
 ## Phase G ｜数据迁移 rake 任务（写好，先不跑）
 
+> **历史归档**：本节定义的 `lib/tasks/route_leg_override.rake` 三个任务
+> （`migrate_low_tier_road` / `rename_scenic_road_details` / `delete_low_tier_road`）
+> 在 2026-04-24 生产 Phase H 跑完后已在 PR2 (#47) 中删除，文件在 main 上不再存在。
+> 节内代码保留作为施工历史档案。
+>
+> 一次性 hotfix（PR #46）：原 rake 在第一条 AMAP `ROUTE_FAIL` 时中断，
+> 修为 per-iteration rescue + leg.overridden_at 幂等跳过——hotfix 后才完整跑完。
+>
+> **保留** 的相关任务：`route_leg_maintenance:refetch_zero_duration`
+> （`lib/tasks/route_leg_maintenance.rake`）—— 修历史 leg `duration_s=0` 的运维
+> 任务，独立于一次性迁移。
+
 ### Task G.1: Rake - migrate low tier road → route_leg override
+
+> ⚠️ **ARCHIVE / 不可在 main 直接复制运行**：本任务定义的 rake 文件已在 PR2 #47 删除。
+> 下面所有 `Create: lib/tasks/route_leg_override.rake` / `bin/rails route_leg_override:*`
+> 命令块都是历史 runbook 记录，对应 commit 范围 `7d510fc..ca287ff`。
+
 
 **Files:**
 - Create: `lib/tasks/route_leg_override.rake`
@@ -2837,7 +2854,37 @@ git commit -m "feat(rake): route_leg_override 三个迁移任务（含 DRY_RUN�
 
 ## Phase H ｜生产迁移执行（runbook，手动 gate）
 
+> **已执行（2026-04-24）**：runbook 完整跑过一次。real numbers：
+> 64 条 low-tier road（全 infrastructure tier），37 迁到 override + 14 跳过
+> （hotfix 后幂等）+ 10 孤立首/末（数据丢失，接受）+ 3 AMAP ROUTE_FAIL
+> （新疆山区小路）。维护 rake `refetch_zero_duration` 修了 70 条历史
+> `duration_s=0` 的 leg。Postmortem 见 commit `8e01fcf` (#46)。
+>
+> 事后生产 host (45.63.23.136) 磁盘 100% 满，DB 进 PANIC/recovery 死循环——
+> 根因是同 host 上 bitwarden-* 容器日志 8.2GB 没轮转。**当时实际执行的清理命令**：
+>
+> ```bash
+> # 1. 清退出的容器 + 未被任何容器引用的镜像（image prune -a 含未使用 image，
+> #    不只悬空；没用 --volumes，所以 db 数据卷安全）
+> docker container prune -f
+> docker image prune -af
+>
+> # 2. 把 3 个 bitwarden 容器的 json log 截断到 0 字节（容器仍跑，Docker 继续追加）
+> for cid in <bitwarden-{sso,web,attachments} 完整容器 ID>; do
+>   truncate -s 0 /var/lib/docker/containers/$cid/$cid-json.log
+> done
+> ```
+>
+> 防再来：`/etc/docker/daemon.json` 已配 `log-opts: {"max-size":"50m","max-file":"3"}`
+> 默认（每容器封顶 150MB），需 `systemctl restart docker` 才生效（reload 不接 log
+> 配置；restart 时所有容器重启约 5-10s downtime）。详见 memory `prod_disk_log_rotation.md`。
+
+
+
 ⚠️ **本阶段不是代码修改，是生产操作。严格按顺序执行，每步人工确认后再进下一步。**
+
+> ⚠️ **已执行 / 不可重跑**：以下 H.1–H.5 在 2026-04-24 已完整跑过一次。再次复制
+> 执行的命令（rake/migrate）会找不到任务或 no-op。runbook 保留作历史档案。
 
 ### Task H.1: 部署 PR 1（Phase A-G 的代码）
 
