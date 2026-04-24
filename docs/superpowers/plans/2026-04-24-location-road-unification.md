@@ -2599,6 +2599,18 @@ git commit -m "feat: 坐标变化时清空 override + 前端保存前确认"
 
 ## Phase G ｜数据迁移 rake 任务（写好，先不跑）
 
+> **历史归档**：本节定义的 `lib/tasks/route_leg_override.rake` 三个任务
+> （`migrate_low_tier_road` / `rename_scenic_road_details` / `delete_low_tier_road`）
+> 在 2026-04-24 生产 Phase H 跑完后已在 PR2 (#47) 中删除，文件在 main 上不再存在。
+> 节内代码保留作为施工历史档案。
+>
+> 一次性 hotfix（PR #46）：原 rake 在第一条 AMAP `ROUTE_FAIL` 时中断，
+> 修为 per-iteration rescue + leg.overridden_at 幂等跳过——hotfix 后才完整跑完。
+>
+> **保留** 的相关任务：`route_leg_maintenance:refetch_zero_duration`
+> （`lib/tasks/route_leg_maintenance.rake`）—— 修历史 leg `duration_s=0` 的运维
+> 任务，独立于一次性迁移。
+
 ### Task G.1: Rake - migrate low tier road → route_leg override
 
 **Files:**
@@ -2836,6 +2848,15 @@ git commit -m "feat(rake): route_leg_override 三个迁移任务（含 DRY_RUN�
 ---
 
 ## Phase H ｜生产迁移执行（runbook，手动 gate）
+
+> **已执行（2026-04-24）**：runbook 完整跑过一次。real numbers：
+> 64 条 low-tier road（全 infrastructure tier），37 迁到 override + 14 跳过
+> （hotfix 后幂等）+ 10 孤立首/末（数据丢失，接受）+ 3 AMAP ROUTE_FAIL
+> （新疆山区小路）。维护 rake `refetch_zero_duration` 修了 70 条历史
+> `duration_s=0` 的 leg。Postmortem 见 commit `8e01fcf` (#46) 和事后磁盘
+> 满 → docker prune 修复（生产 host 一度被 bitwarden 容器日志吃满 8.2GB）。
+
+
 
 ⚠️ **本阶段不是代码修改，是生产操作。严格按顺序执行，每步人工确认后再进下一步。**
 
