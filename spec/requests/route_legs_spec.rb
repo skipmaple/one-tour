@@ -153,6 +153,33 @@ RSpec.describe "RouteLegs", type: :request do
       expect(leg.overridden_at).to be_present
       expect(leg.overridden_by_id).to eq(user.id)
     end
+
+    # Regression: 全 nil payload 等价于 destroy（清 override），不应留下
+    # overridden_at 与实际值脱节的脏状态。
+    it "treats all-nil payload as clear (does not mark overridden_at)" do
+      leg.update!(distance_m_override: 999, overridden_at: 1.hour.ago, overridden_by: user)
+      patch "/route_legs/#{leg.id}", params: {
+        route_leg: { distance_m_override: nil, duration_s_override: nil, note: nil }
+      }, as: :json
+      expect(response).to have_http_status(:ok)
+      leg.reload
+      expect(leg.distance_m_override).to be_nil
+      expect(leg.duration_s_override).to be_nil
+      expect(leg.note).to be_nil
+      expect(leg.overridden_at).to be_nil
+      expect(leg.overridden_by_id).to be_nil
+      expect(JSON.parse(response.body)["overridden"]).to be false
+    end
+
+    it "marks overridden when only note is provided" do
+      patch "/route_legs/#{leg.id}", params: {
+        route_leg: { distance_m_override: nil, duration_s_override: nil, note: "仅备注" }
+      }, as: :json
+      expect(response).to have_http_status(:ok)
+      leg.reload
+      expect(leg.note).to eq("仅备注")
+      expect(leg.overridden_at).to be_present
+    end
   end
 
   describe "DELETE /route_legs/:id (clear override)" do

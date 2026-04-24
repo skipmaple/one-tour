@@ -118,7 +118,9 @@ export default function CommonFields({
         />
       ) : (
         <LocationPicker
-          value={form.values.lat && form.values.lng ? {
+          // 显式空串/null 判，避免 0 经纬度被当 falsy（理论可能：赤道/本初子午线交点）
+          value={form.values.lat !== '' && form.values.lat != null &&
+                 form.values.lng !== '' && form.values.lng != null ? {
             name: form.values.name || '未命名',
             lat: Number(form.values.lat),
             lng: Number(form.values.lng),

@@ -161,5 +161,22 @@ RSpec.describe RouteLeg do
       expect(digest_args[:to_lat].to_f).to eq(45.0)
       expect(digest_args[:to_lng].to_f).to eq(85.0)
     end
+
+    # Regression: 缺 end 坐标的景观公路（用户只填了起点），不应让 Upsert 拿到
+    # nil → to_f → 0.0 调 AMAP (0,0)。fallback 到 activity.lat/lng（before_save
+    # 镜像了 start，永远非空）。
+    it "falls back to activity.lat/lng when scenic road's end coords missing" do
+      partial = create(:activity, tour: tour, kind: :road, citizen_level: :tier_one,
+                       position: 4,
+                       details: { "start_lat" => 42.9, "start_lng" => 83.5 })
+      # No end_lat/end_lng in details. activity.lat/lng = mirrored start (42.9, 83.5).
+      next_act = create(:activity, tour: tour, lat: 45.0, lng: 85.0, position: 5)
+      digest_args = RouteLeg.resolve_endpoint_coords(from_activity: partial, to_activity: next_act)
+      # Falls back to lat/lng (start mirror), not nil
+      expect(digest_args[:from_lat].to_f).to eq(42.9)
+      expect(digest_args[:from_lng].to_f).to eq(83.5)
+      expect(digest_args[:from_lat]).not_to be_nil
+      expect(digest_args[:from_lng]).not_to be_nil
+    end
   end
 end

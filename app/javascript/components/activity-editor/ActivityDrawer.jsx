@@ -501,15 +501,22 @@ function affectedLegsFromEdit(edited, originalActivity, routeLegs) {
   )
   if (related.length === 0) return []
 
+  // 数值比较前两边都强制数化。details jsonb 可能存的是字符串（老数据 from
+  // AI tools / form payload）或数字（编辑器写入），strict !== 会假阳性误报。
+  const numEq = (a, b) => {
+    const na = a == null || a === '' ? null : Number(a)
+    const nb = b == null || b === '' ? null : Number(b)
+    return na === nb || (Number.isNaN(na) && Number.isNaN(nb))
+  }
   const coordsChanged = (() => {
     if (edited.kind === 'road' && edited.citizen_level === 'tier_one') {
       const d0 = originalActivity.details || {}
       const d1 = edited.details || {}
-      return d0.start_lat !== d1.start_lat || d0.start_lng !== d1.start_lng ||
-             d0.end_lat !== d1.end_lat   || d0.end_lng !== d1.end_lng
+      return !numEq(d0.start_lat, d1.start_lat) || !numEq(d0.start_lng, d1.start_lng) ||
+             !numEq(d0.end_lat,   d1.end_lat)   || !numEq(d0.end_lng,   d1.end_lng)
     }
-    return Number(originalActivity.lat) !== Number(edited.lat) ||
-           Number(originalActivity.lng) !== Number(edited.lng)
+    return !numEq(originalActivity.lat, edited.lat) ||
+           !numEq(originalActivity.lng, edited.lng)
   })()
   if (!coordsChanged) return []
 

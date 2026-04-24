@@ -27,14 +27,16 @@ class RouteLeg < ApplicationRecord
     { from_lat: from_lat, from_lng: from_lng, to_lat: to_lat, to_lng: to_lng }
   end
 
+  # role=:from → 离开活动用 end 坐标；role=:to → 进入活动用 start 坐标。
+  # 景观公路 details.start/end 缺失时 fallback 到 activity.lat/lng（这是 start
+  # 镜像，before_save 保证非空）。否则会让 Upsert 拿到 nil → to_f → 0.0，
+  # 调 AMAP (0,0) 得到无意义的 leg。
   def self.resolve_for(activity, role:)
     if activity.kind == "road" && activity.citizen_level == "tier_one"
       d = activity.details || {}
-      if role == :from
-        [ d["end_lat"], d["end_lng"] ]
-      else
-        [ d["start_lat"], d["start_lng"] ]
-      end
+      lat, lng = role == :from ? [ d["end_lat"], d["end_lng"] ] : [ d["start_lat"], d["start_lng"] ]
+      return [ lat, lng ] if lat.present? && lng.present?
+      [ activity.lat, activity.lng ]
     else
       [ activity.lat, activity.lng ]
     end

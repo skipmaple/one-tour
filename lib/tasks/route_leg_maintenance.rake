@@ -31,8 +31,12 @@ namespace :route_leg_maintenance do
     failed = []
     legs.find_each do |leg|
       begin
-        # Invalidate cache so Upsert::call goes through fetch path
-        leg.update_columns(endpoint_digest: nil)
+        # Invalidate cache via polyline (not endpoint_digest). Upsert.cache_valid?
+        # checks `polyline.present? && digest == expected`; clearing polyline forces
+        # a refetch. Crucially, leaving digest intact lets Upsert see "no endpoint
+        # change" and PRESERVE the user's override fields. If we cleared digest
+        # instead, Upsert would treat it as endpoint change and wipe overrides.
+        leg.update_columns(polyline: {})
 
         result = RouteLeg::Upsert.new(
           tour:             leg.tour,

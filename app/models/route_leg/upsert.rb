@@ -46,10 +46,14 @@ class RouteLeg::Upsert
     end
     @cache_hit = false
 
-    # Only clear override when endpoint coords actually changed. cache_valid? is
-    # false for either coord change OR missing polyline; in the latter case the
-    # user's manual override is still valid and should not be wiped.
-    endpoint_changed = leg.persisted? && leg.endpoint_digest != leg.expected_endpoint_digest
+    # Only clear override when endpoint coords PROVABLY changed. cache_valid? is
+    # false for: (a) coord change, (b) missing polyline, (c) digest cleared
+    # intentionally (e.g. maintenance rake forcing refetch). We need to keep
+    # override in (b) and (c). Gating on `digest.present?` excludes (c)—a nil
+    # digest means we have no prior baseline to compare with.
+    endpoint_changed = leg.persisted? &&
+                       leg.endpoint_digest.present? &&
+                       leg.endpoint_digest != leg.expected_endpoint_digest
 
     args = RouteLeg.resolve_endpoint_coords(from_activity: from, to_activity: to)
     result = @service.fetch(

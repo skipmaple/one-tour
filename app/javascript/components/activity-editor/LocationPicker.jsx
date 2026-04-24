@@ -54,21 +54,35 @@ function SingleLocationPicker({ value, onChange, regionHint, nearbyCenter, disab
   useEffect(() => { setActiveRegion(regionHint || null) }, [regionHint])
 
   const search = useCallback((q) => {
-    if (q.trim().length === 0) { setCandidates([]); return }
+    if (q.trim().length === 0) {
+      setCandidates([])
+      combobox.closeDropdown()
+      return
+    }
     setLoading(true); setError(null)
     const params = new URLSearchParams({ q })
     if (activeRegion) params.set('region_hint', activeRegion)
     if (nearbyCenter?.lat) params.set('near_lat', nearbyCenter.lat)
     if (nearbyCenter?.lng) params.set('near_lng', nearbyCenter.lng)
     fetch(`/poi_search?${params}`)
-      .then(res => res.status === 429 ? (setError('搜索太频繁，请稍后重试'), null) : res.json())
-      .then(data => {
-        if (data?.candidates) {
-          setCandidates(data.candidates)
-          combobox.openDropdown()
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(res.status === 429 ? 'RATE_LIMIT' : 'SEARCH_FAILED')
         }
+        return res.json()
       })
-      .catch(() => setError('搜索失败'))
+      .then(data => {
+        const next = Array.isArray(data?.candidates) ? data.candidates : []
+        setCandidates(next)
+        if (next.length > 0) combobox.openDropdown()
+        else combobox.closeDropdown()
+      })
+      .catch((err) => {
+        // 任何错误（429 / 4xx / 5xx / 网络）都清结果，不要让 stale 候选项在 UI 上误导用户
+        setCandidates([])
+        combobox.closeDropdown()
+        setError(err?.message === 'RATE_LIMIT' ? '搜索太频繁，请稍后重试' : '搜索失败')
+      })
       .finally(() => setLoading(false))
   }, [activeRegion, nearbyCenter?.lat, nearbyCenter?.lng, combobox])
 

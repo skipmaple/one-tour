@@ -117,6 +117,24 @@ RSpec.describe RouteLeg::Upsert do
     # Regression: cache_valid? is false for either coord change OR missing
     # polyline. Only the former implies override is stale — don't wipe it
     # when we're just refetching a corrupted/empty polyline.
+    it "preserves override when endpoint_digest is nil (e.g. forced refetch via maintenance rake)" do
+      allow(fake_service).to receive(:fetch).and_return(fake_result)
+      leg = call_upsert
+      leg.update!(
+        distance_m_override: 500_000, duration_s_override: 30_000,
+        note: "绕行", overridden_at: Time.current,
+        endpoint_digest: nil  # simulate maintenance rake clearing digest to force refetch
+      )
+
+      call_upsert
+
+      leg.reload
+      expect(leg.distance_m_override).to eq(500_000)
+      expect(leg.duration_s_override).to eq(30_000)
+      expect(leg.note).to eq("绕行")
+      expect(leg.overridden_at).to be_present
+    end
+
     it "preserves override when refetching with unchanged coords (e.g. missing polyline)" do
       allow(fake_service).to receive(:fetch).and_return(fake_result)
       leg = call_upsert

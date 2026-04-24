@@ -29,14 +29,22 @@ class RouteLegsController < ApplicationController
 
   def update
     leg_params = params.require(:route_leg).permit(:distance_m_override, :duration_s_override, :note)
+    distance_override = leg_params[:distance_m_override]
+    duration_override = leg_params[:duration_s_override]
+    note              = leg_params[:note].presence
+
+    # 全 nil 等价于清除 override（与 destroy 同语义）。否则 overridden_at 会和
+    # 实际 override 字段脱节——RouteLeg#overridden? 返 true 但没值。
+    has_any_override = distance_override.present? || duration_override.present? || note.present?
+
     @leg.update!(
-      distance_m_override: leg_params[:distance_m_override],
-      duration_s_override: leg_params[:duration_s_override],
-      note:                leg_params[:note],
-      overridden_at:       Time.current,
-      overridden_by_id:    current_user.id,
+      distance_m_override: distance_override,
+      duration_s_override: duration_override,
+      note:                note,
+      overridden_at:       has_any_override ? Time.current : nil,
+      overridden_by_id:    has_any_override ? current_user.id : nil,
     )
-    render json: { id: @leg.id, overridden: true }
+    render json: { id: @leg.id, overridden: has_any_override }
   end
 
   def destroy

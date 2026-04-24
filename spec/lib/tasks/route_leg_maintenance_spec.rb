@@ -94,6 +94,37 @@ RSpec.describe "route_leg_maintenance rake tasks", type: :task do
       ENV.delete("DRY_RUN")
     end
 
+    # Regression: maintenance rake interacts with Upsert's "clear override on
+    # endpoint change" gate. Maintenance must NOT trigger that clear—coords
+    # haven't changed, only polyline cache is being invalidated.
+    it "preserves manual override on overridden legs" do
+      from_act = create(:activity, tour: tour, day: day, lat: 43.83, lng: 87.62, position: 10)
+      to_act   = create(:activity, tour: tour, day: day, lat: 43.88, lng: 88.12, position: 11)
+      # Create leg with CORRECT digest (matching coords) + override set
+      digest = RouteLeg.compute_endpoint_digest(
+        from_lat: 43.83, from_lng: 87.62, to_lat: 43.88, to_lng: 88.12, mode: :driving
+      )
+      leg = RouteLeg.create!(
+        tour: tour, from_activity: from_act, to_activity: to_act, mode: :driving,
+        distance_m: 101_673, duration_s: 0,  # bug state
+        endpoint_digest: digest,
+        polyline: { "coords" => [ [ 87.62, 43.83 ] ] },
+        distance_m_override: 120_000, duration_s_override: 8000,
+        note: "绕行多了 20km", overridden_at: Time.current, overridden_by: tour.author
+      )
+
+      Rake::Task["route_leg_maintenance:refetch_zero_duration"].invoke
+
+      leg.reload
+      # duration_s refetched
+      expect(leg.duration_s).to eq(7022)
+      # override fields preserved
+      expect(leg.distance_m_override).to eq(120_000)
+      expect(leg.duration_s_override).to eq(8000)
+      expect(leg.note).to eq("绕行多了 20km")
+      expect(leg.overridden_at).to be_present
+    end
+
     it "continues when a single leg fails" do
       good = make_zero_dur_leg
       bad_tour = create(:tour)

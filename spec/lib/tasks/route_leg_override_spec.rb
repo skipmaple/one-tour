@@ -50,6 +50,7 @@ RSpec.describe "route_leg_override rake tasks", type: :task do
       Rake::Task["route_leg_override:migrate_low_tier_road"].reenable
       Rake::Task["route_leg_override:migrate_low_tier_road"].invoke
       expect(RouteLeg.where(from_activity_id: prev.id).any? { |l| l.overridden? }).to be false
+    ensure
       ENV.delete("DRY_RUN")
     end
   end

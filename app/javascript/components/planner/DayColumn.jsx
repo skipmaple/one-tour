@@ -39,9 +39,16 @@ export default function DayColumn({
 
   const [editingLeg, setEditingLeg] = useState(null)
   const handleLegClick = useCallback((leg) => {
+    // 跨天 connector 的 endpoint activity 可能不在本 day 的 activities 里——
+    // 不要用 undefined 覆盖掉后端 serializer 已经传过来的 from_activity_name /
+    // to_activity_name。
     const from = activities.find(a => a.id === leg.from_activity_id)
     const to   = activities.find(a => a.id === leg.to_activity_id)
-    setEditingLeg({ ...leg, from_activity_name: from?.name, to_activity_name: to?.name })
+    setEditingLeg({
+      ...leg,
+      from_activity_name: from?.name ?? leg.from_activity_name,
+      to_activity_name:   to?.name   ?? leg.to_activity_name,
+    })
   }, [activities])
 
   // driveMin 来自后端 Day#driving_minutes_total (hybrid sum: route_legs effective
