@@ -83,4 +83,100 @@ RSpec.describe RouteLeg do
       expect(walk).to be_valid
     end
   end
+
+  describe "override" do
+    let(:tour) { create(:tour) }
+    let(:from_act) { create(:activity, tour: tour, lat: 36.0, lng: 103.0) }
+    let(:to_act)   { create(:activity, tour: tour, lat: 37.0, lng: 104.0, position: 2) }
+    let(:leg) do
+      RouteLeg.create!(tour: tour, from_activity: from_act, to_activity: to_act,
+                       mode: :driving, distance_m: 100_000, duration_s: 3600,
+                       polyline: { "coords" => [] })
+    end
+
+    it "#overridden? is false when overridden_at is nil" do
+      expect(leg.overridden?).to be false
+    end
+
+    it "#overridden? is true when overridden_at is set" do
+      leg.update!(overridden_at: Time.current)
+      expect(leg.overridden?).to be true
+    end
+
+    it "#effective_distance_m returns override when present" do
+      leg.update!(distance_m_override: 120_000, overridden_at: Time.current)
+      expect(leg.effective_distance_m).to eq(120_000)
+    end
+
+    it "#effective_distance_m falls back to distance_m when override nil" do
+      expect(leg.effective_distance_m).to eq(100_000)
+    end
+
+    it "#effective_duration_s returns override when present" do
+      leg.update!(duration_s_override: 4000, overridden_at: Time.current)
+      expect(leg.effective_duration_s).to eq(4000)
+    end
+
+    it "#effective_duration_s falls back to duration_s when override nil" do
+      expect(leg.effective_duration_s).to eq(3600)
+    end
+  end
+
+  describe "#overridden_by association" do
+    it "belongs_to overridden_by (class User), optional" do
+      user = create(:user)
+      tour = create(:tour, author: user)
+      from_act = create(:activity, tour: tour, lat: 36.0, lng: 103.0)
+      to_act   = create(:activity, tour: tour, lat: 37.0, lng: 104.0, position: 2)
+      leg = RouteLeg.create!(tour: tour, from_activity: from_act, to_activity: to_act,
+                             mode: :driving, distance_m: 100_000, duration_s: 3600,
+                             polyline: { "coords" => [] })
+      expect(leg.overridden_by).to be_nil
+
+      leg.update!(overridden_by: user, overridden_at: Time.current)
+      expect(leg.overridden_by).to eq(user)
+    end
+  end
+
+  describe "endpoint digest with scenic road" do
+    let(:tour) { create(:tour) }
+    let(:prev) { create(:activity, tour: tour, lat: 36.0, lng: 103.0, position: 1) }
+    let(:scenic) { create(:activity, :scenic_road, tour: tour, position: 2) }
+
+    it "uses scenic road's details.start as TO endpoint digest input" do
+      # When scenic is TO, use its start_lat/start_lng (entering the scenic road)
+      digest_args = RouteLeg.resolve_endpoint_coords(from_activity: prev, to_activity: scenic)
+      expect(digest_args[:from_lat].to_f).to eq(36.0)
+      expect(digest_args[:from_lng].to_f).to eq(103.0)
+      expect(digest_args[:to_lat].to_f).to eq(42.9)
+      expect(digest_args[:to_lng].to_f).to eq(83.5)
+    end
+
+    it "uses scenic road's details.end as FROM endpoint digest input" do
+      # When scenic is FROM, use its end_lat/end_lng (leaving the scenic road)
+      next_act = create(:activity, tour: tour, lat: 45.0, lng: 85.0, position: 3)
+      digest_args = RouteLeg.resolve_endpoint_coords(from_activity: scenic, to_activity: next_act)
+      expect(digest_args[:from_lat].to_f).to eq(44.0)
+      expect(digest_args[:from_lng].to_f).to eq(84.7)
+      expect(digest_args[:to_lat].to_f).to eq(45.0)
+      expect(digest_args[:to_lng].to_f).to eq(85.0)
+    end
+
+    # Regression: 缺 end 坐标的景观公路（用户只填了起点），不应让 Upsert 拿到
+    # nil → to_f → 0.0 调 AMAP (0,0)。fallback 到 activity.lat/lng（before_save
+    # 镜像了 start，永远非空）。
+    it "falls back to activity.lat/lng when scenic road's end coords missing" do
+      partial = create(:activity, tour: tour, kind: :road, citizen_level: :tier_one,
+                       position: 4,
+                       details: { "start_lat" => 42.9, "start_lng" => 83.5 })
+      # No end_lat/end_lng in details. activity.lat/lng = mirrored start (42.9, 83.5).
+      next_act = create(:activity, tour: tour, lat: 45.0, lng: 85.0, position: 5)
+      digest_args = RouteLeg.resolve_endpoint_coords(from_activity: partial, to_activity: next_act)
+      # Falls back to lat/lng (start mirror), not nil
+      expect(digest_args[:from_lat].to_f).to eq(42.9)
+      expect(digest_args[:from_lng].to_f).to eq(83.5)
+      expect(digest_args[:from_lat]).not_to be_nil
+      expect(digest_args[:from_lng]).not_to be_nil
+    end
+  end
 end

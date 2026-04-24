@@ -46,19 +46,40 @@ class RouteLeg::Upsert
     end
     @cache_hit = false
 
+    # Only clear override when endpoint coords PROVABLY changed. cache_valid? is
+    # false for: (a) coord change, (b) missing polyline, (c) digest cleared
+    # intentionally (e.g. maintenance rake forcing refetch). We need to keep
+    # override in (b) and (c). Gating on `digest.present?` excludes (c)—a nil
+    # digest means we have no prior baseline to compare with.
+    endpoint_changed = leg.persisted? &&
+                       leg.endpoint_digest.present? &&
+                       leg.endpoint_digest != leg.expected_endpoint_digest
+
+    args = RouteLeg.resolve_endpoint_coords(from_activity: from, to_activity: to)
     result = @service.fetch(
-      from_lat: from.lat.to_f, from_lng: from.lng.to_f,
-      to_lat:   to.lat.to_f,   to_lng:   to.lng.to_f,
+      from_lat: args[:from_lat].to_f, from_lng: args[:from_lng].to_f,
+      to_lat:   args[:to_lat].to_f,   to_lng:   args[:to_lng].to_f,
       mode:     @mode
     )
 
-    leg.assign_attributes(
+    attrs = {
       distance_m:      result[:distance_m],
       duration_s:      result[:duration_s],
       polyline:        result[:polyline],
       endpoint_digest: leg.expected_endpoint_digest,
       fetched_at:      Time.current
-    )
+    }
+    if endpoint_changed
+      # Coords changed → old manual adjustment is stale, clear it.
+      attrs.merge!(
+        distance_m_override: nil,
+        duration_s_override: nil,
+        note:             nil,
+        overridden_at:    nil,
+        overridden_by_id: nil
+      )
+    end
+    leg.assign_attributes(attrs)
     leg.save!
     leg
   end

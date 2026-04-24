@@ -4,7 +4,7 @@ class RouteLegsController < ApplicationController
 
   before_action :require_login
   before_action :set_tour, only: [ :create ]
-  before_action :set_leg, only: [ :destroy ]
+  before_action :set_leg, only: [ :update, :destroy ]
   before_action :require_editor
   before_action :throttle!, only: [ :create ]
 
@@ -27,13 +27,35 @@ class RouteLegsController < ApplicationController
     respond_with_error(e.record.errors.full_messages.join("；"), status: :unprocessable_entity)
   end
 
+  def update
+    leg_params = params.require(:route_leg).permit(:distance_m_override, :duration_s_override, :note)
+    distance_override = leg_params[:distance_m_override]
+    duration_override = leg_params[:duration_s_override]
+    note              = leg_params[:note].presence
+
+    # 全 nil 等价于清除 override（与 destroy 同语义）。否则 overridden_at 会和
+    # 实际 override 字段脱节——RouteLeg#overridden? 返 true 但没值。
+    has_any_override = distance_override.present? || duration_override.present? || note.present?
+
+    @leg.update!(
+      distance_m_override: distance_override,
+      duration_s_override: duration_override,
+      note:                note,
+      overridden_at:       has_any_override ? Time.current : nil,
+      overridden_by_id:    has_any_override ? current_user.id : nil,
+    )
+    render json: { id: @leg.id, overridden: has_any_override }
+  end
+
   def destroy
-    @leg.destroy!
-    if inertia_request?
-      redirect_to tour_path(@tour)
-    else
-      head :no_content
-    end
+    @leg.update!(
+      distance_m_override: nil,
+      duration_s_override: nil,
+      note:                nil,
+      overridden_at:       nil,
+      overridden_by_id:    nil,
+    )
+    render json: { id: @leg.id, overridden: false }
   end
 
   private

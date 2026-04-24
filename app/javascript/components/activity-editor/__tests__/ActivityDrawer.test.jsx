@@ -21,17 +21,19 @@ vi.mock('../../../hooks/useUndoStack', () => ({
   UNDO_CAP: 10,
 }))
 
-// Mock PoiSearchCombobox so tests can drive POI picks via a button instead of
+// Mock LocationPicker so tests can drive POI picks via a button instead of
 // the real debounce/combobox/keyboard flow (which is covered separately).
-vi.mock('../PoiSearchCombobox', () => ({
-  default: ({ onPick }) => (
-    <div data-testid="poi-stub">
-      <button type="button" onClick={() => onPick({ name: '兰州大学(地铁站)', lat: 36.05, lng: 103.82, address: '兰州城关区天水南路' })}>
-        pick-lanzhou
-      </button>
-      <button type="button" onClick={() => onPick({ name: '米生拉', lat: 29.77, lng: 87.25, address: '谢通门县 · 地名' })}>
-        pick-misheng
-      </button>
+vi.mock('../LocationPicker', () => ({
+  default: ({ onChange }) => (
+    <div data-testid="location-picker-stub">
+      <button type="button" onClick={() => onChange({
+        name: '兰州大学(地铁站)', lat: 36.05, lng: 103.82, address: '兰州城关区天水南路',
+        pname: '甘肃省', cityname: '兰州市', adname: '城关区', type: '地铁站'
+      })}>pick-lanzhou</button>
+      <button type="button" onClick={() => onChange({
+        name: '米生拉', lat: 29.77, lng: 87.25, address: '谢通门县 · 地名',
+        pname: '西藏自治区', cityname: '日喀则市', adname: '谢通门县', type: '地名'
+      })}>pick-misheng</button>
     </div>
   ),
 }))
@@ -165,10 +167,9 @@ test('re-picking a POI overwrites the auto-filled name, but not a user-typed one
   // Another pick → name must be preserved
   fireEvent.click(screen.getByRole('button', { name: 'pick-lanzhou' }))
   await waitFor(() => {
-    // address should have updated
-    expect(screen.getByText(/兰州城关区天水南路/)).toBeInTheDocument()
+    // name should remain as user typed, not overwritten by the pick
+    expect(nameInput).toHaveValue('我的自定义名字')
   })
-  expect(nameInput).toHaveValue('我的自定义名字')
 })
 
 test('form clears when switching from edit to create mode', async () => {
@@ -226,7 +227,7 @@ test('form clears when switching from edit to create mode', async () => {
   expect(screen.queryByText(/兰州南关十字东500米/)).not.toBeInTheDocument()
 })
 
-test('shows persisted address (prefixed "地址：", no emoji) when editing', () => {
+test('editing activity with location renders LocationPicker (no raw coords in drawer)', () => {
   renderDrawer({
     mode: 'edit',
     activity: {
@@ -241,8 +242,9 @@ test('shows persisted address (prefixed "地址：", no emoji) when editing', ()
       details: {},
     },
   })
-  expect(screen.getByText('地址：甘肃省兰州市城关区南关十字东500米')).toBeInTheDocument()
-  // Coords should NOT be rendered (see spec 2026-04-18-activity-drawer-redesign — decision D)
+  // LocationPicker stub is rendered; location display is handled by LocationPicker
+  expect(screen.getByTestId('location-picker-stub')).toBeInTheDocument()
+  // Raw coordinates should NOT be rendered directly in the drawer
   expect(screen.queryByText(/36\.0590,\s*103\.8320/)).not.toBeInTheDocument()
 })
 
@@ -440,4 +442,93 @@ test('create save invokes onClose on success (drawer closes)', async () => {
   fireEvent.change(screen.getByLabelText('名称', { exact: false }), { target: { value: '午餐' } })
   fireEvent.click(screen.getByRole('button', { name: '保存' }))
   await waitFor(() => expect(onClose).toHaveBeenCalled())
+})
+
+describe('省市区消歧义持久化 (details jsonb)', () => {
+  it('create payload 把 pname/cityname/adname/type 写进 activity.details', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 777, position: 1 }) })
+    renderDrawer({ mode: 'create', targetDayId: 5 })
+    fireEvent.click(screen.getByRole('button', { name: 'pick-lanzhou' }))
+    await waitFor(() => expect(screen.getByLabelText('名称', { exact: false })).toHaveValue('兰州大学(地铁站)'))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/tours/1/days/5/activities',
+        expect.objectContaining({
+          body: expect.stringMatching(/"cityname":"兰州市"/),
+        })
+      )
+    })
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body)
+    expect(body.activity.details).toMatchObject({
+      pname: '甘肃省',
+      cityname: '兰州市',
+      adname: '城关区',
+      type: '地铁站',
+    })
+    // 顶层不应该携带这 4 个字段（后端 strong params 会忽略）
+    expect(body.activity.cityname).toBeUndefined()
+    expect(body.activity.pname).toBeUndefined()
+  })
+
+  it('edit mode 从 activity.details 读回省市区字段', async () => {
+    const { router } = await import('@inertiajs/react')
+    router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())
+    renderDrawer({
+      mode: 'edit',
+      activity: {
+        id: 88, name: '春丽和金刚小酒馆', kind: 'food', citizen_level: 'tier_three',
+        day_id: 5, lat: 28.18, lng: 113.00, address: '福达银座5楼',
+        details: { pname: '湖南省', cityname: '长沙市', adname: '岳麓区', type: '餐饮' },
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => {
+      expect(router.patch).toHaveBeenCalledWith(
+        '/activities/88',
+        expect.objectContaining({
+          activity: expect.objectContaining({
+            details: expect.objectContaining({
+              pname: '湖南省', cityname: '长沙市', adname: '岳麓区', type: '餐饮',
+            }),
+          }),
+        }),
+        expect.anything()
+      )
+    })
+  })
+})
+
+describe('road kind (景观公路)', () => {
+  // Helper: open the kind Select and pick "景观公路"
+  async function switchToRoad() {
+    // Mantine Select renders a combobox input associated with the "类型" label
+    const kindInput = screen.getByRole('combobox', { name: '类型' })
+    fireEvent.click(kindInput)
+    // Wait for the dropdown option to appear, then click it
+    const option = await screen.findByRole('option', { name: '景观公路' })
+    fireEvent.click(option)
+  }
+
+  it('auto-sets citizen_level=tier_one when switching to road', async () => {
+    renderDrawer()
+    await switchToRoad()
+    // "一等公民（核心）" radio input should be checked
+    await waitFor(() => {
+      expect(screen.getByLabelText('一等公民（核心）')).toBeChecked()
+    })
+  })
+
+  it('disables non-tier_one radios when kind=road', async () => {
+    renderDrawer()
+    await switchToRoad()
+    // All radios except tier_one must be disabled
+    await waitFor(() => {
+      expect(screen.getByLabelText('二等公民（配角）')).toBeDisabled()
+      expect(screen.getByLabelText('三等公民（可删）')).toBeDisabled()
+      expect(screen.getByLabelText('基础设施（自动）')).toBeDisabled()
+    })
+    // tier_one itself should NOT be disabled
+    expect(screen.getByLabelText('一等公民（核心）')).not.toBeDisabled()
+  })
 })

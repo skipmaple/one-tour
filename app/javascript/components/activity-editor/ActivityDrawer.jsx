@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Drawer, Button, Group, Stack, Tabs } from '@mantine/core'
+import { Drawer, Button, Group, Stack, Tabs, Text } from '@mantine/core'
 import { useForm } from '@mantine/form'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
@@ -17,6 +17,7 @@ const EMPTY_FORM_VALUES = {
   lat: '',
   lng: '',
   address: '',
+  pname: '', cityname: '', adname: '', type: '',
   planned_start_at: '',
   planned_duration_min: '',
   desc: '',
@@ -51,6 +52,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
   // create mode we therefore reset the snapshot explicitly.
   useEffect(() => {
     if (opened && isEdit && activity) {
+      const d = activity.details || {}
       form.setValues({
         name: activity.name || '',
         kind: activity.kind || 'scenic',
@@ -58,6 +60,12 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
         lat: activity.lat ?? '',
         lng: activity.lng ?? '',
         address: activity.address || '',
+        // pname/cityname/adname/type 持久化在 details jsonb；
+        // 读回到 form 顶层临时字段方便 LocationPicker 展示
+        pname: d.pname || '',
+        cityname: d.cityname || '',
+        adname: d.adname || '',
+        type: d.type || '',
         planned_start_at: activity.planned_start_at || '',
         planned_duration_min: activity.planned_duration_min ?? '',
         desc: activity.desc || '',
@@ -78,18 +86,75 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     if (opened) setActiveTab('basic')
   }, [opened, isEdit, activity?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When kind changes, keep only the keys that belong to the new kind's schema
+  // When kind changes, keep only the keys that belong to the new kind's schema.
+  // pname/cityname/adname/type 是跨 kind 的消歧义信息，保留。
   const handleKindChange = (newKind) => {
     form.setFieldValue('kind', newKind)
+    if (newKind === 'road') {
+      form.setFieldValue('citizen_level', 'tier_one')
+    }
     const validKeys = (KIND_SCHEMA[newKind] || []).map(f => f.key)
+    const preserved = [ 'pname', 'cityname', 'adname', 'type' ]
     const cleaned = {}
     for (const k of validKeys) {
+      if (details[k] !== undefined) cleaned[k] = details[k]
+    }
+    for (const k of preserved) {
       if (details[k] !== undefined) cleaned[k] = details[k]
     }
     setDetails(cleaned)
   }
 
-  const handlePoiPick = ({ name, lat, lng, address }) => {
+  const handlePoiPick = (picked) => {
+    const kind = form.values.kind
+    if (kind === 'road') {
+      // Road kind: picked shape is { start, end } objects (or null for clear)
+      const d = { ...(details || {}) }
+      if (picked?.start) {
+        d.start_name = picked.start.name
+        d.start_lat = picked.start.lat
+        d.start_lng = picked.start.lng
+        d.start_address = picked.start.address
+        d.start_pname = picked.start.pname
+        d.start_cityname = picked.start.cityname
+        d.start_adname = picked.start.adname
+      } else if (picked && picked.start === null) {
+        delete d.start_name; delete d.start_lat; delete d.start_lng
+        delete d.start_address; delete d.start_pname; delete d.start_cityname; delete d.start_adname
+      }
+      if (picked?.end) {
+        d.end_name = picked.end.name
+        d.end_lat = picked.end.lat
+        d.end_lng = picked.end.lng
+        d.end_address = picked.end.address
+        d.end_pname = picked.end.pname
+        d.end_cityname = picked.end.cityname
+        d.end_adname = picked.end.adname
+      } else if (picked && picked.end === null) {
+        delete d.end_name; delete d.end_lat; delete d.end_lng
+        delete d.end_address; delete d.end_pname; delete d.end_cityname; delete d.end_adname
+      }
+      setDetails(d)
+      // Name fallback: if empty, use start_name - end_name
+      if (!form.values.name && d.start_name && d.end_name) {
+        form.setFieldValue('name', `${d.start_name} - ${d.end_name}`)
+      }
+      return
+    }
+
+    // Non-road (existing behavior)
+    if (picked === null) {
+      form.setFieldValue('lat', '')
+      form.setFieldValue('lng', '')
+      form.setFieldValue('address', '')
+      form.setFieldValue('pname', '')
+      form.setFieldValue('cityname', '')
+      form.setFieldValue('adname', '')
+      form.setFieldValue('type', '')
+      poiFilledName.current = ''
+      return
+    }
+    const { name, lat, lng, address, pname, cityname, adname, type } = picked
     const current = form.values.name
     if (!current || current === poiFilledName.current) {
       form.setFieldValue('name', name)
@@ -98,6 +163,10 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     form.setFieldValue('lat', lat)
     form.setFieldValue('lng', lng)
     form.setFieldValue('address', address || '')
+    form.setFieldValue('pname', pname || '')
+    form.setFieldValue('cityname', cityname || '')
+    form.setFieldValue('adname', adname || '')
+    form.setFieldValue('type', type || '')
   }
 
   const handleClose = () => {
@@ -113,8 +182,63 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     }
   }
 
+  // Auto-derive city hint from sibling activities in the same day, falling
+  // back to tour-wide majority. Users can × it inside LocationPicker.
+  const cityHint = (() => {
+    const pool = (allActivities || []).filter(a => a.id !== activity?.id)
+    const sameDay = pool.filter(a => a.day_id === targetDayId)
+    const src = sameDay.length > 0 ? sameDay : pool
+    const counts = {}
+    src.forEach(a => {
+      const city = a.details?.cityname
+      if (city) counts[city] = (counts[city] || 0) + 1
+    })
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+    return top ? top[0] : null
+  })()
+
+  const nearbyCenter = (() => {
+    const pool = (allActivities || []).filter(
+      a => a.id !== activity?.id && a.day_id === targetDayId && a.lat && a.lng
+    )
+    if (pool.length === 0) return null
+    const avgLat = pool.reduce((s, a) => s + Number(a.lat), 0) / pool.length
+    const avgLng = pool.reduce((s, a) => s + Number(a.lng), 0) / pool.length
+    return { lat: avgLat, lng: avgLng }
+  })()
+
   const handleSave = async () => {
     if (form.validate().hasErrors) return
+
+    // If coords changed for an activity with overridden adjacent legs, confirm
+    const affected = affectedLegsFromEdit(
+      { ...form.values, details, kind: form.values.kind, citizen_level: form.values.citizen_level },
+      activity,
+      routeLegs
+    )
+    if (affected.length > 0) {
+      const names = affected
+        .map(l => `${l.from_activity_name || '起'} → ${l.to_activity_name || '止'}`)
+        .join('、')
+      const confirmed = await new Promise(resolve => {
+        modals.openConfirmModal({
+          title: '检测到驾驶段手动调整将被重置',
+          children: (
+            <div>
+              <Text size="sm">以下驾驶段的 km / 时长 / 备注手动调整会被清空并回到高德原始值：</Text>
+              <Text size="sm" fw={500} mt="xs">{names}</Text>
+              <Text size="sm" c="dimmed" mt="xs">（因为起/终点坐标发生了变化）</Text>
+            </div>
+          ),
+          labels: { confirm: '继续保存', cancel: '取消' },
+          confirmProps: { color: 'orange' },
+          onConfirm: () => resolve(true),
+          onCancel: () => resolve(false),
+        })
+      })
+      if (!confirmed) return
+    }
+
     setSaving(true)
 
     // Build payload: only include detail keys from current kind's schema
@@ -127,12 +251,22 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       }
     }
 
+    // 持久化省市区消歧义信息到 details（非 road kind；road 有自己的 start_*/end_*）
+    // 让后续新建活动能从同日 activities.details.cityname 推断区域锚定 chip。
+    const { pname, cityname, adname, type, ...formValues } = form.values
+    if (kind !== 'road') {
+      if (pname)    cleanDetails.pname = pname
+      if (cityname) cleanDetails.cityname = cityname
+      if (adname)   cleanDetails.adname = adname
+      if (type)     cleanDetails.type = type
+    }
+
     const payload = {
       activity: {
-        ...form.values,
-        planned_duration_min: form.values.planned_duration_min === '' ? null : Number(form.values.planned_duration_min),
-        lat: form.values.lat === '' ? null : Number(form.values.lat),
-        lng: form.values.lng === '' ? null : Number(form.values.lng),
+        ...formValues,
+        planned_duration_min: formValues.planned_duration_min === '' ? null : Number(formValues.planned_duration_min),
+        lat: formValues.lat === '' ? null : Number(formValues.lat),
+        lng: formValues.lng === '' ? null : Number(formValues.lng),
         details: cleanDetails,
       },
       user_ids: participantUserIds ?? [],
@@ -292,6 +426,8 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
               canEdit={canEdit}
               participantUserIds={participantUserIds}
               onParticipantsChange={setParticipantUserIds}
+              regionHint={cityHint}
+              nearbyCenter={nearbyCenter}
             />
           </Tabs.Panel>
 
@@ -320,7 +456,22 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
 
         </Tabs>
 
-        <Group justify="space-between" mt="md" pt="md" style={{ borderTop: '1px solid #eee' }}>
+        {/* Sticky footer: 保存 / 取消 始终贴在 Drawer 视区底部，
+            不用滚到最底才能找到。配合 Drawer.body 的 overflow 自动处理。
+            负边距 + padding 让它横向铺满、吃掉 Drawer 的 padding="md" 空隙。 */}
+        <Group
+          justify="space-between"
+          p="md"
+          style={{
+            position: 'sticky',
+            bottom: 'calc(-1 * var(--mantine-spacing-md))',
+            marginInline: 'calc(-1 * var(--mantine-spacing-md))',
+            marginBottom: 'calc(-1 * var(--mantine-spacing-md))',
+            background: 'var(--mantine-color-body)',
+            borderTop: '1px solid var(--mantine-color-gray-3)',
+            zIndex: 2,
+          }}
+        >
           <Group>
             <Button onClick={handleSave} loading={saving}>保存</Button>
             <Button variant="default" onClick={handleClose}>取消</Button>
@@ -337,6 +488,48 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       </Stack>
     </Drawer>
   )
+}
+
+// Given an edited activity and all known legs, return legs whose digest will
+// invalidate because the activity's relevant coords are changing. For road
+// kind, "relevant coords" = details.start/end; for others, activity.lat/lng.
+function affectedLegsFromEdit(edited, originalActivity, routeLegs) {
+  if (!originalActivity) return []  // create mode, no legs yet
+  const id = originalActivity.id
+  const related = (routeLegs || []).filter(
+    l => l.from_activity_id === id || l.to_activity_id === id
+  )
+  if (related.length === 0) return []
+
+  // 数值比较前两边都强制数化。details jsonb 可能存的是字符串（老数据 from
+  // AI tools / form payload）或数字（编辑器写入），strict !== 会假阳性误报。
+  const numEq = (a, b) => {
+    const na = a == null || a === '' ? null : Number(a)
+    const nb = b == null || b === '' ? null : Number(b)
+    return na === nb || (Number.isNaN(na) && Number.isNaN(nb))
+  }
+
+  // 切换 tier_one road 与否 → backend resolve_endpoint_coords 的 source 字段
+  // 从 activity.lat/lng 翻到 details.start_*/end_*（或反向）。原始坐标字段
+  // 看起来没变（镜像关系），但实际 endpoint_digest 会变，Upsert 会清 override。
+  // 这种 kind/citizen_level 切换必须触发 confirm，即便坐标字段比较"等值"。
+  const wasTierOneRoad = originalActivity.kind === 'road' && originalActivity.citizen_level === 'tier_one'
+  const isTierOneRoad = edited.kind === 'road' && edited.citizen_level === 'tier_one'
+  const scenicRoadRoleChanged = wasTierOneRoad !== isTierOneRoad
+
+  const coordsChanged = (() => {
+    if (isTierOneRoad) {
+      const d0 = originalActivity.details || {}
+      const d1 = edited.details || {}
+      return !numEq(d0.start_lat, d1.start_lat) || !numEq(d0.start_lng, d1.start_lng) ||
+             !numEq(d0.end_lat,   d1.end_lat)   || !numEq(d0.end_lng,   d1.end_lng)
+    }
+    return !numEq(originalActivity.lat, edited.lat) ||
+           !numEq(originalActivity.lng, edited.lng)
+  })()
+  if (!scenicRoadRoleChanged && !coordsChanged) return []
+
+  return related.filter(l => l.overridden_at != null)
 }
 
 function csrfToken() {

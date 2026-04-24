@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_20_175530) do
+ActiveRecord::Schema[8.0].define(version: 2026_04_23_165851) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -214,8 +214,14 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_20_175530) do
     t.datetime "fetched_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "distance_m_override"
+    t.integer "duration_s_override"
+    t.text "note"
+    t.datetime "overridden_at"
+    t.bigint "overridden_by_id"
     t.index [ "endpoint_digest" ], name: "index_route_legs_on_endpoint_digest"
     t.index [ "from_activity_id" ], name: "index_route_legs_on_from_activity_id"
+    t.index [ "overridden_by_id" ], name: "index_route_legs_on_overridden_by_id"
     t.index [ "to_activity_id" ], name: "index_route_legs_on_to_activity_id"
     t.index [ "tour_id", "from_activity_id", "to_activity_id", "mode" ], name: "idx_route_legs_unique_pair", unique: true
     t.index [ "tour_id" ], name: "index_route_legs_on_tour_id"
@@ -323,6 +329,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_20_175530) do
   add_foreign_key "route_legs", "activities", column: "from_activity_id", on_delete: :cascade
   add_foreign_key "route_legs", "activities", column: "to_activity_id", on_delete: :cascade
   add_foreign_key "route_legs", "tours", on_delete: :cascade
+  add_foreign_key "route_legs", "users", column: "overridden_by_id", on_delete: :nullify
   add_foreign_key "settlements", "tours"
   add_foreign_key "settlements", "users", column: "from_user_id"
   add_foreign_key "settlements", "users", column: "recorded_by_id"

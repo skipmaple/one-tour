@@ -116,14 +116,14 @@ test('synthesized mode is not draggable', () => {
   expect(container.querySelector('[aria-roledescription="draggable"]')).toBeNull()
 })
 
-test('synthesized mode ignores onClick', () => {
+test('synthesized mode calls onClick(leg) when clicked', () => {
   const onClick = vi.fn()
   const leg = { distance_m: 45000, duration_s: 3600 }
   renderInDnd(
     <RoadConnector synthesized leg={leg} fromActivityId={1} toActivityId={2} onClick={onClick} />
   )
   fireEvent.click(screen.getByText(/45 公里/))
-  expect(onClick).not.toHaveBeenCalled()
+  expect(onClick).toHaveBeenCalledWith(leg)
 })
 
 test('applies .rc-highlighted class when isHighlighted=true', () => {

@@ -288,16 +288,29 @@
   flex-shrink: 0;
 }
 
-/* Synthesized from route_legs — read-only, but still hoverable so the spec's
-   "hover synthesized connector → both endpoints + own bar light up" path is
-   reachable. Dotted (vs dashed on activity-backed) signals "inferred from
-   route_leg, not a user-kept road activity" — interaction differs (no click,
-   no drag: the component has neither useDraggable nor useDroppable, so dnd
-   doesn't know about the element), only the line style + opacity distinguish. */
+/* Synthesized from route_legs — clickable to open RouteLegEditModal for
+   overriding km / drive_min / note. Dotted (vs dashed on activity-backed)
+   signals "inferred from route_leg, not a user-kept road activity".
+   pointer cursor signals clickability; hover lifts opacity. */
 .rc-line.rc-synthesized {
-  cursor: default;
+  cursor: pointer;
   opacity: 0.85;
   border-left-style: dotted;
+}
+.rc-line.rc-synthesized:hover {
+  opacity: 1.0;
+}
+/* Overridden marker: 低调汇报——11px 铅笔图标 + hover tooltip 看原值。
+   不抢主数据视觉权重，不折行；悬浮才显示细节。 */
+.rc-overridden-mark {
+  color: var(--mantine-color-blue-5);
+  opacity: 0.6;
+  margin-left: 4px;
+  flex-shrink: 0;
+  transition: opacity 120ms ease;
+}
+.rc-line:hover .rc-overridden-mark {
+  opacity: 1;
 }
 
 /* Active drag state (matches ActivityCard.ac-dragging) */

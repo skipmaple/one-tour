@@ -54,7 +54,7 @@ describe('ActivityFilterBar', () => {
     await openPopover()
     expect(await screen.findByLabelText('搜索活动')).toBeInTheDocument()
     expect(screen.getByText('景点')).toBeInTheDocument()
-    expect(screen.getByText('路段')).toBeInTheDocument()
+    expect(screen.getByText('景观公路')).toBeInTheDocument()
     expect(screen.getByText('餐饮')).toBeInTheDocument()
     expect(screen.getByText('住宿')).toBeInTheDocument()
     expect(screen.getByText('加油')).toBeInTheDocument()

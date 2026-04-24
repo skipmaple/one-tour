@@ -1,5 +1,6 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core'
-import { IconCar } from '@tabler/icons-react'
+import { IconCar, IconPencil } from '@tabler/icons-react'
+import { Tooltip } from '@mantine/core'
 import '../../styles/activity-card.css'
 
 // km is already in km (user-filled on activity.details), while route_leg.distance_m
@@ -42,7 +43,8 @@ function ConnectorText({ km, min }) {
   return <span>{parts.join(' · ')}</span>
 }
 
-// Synthesized variant — read-only, from a route_leg only.
+// Synthesized variant — clickable, from a route_leg only. Clicking opens
+// RouteLegEditModal to override km / drive_min / note.
 function SynthesizedConnector({
   leg,
   isHighlighted = false,
@@ -51,17 +53,23 @@ function SynthesizedConnector({
   fromActivityId,
   toActivityId,
   dayColorName = 'none',
+  onClick,
 }) {
-  const { km, min } = extractKmMin({ activity: null, leg })
+  const km = leg.distance_m_override != null
+    ? Math.round(leg.distance_m_override / 1000)
+    : (leg.distance_m != null ? Math.round(leg.distance_m / 1000) : undefined)
+  const min = leg.duration_s_override != null
+    ? Math.round(leg.duration_s_override / 60)
+    : (leg.duration_s != null ? Math.round(leg.duration_s / 60) : undefined)
+  const overridden = leg.overridden_at != null
+  const amapKm = leg.distance_m != null ? Math.round(leg.distance_m / 1000) : null
+  const amapMin = leg.duration_s != null ? Math.round(leg.duration_s / 60) : null
   const classes = [
     'rc-line',
     'rc-synthesized',
     isHighlighted ? 'rc-highlighted' : '',
   ].filter(Boolean).join(' ')
 
-  // Synthesized has pointer-events: none in CSS, but onMouseEnter still needs
-  // handlers in case that CSS rule is relaxed later. Safe no-op when hovered
-  // is impossible.
   const handleMouseEnter = () => {
     if (onHoverConnector && fromActivityId != null && toActivityId != null) {
       onHoverConnector(fromActivityId, toActivityId)
@@ -77,9 +85,22 @@ function SynthesizedConnector({
       data-day-color={dayColorName}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={() => onClick?.(leg)}
     >
       <IconCar size={12} stroke={2} aria-hidden="true" />
       <ConnectorText km={km} min={min} />
+      {overridden && (
+        <Tooltip
+          label={`已调整 · 高德原: ${amapKm ?? '—'} km / ${amapMin ?? '—'} 分钟`}
+          withArrow position="top" openDelay={300}
+        >
+          <IconPencil
+            size={11} stroke={2}
+            className="rc-overridden-mark"
+            aria-label="此驾驶段已手动调整"
+          />
+        </Tooltip>
+      )}
     </div>
   )
 }
@@ -160,6 +181,7 @@ export default function RoadConnector(props) {
       fromActivityId={props.fromActivityId}
       toActivityId={props.toActivityId}
       dayColorName={props.dayColorName}
+      onClick={props.onClick}
     />
   }
   return <ActivityBackedConnector

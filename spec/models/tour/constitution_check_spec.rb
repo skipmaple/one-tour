@@ -13,7 +13,7 @@ RSpec.describe Tour::ConstitutionCheck do
 
     it "flags hard violation when a day exceeds max_daily_driving_minutes" do
       day = create(:day, tour: tour, day_index: 3)
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 480 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 480 })
 
       violations = described_class.for(tour)
       v = violations.find { |x| x.rule == :max_daily_driving_minutes }
@@ -25,7 +25,7 @@ RSpec.describe Tour::ConstitutionCheck do
 
     it "no violation when within limit" do
       day = tour.days.first # D1 seeded by callback
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 300 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 300 })
       violations = described_class.for(tour)
       expect(violations.map(&:rule)).not_to include(:max_daily_driving_minutes)
     end
@@ -87,7 +87,7 @@ RSpec.describe Tour::ConstitutionCheck do
 
     it "suppresses violation matching an override with same rule + scope" do
       day = create(:day, tour: tour, day_index: 3)
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 480 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 480 })
       tour.update!(constraint_overrides: [ {
         "rule" => "max_daily_driving_minutes",
         "scope" => { "day_index" => 3 },
@@ -101,7 +101,7 @@ RSpec.describe Tour::ConstitutionCheck do
 
     it "does not suppress when scope differs" do
       day = create(:day, tour: tour, day_index: 3)
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 480 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 480 })
       tour.update!(constraint_overrides: [ {
         "rule" => "max_daily_driving_minutes",
         "scope" => { "day_index" => 5 },

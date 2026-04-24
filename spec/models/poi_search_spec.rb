@@ -18,7 +18,11 @@ RSpec.describe PoiSearch do
           body: {
             status: "1",
             pois: [
-              { name: "赛里木湖", location: "81.20,44.55", address: "博州", type: "风景名胜" }
+              {
+                name: "赛里木湖", location: "81.20,44.55", address: "博州", type: "风景名胜",
+                pname: "新疆维吾尔自治区", cityname: "博尔塔拉蒙古自治州",
+                adname: "博乐市", pcode: "650000"
+              }
             ]
           }.to_json,
           headers: { "Content-Type" => "application/json" }
@@ -30,6 +34,10 @@ RSpec.describe PoiSearch do
       expect(results.first[:lat]).to eq(44.55)
       expect(results.first[:lng]).to eq(81.20)
       expect(results.first[:address]).to eq("博州")
+      expect(results.first[:pname]).to eq("新疆维吾尔自治区")
+      expect(results.first[:cityname]).to eq("博尔塔拉蒙古自治州")
+      expect(results.first[:adname]).to eq("博乐市")
+      expect(results.first[:pcode]).to eq("650000")
     end
 
     it "supports region_hint to narrow search" do

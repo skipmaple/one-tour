@@ -128,16 +128,88 @@ RSpec.describe "RouteLegs", type: :request do
     end
   end
 
-  describe "DELETE /route_legs/:id" do
-    it "destroys the leg" do
-      leg = RouteLeg.create!(
-        tour: tour, from_activity: from_act, to_activity: to_act, mode: :driving,
-        polyline: { "coords" => [] }
-      )
-      login_as(author)
-      expect { delete route_leg_path(leg) }.to change(RouteLeg, :count).by(-1)
+  describe "PATCH /route_legs/:id" do
+    let(:user) { create(:user) }
+    let(:tour) { create(:tour, author: user) }
+    let(:a1) { create(:activity, tour: tour, lat: 36.0, lng: 103.0, position: 1) }
+    let(:a2) { create(:activity, tour: tour, lat: 37.0, lng: 104.0, position: 2) }
+    let(:leg) do
+      RouteLeg.create!(tour: tour, from_activity: a1, to_activity: a2,
+                       mode: :driving, distance_m: 100_000, duration_s: 3600,
+                       polyline: { "coords" => [] })
     end
 
+    before { post "/login_test", params: { user_id: user.id } }
+
+    it "writes override fields and sets overridden_at/by" do
+      patch "/route_legs/#{leg.id}", params: {
+        route_leg: { distance_m_override: 120_000, duration_s_override: 4000, note: "绕行" }
+      }, as: :json
+      expect(response).to have_http_status(:ok)
+      leg.reload
+      expect(leg.distance_m_override).to eq(120_000)
+      expect(leg.duration_s_override).to eq(4000)
+      expect(leg.note).to eq("绕行")
+      expect(leg.overridden_at).to be_present
+      expect(leg.overridden_by_id).to eq(user.id)
+    end
+
+    # Regression: 全 nil payload 等价于 destroy（清 override），不应留下
+    # overridden_at 与实际值脱节的脏状态。
+    it "treats all-nil payload as clear (does not mark overridden_at)" do
+      leg.update!(distance_m_override: 999, overridden_at: 1.hour.ago, overridden_by: user)
+      patch "/route_legs/#{leg.id}", params: {
+        route_leg: { distance_m_override: nil, duration_s_override: nil, note: nil }
+      }, as: :json
+      expect(response).to have_http_status(:ok)
+      leg.reload
+      expect(leg.distance_m_override).to be_nil
+      expect(leg.duration_s_override).to be_nil
+      expect(leg.note).to be_nil
+      expect(leg.overridden_at).to be_nil
+      expect(leg.overridden_by_id).to be_nil
+      expect(JSON.parse(response.body)["overridden"]).to be false
+    end
+
+    it "marks overridden when only note is provided" do
+      patch "/route_legs/#{leg.id}", params: {
+        route_leg: { distance_m_override: nil, duration_s_override: nil, note: "仅备注" }
+      }, as: :json
+      expect(response).to have_http_status(:ok)
+      leg.reload
+      expect(leg.note).to eq("仅备注")
+      expect(leg.overridden_at).to be_present
+    end
+  end
+
+  describe "DELETE /route_legs/:id (clear override)" do
+    let(:user) { create(:user) }
+    let(:tour) { create(:tour, author: user) }
+    let(:a1) { create(:activity, tour: tour, lat: 36.0, lng: 103.0, position: 1) }
+    let(:a2) { create(:activity, tour: tour, lat: 37.0, lng: 104.0, position: 2) }
+    let(:leg) do
+      RouteLeg.create!(tour: tour, from_activity: a1, to_activity: a2,
+                       mode: :driving, distance_m: 100_000, duration_s: 3600,
+                       distance_m_override: 120_000, duration_s_override: 4000,
+                       note: "old", overridden_at: Time.current, overridden_by: user,
+                       polyline: { "coords" => [] })
+    end
+
+    before { post "/login_test", params: { user_id: user.id } }
+
+    it "clearing override nulls all override fields" do
+      delete "/route_legs/#{leg.id}", as: :json
+      expect(response).to have_http_status(:ok)
+      leg.reload
+      expect(leg.distance_m_override).to be_nil
+      expect(leg.duration_s_override).to be_nil
+      expect(leg.note).to be_nil
+      expect(leg.overridden_at).to be_nil
+      expect(leg.overridden_by_id).to be_nil
+    end
+  end
+
+  describe "DELETE /route_legs/:id (auth guard)" do
     it "non-editor is forbidden" do
       leg = RouteLeg.create!(
         tour: tour, from_activity: from_act, to_activity: to_act, mode: :driving,

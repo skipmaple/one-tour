@@ -51,9 +51,10 @@ Rails.application.routes.draw do
   resources :expense_receipts, only: [ :destroy ]
   resources :tour_budgets, only: [ :update, :destroy ]
   resources :settlements,  only: [ :destroy ]
-  resources :route_legs, only: [ :destroy ]
+  resources :route_legs, only: [ :update, :destroy ]
 
   get "/poi_search", to: "poi_searches#index"
+  get "/amap_direction", to: "amap_directions#show"
 
   # Admin namespace
   namespace :admin do

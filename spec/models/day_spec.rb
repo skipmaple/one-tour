@@ -23,15 +23,37 @@ RSpec.describe Day do
     let(:tour) { create(:tour) }
     let(:day) { create(:day, tour: tour, day_index: 2) }
 
-    it "sums drive_min across road activities of this day" do
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 120 })
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 90 })
-      create(:activity, tour: tour, day: day, kind: :scenic, details: { "foo" => 1 })
-      expect(day.driving_minutes_total).to eq(210)
+    it "sums route_leg duration (effective) across this day's activities" do
+      a1 = create(:activity, tour: tour, day: day, lat: 36.0, lng: 103.0, position: 1)
+      a2 = create(:activity, tour: tour, day: day, lat: 37.0, lng: 104.0, position: 2)
+      RouteLeg.create!(tour: tour, from_activity: a1, to_activity: a2,
+                       mode: :driving, distance_m: 100_000, duration_s: 7200,
+                       polyline: { "coords" => [] })
+      expect(day.driving_minutes_total).to eq(120)  # 7200s / 60
     end
 
-    it "returns 0 when no road activities" do
-      create(:activity, tour: tour, day: day, kind: :scenic)
+    it "uses duration_s_override when set (via effective)" do
+      a1 = create(:activity, tour: tour, day: day, lat: 36.0, lng: 103.0, position: 1)
+      a2 = create(:activity, tour: tour, day: day, lat: 37.0, lng: 104.0, position: 2)
+      RouteLeg.create!(tour: tour, from_activity: a1, to_activity: a2,
+                       mode: :driving, distance_m: 100_000, duration_s: 7200,
+                       duration_s_override: 10_800, overridden_at: Time.current,
+                       polyline: { "coords" => [] })
+      expect(day.driving_minutes_total).to eq(180)  # 10800 / 60
+    end
+
+    it "adds tier_one scenic road's details.drive_min on top of legs" do
+      a1 = create(:activity, tour: tour, day: day, lat: 36.0, lng: 103.0, position: 1)
+      scenic = create(:activity, :scenic_road, tour: tour, day: day, position: 2)
+      # Leg prev → scenic exists, contributes 60 min
+      RouteLeg.create!(tour: tour, from_activity: a1, to_activity: scenic,
+                       mode: :driving, distance_m: 50_000, duration_s: 3600,
+                       polyline: { "coords" => [] })
+      # Scenic itself contributes its own drive_min (180 from trait)
+      expect(day.driving_minutes_total).to eq(60 + 180)
+    end
+
+    it "returns 0 when no activities and no legs" do
       expect(day.driving_minutes_total).to eq(0)
     end
   end
@@ -69,17 +91,17 @@ RSpec.describe Day do
     end
 
     it "returns :green when driving < 120 min and no violations" do
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 90 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 90 })
       expect(day.intensity_derived([])).to eq(:green)
     end
 
     it "returns :yellow when driving is 120-360 min" do
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 240 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 240 })
       expect(day.intensity_derived([])).to eq(:yellow)
     end
 
     it "returns :red when driving > 360 min" do
-      create(:activity, tour: tour, day: day, kind: :road, details: { "drive_min" => 400 })
+      create(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_one, details: { "drive_min" => 400 })
       expect(day.intensity_derived([])).to eq(:red)
     end
 

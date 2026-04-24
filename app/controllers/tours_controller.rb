@@ -21,7 +21,15 @@ class ToursController < ApplicationController
     conv = @tour.conversations.find_by(user: current_user)
     render inertia: "Tour/Show", props: {
       tour: @tour.as_json.merge("editable_by_current_user" => @tour.editable_by?(current_user)),
-      days: @tour.days.map { |d| d.as_json.merge("intensity_derived" => d.intensity_derived(tour_violations).to_s) },
+      # includes(:activities) 让 Day#driving_minutes_total 走 activities.select(:id)
+      # 子查询时不用再为每 day 单独跑 activities 查询（subquery 复用已加载 scope）。
+      # Route_leg 聚合仍是 N 次但每次是 pure SQL sum，轻量。
+      days: @tour.days.includes(:activities).map { |d|
+        d.as_json.merge(
+          "intensity_derived" => d.intensity_derived(tour_violations).to_s,
+          "driving_minutes_total" => d.driving_minutes_total
+        )
+      },
       activities: @tour.activities.includes(:activity_participants).map { |a|
         a.as_json.merge("participant_user_ids" => a.activity_participants.map(&:user_id))
       },
@@ -145,14 +153,21 @@ class ToursController < ApplicationController
     end
 
     def route_legs_for(tour)
-      tour.route_legs.map { |leg|
+      legs = tour.route_legs.includes(:from_activity, :to_activity)
+      legs.map { |leg|
         {
           id: leg.id,
           from_activity_id: leg.from_activity_id,
           to_activity_id: leg.to_activity_id,
+          from_activity_name: leg.from_activity&.name,
+          to_activity_name: leg.to_activity&.name,
           mode: leg.mode,
           distance_m: leg.distance_m,
           duration_s: leg.duration_s,
+          distance_m_override: leg.distance_m_override,
+          duration_s_override: leg.duration_s_override,
+          note: leg.note,
+          overridden_at: leg.overridden_at,
           polyline: leg.polyline,
           fetched_at: leg.fetched_at
         }

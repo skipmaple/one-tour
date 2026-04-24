@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 import { DAY_COLOR } from '../../lib/dayColors'
 import { Alert, Paper, Text, Stack, Group, Button } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
@@ -6,6 +6,7 @@ import { IconAlertTriangleFilled, IconFilterFilled } from '@tabler/icons-react'
 import ActivityCard from './ActivityCard'
 import RoadConnector from './RoadConnector'
 import DayMetricBar from '../DayMetricBar'
+import RouteLegEditModal from './RouteLegEditModal'
 
 const INTENSITY_COLORS = {
   green:  '#4caf50',
@@ -36,7 +37,24 @@ export default function DayColumn({
   const maxH = Math.round((constitution?.max_daily_driving_minutes || 420) / 60)
   const maxTier1 = constitution?.max_tier_one_per_day || 3
 
-  const driveMin = activities
+  const [editingLeg, setEditingLeg] = useState(null)
+  const handleLegClick = useCallback((leg) => {
+    // 跨天 connector 的 endpoint activity 可能不在本 day 的 activities 里——
+    // 不要用 undefined 覆盖掉后端 serializer 已经传过来的 from_activity_name /
+    // to_activity_name。
+    const from = activities.find(a => a.id === leg.from_activity_id)
+    const to   = activities.find(a => a.id === leg.to_activity_id)
+    setEditingLeg({
+      ...leg,
+      from_activity_name: from?.name ?? leg.from_activity_name,
+      to_activity_name:   to?.name   ?? leg.to_activity_name,
+    })
+  }, [activities])
+
+  // driveMin 来自后端 Day#driving_minutes_total (hybrid sum: route_legs effective
+  // duration + 景观公路 drive_min)。fallback 到老逻辑（纯 activity.drive_min）以防
+  // 老数据 / route_legs 还没加载。
+  const driveMin = day.driving_minutes_total ?? activities
     .filter(a => a.kind === 'road')
     .reduce((sum, a) => sum + (parseInt(a.details?.drive_min || 0, 10) || 0), 0)
   const driveH = Math.round(driveMin / 60 * 10) / 10
@@ -155,6 +173,7 @@ export default function DayColumn({
             onHoverConnector={onHoverConnector}
             onClearHover={onClearHover}
             dayColorName={dayColorName}
+            onClick={handleLegClick}
           />
         )
         lastEmittedWasConnector = true
@@ -181,6 +200,7 @@ export default function DayColumn({
   }
 
   return (
+    <>
     <Paper withBorder style={{ flex: '0 0 200px', display: 'flex', flexDirection: 'column' }}>
       <div
         data-testid="day-header"
@@ -267,6 +287,8 @@ export default function DayColumn({
         {day.buffer_day && <Text size="xs" c="dimmed">机动</Text>}
       </Stack>
     </Paper>
+    <RouteLegEditModal opened={!!editingLeg} leg={editingLeg} onClose={() => setEditingLeg(null)} />
+    </>
   )
 }
 
