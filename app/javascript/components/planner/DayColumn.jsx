@@ -107,22 +107,11 @@ export default function DayColumn({
     return out
   }, [routeLegs])
 
-  // Precompute the next non-connector activity for each index in O(n) via a
-  // backward pass. Lets the main loop use O(1) lookup instead of repeatedly
-  // calling activities.indexOf(a) + .find(...), which was O(n²) overall.
-  const isConnectorActivity = (x) => x.kind === 'road' && x.citizen_level !== 'tier_one'
-  const nextNonConnectorByIndex = new Array(activities.length)
-  {
-    let nextNonConnector = null
-    for (let i = activities.length - 1; i >= 0; i--) {
-      nextNonConnectorByIndex[i] = nextNonConnector
-      if (!isConnectorActivity(activities[i])) nextNonConnector = activities[i]
-    }
-  }
-
-  // Walk activities in order, emitting an ActivityCard or a RoadConnector
-  // per activity, and inserting a synthesized RoadConnector between
-  // adjacent ActivityCards when a matching route_leg exists.
+  // Walk activities in order, emitting an ActivityCard per activity, and
+  // inserting a synthesized RoadConnector between adjacent ActivityCards
+  // when a matching route_leg exists. All road activities are tier_one
+  // (景观公路) and render as ActivityCards — there are no activity-backed
+  // connector activities any more.
   const renderedItems = []
   let prevCardActivity = null // last ActivityCard activity, for synthesis lookup
   // Track the last emitted item's type explicitly — don't rely on React key
@@ -130,35 +119,9 @@ export default function DayColumn({
   let lastEmittedWasConnector = false
   for (let i = 0; i < activities.length; i++) {
     const a = activities[i]
-    const isRoadConnectorActivity = isConnectorActivity(a)
 
-    if (isRoadConnectorActivity) {
-      const next = nextNonConnectorByIndex[i]
-      const fallback = (prevCardActivity && next) ? routeLegByPair[prevCardActivity.id]?.[next.id] : undefined
-      renderedItems.push(
-        <RoadConnector
-          key={`conn-${a.id}`}
-          activity={a}
-          legFallback={fallback}
-          onClick={onEditActivity}
-          readOnly={readOnly}
-          isHighlighted={isPairHovered(prevCardActivity?.id ?? null, next?.id ?? null)}
-          onHoverConnector={onHoverConnector}
-          onClearHover={onClearHover}
-          fromActivityId={prevCardActivity?.id ?? null}
-          toActivityId={next?.id ?? null}
-          dayColorName={dayColorName}
-        />
-      )
-      lastEmittedWasConnector = true
-      // A connector activity does not become prevCardActivity; the card before it stays
-      continue
-    }
-
-    // This activity will render as an ActivityCard (scenic/food/stay/fuel/other,
-    // or road+tier_one).
     // Before emitting, check if we should synthesize a connector between
-    // prevCardActivity and this one (only when there was no connector-activity between them).
+    // prevCardActivity and this one (only when there was no connector between them).
     if (prevCardActivity && !lastEmittedWasConnector) {
       const leg = routeLegByPair[prevCardActivity.id]?.[a.id]
       if (leg) {
