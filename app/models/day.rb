@@ -37,16 +37,20 @@ class Day < ApplicationRecord
   end
 
   private
+    # SQL 聚合，避免把 RouteLeg 记录全部实例化到 Ruby 再 sum。
+    # COALESCE(override, original) 对应 RouteLeg#effective_duration_s。
+    # activities.select(:id) 是子查询，不走 pluck 的内存往返。
     def leg_minutes
       RouteLeg
-        .where(from_activity_id: activities.pluck(:id))
-        .sum { |l| l.effective_duration_s.to_i } / 60
+        .where(from_activity_id: activities.select(:id))
+        .sum(Arel.sql("COALESCE(duration_s_override, duration_s)")) / 60
     end
 
+    # details 是 jsonb；(->>'drive_min')::int 做 SQL 层强转；COALESCE 处理空值。
     def scenic_road_minutes
       activities
         .where(kind: :road, citizen_level: :tier_one)
-        .sum { |a| a.details["drive_min"].to_i }
+        .sum(Arel.sql("COALESCE((details->>'drive_min')::int, 0)"))
     end
 
     def hard_violation?(violations)

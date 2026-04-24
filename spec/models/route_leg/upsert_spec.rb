@@ -113,6 +113,30 @@ RSpec.describe RouteLeg::Upsert do
       expect(leg.note).to be_nil
       expect(leg.overridden_at).to be_nil
     end
+
+    # Regression: cache_valid? is false for either coord change OR missing
+    # polyline. Only the former implies override is stale — don't wipe it
+    # when we're just refetching a corrupted/empty polyline.
+    it "preserves override when refetching with unchanged coords (e.g. missing polyline)" do
+      allow(fake_service).to receive(:fetch).and_return(fake_result)
+      leg = call_upsert
+      leg.update!(
+        distance_m_override: 500_000, duration_s_override: 30_000,
+        note: "绕行", overridden_at: Time.current
+      )
+
+      # Simulate cache miss WITHOUT coord change: empty the polyline so
+      # cache_valid? returns false (polyline.present? is false for empty hash)
+      # but endpoint_digest still matches.
+      leg.update!(polyline: {})
+      call_upsert
+
+      leg.reload
+      expect(leg.distance_m_override).to eq(500_000)
+      expect(leg.duration_s_override).to eq(30_000)
+      expect(leg.note).to eq("绕行")
+      expect(leg.overridden_at).to be_present
+    end
   end
 
   describe "scenic road endpoint resolution" do

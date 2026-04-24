@@ -18,4 +18,23 @@ RSpec.describe "AmapDirections", type: :request do
     expect(response).to have_http_status(:ok)
     expect(JSON.parse(response.body)).to include("distance_m" => 120_000, "duration_s" => 9000)
   end
+
+  it "returns 422 when any coord is missing / blank" do
+    get "/amap_direction", params: { from_lat: "43.83", from_lng: "" }
+    expect(response).to have_http_status(:unprocessable_entity)
+    expect(JSON.parse(response.body)["error"]).to include("坐标")
+  end
+
+  it "returns 422 when any coord is non-numeric" do
+    get "/amap_direction", params: {
+      from_lat: "abc", from_lng: "87.62", to_lat: "44.0", to_lng: "88.0"
+    }
+    expect(response).to have_http_status(:unprocessable_entity)
+  end
+
+  it "does not call AmapDirectionService when coords are invalid" do
+    expect(AmapDirectionService).not_to receive(:new)
+    get "/amap_direction", params: { from_lat: "43.83" }
+    expect(response).to have_http_status(:unprocessable_entity)
+  end
 end

@@ -21,7 +21,10 @@ class ToursController < ApplicationController
     conv = @tour.conversations.find_by(user: current_user)
     render inertia: "Tour/Show", props: {
       tour: @tour.as_json.merge("editable_by_current_user" => @tour.editable_by?(current_user)),
-      days: @tour.days.map { |d|
+      # includes(:activities) 让 Day#driving_minutes_total 走 activities.select(:id)
+      # 子查询时不用再为每 day 单独跑 activities 查询（subquery 复用已加载 scope）。
+      # Route_leg 聚合仍是 N 次但每次是 pure SQL sum，轻量。
+      days: @tour.days.includes(:activities).map { |d|
         d.as_json.merge(
           "intensity_derived" => d.intensity_derived(tour_violations).to_s,
           "driving_minutes_total" => d.driving_minutes_total

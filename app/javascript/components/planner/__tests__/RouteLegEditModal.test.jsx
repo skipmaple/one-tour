@@ -39,4 +39,26 @@ describe('RouteLegEditModal', () => {
       '/route_legs/1', expect.objectContaining({ method: 'DELETE' })
     ))
   })
+
+  // Regression: Number('') === 0. Clearing an input should NOT write a
+  // zero-km override; it should send null so effective_* falls back to AMAP.
+  it('sends null for emptied override fields (not 0)', async () => {
+    global.fetch.mockResolvedValue({ ok: true })
+    render(<MantineProvider><RouteLegEditModal opened={true} leg={leg} onClose={vi.fn()} /></MantineProvider>)
+    const kmInput = screen.getByDisplayValue('118')
+    fireEvent.change(kmInput, { target: { value: '' } })
+    fireEvent.click(screen.getByText('保存'))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body)
+    expect(body.route_leg.distance_m_override).toBeNull()
+    expect(body.route_leg.duration_s_override).toBe(145 * 60)  // durMin untouched
+  })
+
+  it('disables Save when both numeric inputs cleared and note empty', () => {
+    render(<MantineProvider><RouteLegEditModal opened={true} leg={leg} onClose={vi.fn()} /></MantineProvider>)
+    fireEvent.change(screen.getByDisplayValue('118'), { target: { value: '' } })
+    fireEvent.change(screen.getByDisplayValue('145'), { target: { value: '' } })
+    const saveBtn = screen.getByRole('button', { name: '保存' })
+    expect(saveBtn).toBeDisabled()
+  })
 })

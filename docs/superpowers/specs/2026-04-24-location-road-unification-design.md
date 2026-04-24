@@ -94,8 +94,8 @@ end
 
 今天 `RouteLeg::Upsert` 计算 leg 时用 `from_activity.lat/lng` → `to_activity.lat/lng`。景观公路是"一段"不是"一点"，必须区分进入坐标（起点）和离开坐标（终点）：
 
-- `to_activity` 是 tier_one road：用其 `details.end_lat/end_lng`
-- `from_activity` 是 tier_one road：用其 `details.start_lat/start_lng`
+- `to_activity` 是 tier_one road：用其 `details.start_lat/start_lng`（进入这条景观公路）
+- `from_activity` 是 tier_one road：用其 `details.end_lat/end_lng`（从这条景观公路离开）
 
 换句话说：其他 kind 的 activity 到达/离开都是同一个点；景观公路从起点进入，从终点离开。
 

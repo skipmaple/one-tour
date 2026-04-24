@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { MantineProvider } from '@mantine/core'
-import { vi } from 'vitest'
+import { beforeEach, describe, it, expect, vi } from 'vitest'
 import LocationPickerMap from '../LocationPickerMap'
 
 // Mock useAmap to "ready" so AMap.Map code path runs

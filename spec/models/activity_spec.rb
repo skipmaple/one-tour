@@ -275,6 +275,35 @@ RSpec.describe Activity do
       expect(a).not_to be_valid
       expect(a.errors[:citizen_level]).to include(/景观公路必须为 tier_one/)
     end
+
+    # Regression: PR1 窗口期内数据库里存在历史低 tier road 记录，如果 validation
+    # 对任何 save 都触发，拖拽改 position / 改 name 都会被无辜阻塞。Gate 设计：
+    # 只在新建或 kind/citizen_level 变化时校验。
+    it "allows editing existing low-tier road activity without changing kind/citizen_level" do
+      # 建一条"历史"低 tier road（跳过 validation 模拟迁移前的库存数据）
+      old = build(:activity, tour: tour, day: day, kind: :road, citizen_level: :tier_two,
+                  lat: 36.0, lng: 103.0, position: 1)
+      old.save!(validate: false)
+
+      # 只改 name/details——不改 kind/citizen_level——应该能保存
+      old.name = "新名字"
+      expect(old.save).to be true
+      expect(old.errors).to be_empty
+    end
+
+    it "rejects switching an existing road activity's citizen_level away from tier_one" do
+      a = create(:activity, :scenic_road, tour: tour, day: day, position: 1)
+      a.citizen_level = :tier_two
+      expect(a.save).to be false
+      expect(a.errors[:citizen_level]).to include(/景观公路必须为 tier_one/)
+    end
+
+    it "rejects switching an existing non-road activity's kind to road without tier_one" do
+      a = create(:activity, tour: tour, day: day, kind: :scenic, citizen_level: :tier_three, position: 1)
+      a.kind = :road
+      expect(a.save).to be false
+      expect(a.errors[:citizen_level]).to include(/景观公路必须为 tier_one/)
+    end
   end
 
   describe "#clone_for_same_day!" do

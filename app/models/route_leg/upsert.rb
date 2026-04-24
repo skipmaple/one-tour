@@ -46,6 +46,11 @@ class RouteLeg::Upsert
     end
     @cache_hit = false
 
+    # Only clear override when endpoint coords actually changed. cache_valid? is
+    # false for either coord change OR missing polyline; in the latter case the
+    # user's manual override is still valid and should not be wiped.
+    endpoint_changed = leg.persisted? && leg.endpoint_digest != leg.expected_endpoint_digest
+
     args = RouteLeg.resolve_endpoint_coords(from_activity: from, to_activity: to)
     result = @service.fetch(
       from_lat: args[:from_lat].to_f, from_lng: args[:from_lng].to_f,
@@ -53,19 +58,24 @@ class RouteLeg::Upsert
       mode:     @mode
     )
 
-    leg.assign_attributes(
+    attrs = {
       distance_m:      result[:distance_m],
       duration_s:      result[:duration_s],
       polyline:        result[:polyline],
       endpoint_digest: leg.expected_endpoint_digest,
-      fetched_at:      Time.current,
-      # Clear override: coords changed, old manual adjustment is stale
-      distance_m_override: nil,
-      duration_s_override: nil,
-      note:             nil,
-      overridden_at:    nil,
-      overridden_by_id: nil
-    )
+      fetched_at:      Time.current
+    }
+    if endpoint_changed
+      # Coords changed → old manual adjustment is stale, clear it.
+      attrs.merge!(
+        distance_m_override: nil,
+        duration_s_override: nil,
+        note:             nil,
+        overridden_at:    nil,
+        overridden_by_id: nil
+      )
+    end
+    leg.assign_attributes(attrs)
     leg.save!
     leg
   end

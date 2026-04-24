@@ -28,7 +28,22 @@ export default function RouteLegEditModal({ opened, onClose, leg }) {
   const csrfToken = () =>
     document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
 
+  // Convert user input to override payload. Empty/nullish → null (leave
+  // the override clear, so effective_* falls back to AMAP original). Don't
+  // coerce empty string via Number() — that silently yields 0 and would
+  // write a 0-km / 0-min override + mark overridden_at.
+  const parseOverride = (raw, factor) => {
+    if (raw === '' || raw == null) return null
+    const n = Number(raw)
+    return Number.isFinite(n) ? n * factor : null
+  }
+  const bothEmpty = (distKm === '' || distKm == null) && (durMin === '' || durMin == null)
+
   const handleSave = () => {
+    // Guard: Save button is already disabled when both fields empty + note empty,
+    // but defend in depth.
+    if (bothEmpty && !note) return
+
     setSaving(true)
     fetch(`/route_legs/${leg.id}`, {
       method: 'PATCH',
@@ -37,14 +52,16 @@ export default function RouteLegEditModal({ opened, onClose, leg }) {
         'X-CSRF-Token': csrfToken()
       },
       body: JSON.stringify({ route_leg: {
-        distance_m_override: Number(distKm) * 1000,
-        duration_s_override: Number(durMin) * 60,
+        distance_m_override: parseOverride(distKm, 1000),
+        duration_s_override: parseOverride(durMin, 60),
         note: note || null
       }})
-    }).then(res => {
-      setSaving(false)
-      if (res.ok) { router.reload({ only: [ 'route_legs' ] }); onClose() }
     })
+      .then(res => {
+        if (res.ok) { router.reload({ only: [ 'route_legs' ] }); onClose() }
+      })
+      .catch(() => {})  // don't strand the saving state on network error
+      .finally(() => setSaving(false))
   }
 
   const handleReset = () => {
@@ -55,10 +72,12 @@ export default function RouteLegEditModal({ opened, onClose, leg }) {
         'Accept': 'application/json',
         'X-CSRF-Token': csrfToken()
       }
-    }).then(res => {
-      setSaving(false)
-      if (res.ok) { router.reload({ only: [ 'route_legs' ] }); onClose() }
     })
+      .then(res => {
+        if (res.ok) { router.reload({ only: [ 'route_legs' ] }); onClose() }
+      })
+      .catch(() => {})
+      .finally(() => setSaving(false))
   }
 
   return (
@@ -101,7 +120,7 @@ export default function RouteLegEditModal({ opened, onClose, leg }) {
           <Button variant="subtle" onClick={handleReset} loading={saving}>重置为高德原始值</Button>
           <Group>
             <Button variant="default" onClick={onClose}>取消</Button>
-            <Button onClick={handleSave} loading={saving}>保存</Button>
+            <Button onClick={handleSave} loading={saving} disabled={bothEmpty && !note}>保存</Button>
           </Group>
         </Group>
       </Stack>
