@@ -34,7 +34,8 @@
 │               ▼                                             │
 │  ┌──────────────────────────────────┐                       │
 │  │  Service Worker (Workbox)        │                       │
-│  │  · CacheFirst: 静态资源 + GET    │                       │
+│  │  · CacheFirst: 指纹化静态资源    │                       │
+│  │  · NetworkFirst: HTML / 业务 GET │                       │
 │  │  · BackgroundSync: 失败 POST     │                       │
 │  │  · 顶部"X 条待同步"徽标          │                       │
 │  └────┬─────────────────────────┬───┘                       │
@@ -81,7 +82,7 @@
 | 对象存储 | 阿里云 OSS HK · 主 bucket + 备份 bucket | 替换 R2 · 不切七牛/又拍 |
 | 上传 | Active Storage Direct Upload + OSS S3 兼容 multipart | 不引入 tus / tusd |
 | 客户端图片压缩 | `browser-image-compression` → WebP | - |
-| Service Worker | Workbox(`workbox-webpack-plugin` 通过 Vite 集成) | 不手写 SW |
+| Service Worker | `vite-plugin-pwa`(基于 Workbox) | 不手写 SW |
 | 离线写队列 | `BackgroundSyncPlugin` + 自管理 IndexedDB | 不引入 Dexie |
 | 冲突解决 | 乐观锁(`updated_at` 比较)+ 弹窗 | 不引入 PaperTrail / CRDT |
 | 网络检测 | `navigator.connection` + `navigator.onLine` + 主动 ping `/up` | - |
@@ -139,7 +140,10 @@
 
 - [ ] Vite 接入 `vite-plugin-pwa`(基于 Workbox)
 - [ ] manifest.json + icons + "添加到主屏幕"配置
-- [ ] Service Worker `CacheFirst` 策略:静态资源 + GET 请求
+- [ ] **分级缓存策略**(避免登录用户私有数据被 CacheFirst 缓存):
+  - `CacheFirst`:仅指纹化静态资源(`/assets/*-[hash].js|css`,字体,图标)
+  - `NetworkFirst`:HTML 导航 + 业务 JSON GET(`/guidebooks/*` 等),离线时返回缓存,在线优先取新
+  - 排除:登录态接口(`/me`,`/login` 等)和敏感数据,可在 SW 路由里按路径黑名单跳过缓存
 - [ ] iOS Safari + Android Chrome 真机测试 PWA 安装
 - [ ] 飞行模式下能打开 App 看上次内容
 

@@ -15,7 +15,7 @@ install -m 0755 /tmp/ossutil /usr/local/bin/ossutil
 ossutil version
 ```
 
-### 2. 创建 RAM 子账号(只给备份 bucket 写权限)
+### 2. 创建 RAM 子账号(最小化:仅给备份 bucket 必要权限)
 
 阿里云控制台 → RAM 访问控制 → 创建用户(`one-tour-backup`),勾选"OpenAPI 调用访问",拿到 AccessKey ID / Secret。
 
@@ -30,8 +30,7 @@ ossutil version
       "Action": [
         "oss:PutObject",
         "oss:GetObject",
-        "oss:ListObjects",
-        "oss:DeleteObject"
+        "oss:ListObjects"
       ],
       "Resource": [
         "acs:oss:*:*:<bucket>",
@@ -41,6 +40,8 @@ ossutil version
   ]
 }
 ```
+
+只含写入(`PutObject`)、列举(`ListObjects`,用于 `ossutil ls`)、读取(`GetObject`,用于恢复)。**不含 `DeleteObject`**——保留期由 OSS lifecycle 规则管理,脚本和恢复流程都不需要删权限,泄露面更小。
 
 把这条策略授权给 `one-tour-backup` 用户。
 
@@ -81,9 +82,10 @@ ssh root@<server> chmod +x /usr/local/bin/backup-postgres
 sudo crontab -e
 ```
 
-加一行:
+加下面两行,显式按 UTC 解释 cron 时间(阿里云国内 ECS 默认 `Asia/Shanghai`,不显式声明会偏移 8 小时):
 
 ```cron
+TZ=UTC
 0 3 * * * /usr/local/bin/backup-postgres >> /var/log/one-tour-backup.log 2>&1
 ```
 
