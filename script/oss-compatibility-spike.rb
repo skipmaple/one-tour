@@ -49,11 +49,11 @@ def t(name)
   print "  #{name.ljust(42)} "
   yield
   puts "✅"
-  @results << [name, true, nil]
+  @results << [ name, true, nil ]
 rescue => e
   puts "❌ #{e.class}: #{e.message}"
   e.backtrace.first(2).each { |l| puts "      #{l}" }
-  @results << [name, false, "#{e.class}: #{e.message}"]
+  @results << [ name, false, "#{e.class}: #{e.message}" ]
 end
 
 # ── [1] 基础读写 ─────────────────────────────────────────
