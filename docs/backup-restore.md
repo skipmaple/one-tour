@@ -8,17 +8,17 @@
 
 ### 1. 安装 aws CLI
 
-OSS 兼容 S3 协议,直接用 aws CLI 上传,稳定且各发行版仓库都有。
+OSS 兼容 S3 协议,直接用 aws CLI 上传。**Ubuntu 23.10+(包含 24.04)已从仓库下架 awscli 包**,用 AWS 官方 v2 installer 最稳:
 
 ```sh
-# Ubuntu / Debian
-sudo apt-get update && sudo apt-get install -y awscli
-
-# 验证
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+unzip -q /tmp/awscliv2.zip -d /tmp
+sudo /tmp/aws/install
 aws --version
+rm -rf /tmp/awscliv2.zip /tmp/aws
 ```
 
-(如果 apt 版本太老或想要 v2:`curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip && unzip /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install`)
+(老版本 Ubuntu / Debian 可以试 `sudo apt-get install -y awscli`,但 Ubuntu 24.04 上会报 `Package 'awscli' has no installation candidate`。)
 
 **OSS 必须显式声明 virtual-hosted-style 寻址**(否则报 `SecondLevelDomainForbidden`):
 
