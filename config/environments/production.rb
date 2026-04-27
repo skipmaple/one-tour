@@ -24,6 +24,14 @@ Rails.application.configure do
   # Store uploaded files on Aliyun OSS HK (see config/storage.yml).
   config.active_storage.service = :aliyun_oss
 
+  # Use proxy mode (not redirect) for blob URLs.
+  # Aliyun OSS's SigV4 implementation doesn't correctly validate signatures
+  # when AWS-style presigned URLs include `response-content-disposition` /
+  # `response-content-type` query params, which Active Storage always adds.
+  # Proxy mode keeps blob fetch server-side, so browsers never see OSS URLs
+  # and the SigV4 quirk doesn't matter.
+  config.active_storage.resolve_model_to_route = :rails_storage_proxy
+
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   config.assume_ssl = true
 
