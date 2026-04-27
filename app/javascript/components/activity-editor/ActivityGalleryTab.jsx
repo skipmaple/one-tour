@@ -4,11 +4,16 @@ import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { IconPhoto, IconStar, IconStarFilled, IconPencil, IconX, IconUpload } from '@tabler/icons-react'
 import ActivityGalleryLightbox from './ActivityGalleryLightbox'
+import { compressImage } from '../../lib/image-compression'
 
 // Accepted MIME types match ActivityImage::ALLOWED_CONTENT_TYPES on the server.
 const ACCEPT_TYPES = 'image/jpeg,image/jpg,image/png,image/webp,image/gif'
 const MAX_PER_ACTIVITY = 20
+// Server-side max blob size after compression. Match ActivityImage::MAX_FILE_SIZE.
 const MAX_FILE_MB = 10
+// Max raw file size before compression. Anything bigger is rejected outright
+// (compressing a 100 MB file in browser is slow and rarely useful).
+const MAX_RAW_MB = 50
 
 export default function ActivityGalleryTab({ activityId, images, hasCoordinates }) {
   const fileInputRef = useRef(null)
@@ -37,14 +42,22 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
     setUploading(true)
     try {
       for (const file of files) {
-        if (file.size > MAX_FILE_MB * 1024 * 1024) {
+        if (file.size > MAX_RAW_MB * 1024 * 1024) {
           notifications.show({
-            message: `${file.name} 超过 ${MAX_FILE_MB} MB，已跳过`,
+            message: `${file.name} 超过 ${MAX_RAW_MB} MB，已跳过`,
             color: 'orange',
           })
           continue
         }
-        await uploadOne(file)
+        const compressed = await compressImage(file)
+        if (compressed.size > MAX_FILE_MB * 1024 * 1024) {
+          notifications.show({
+            message: `${file.name} 压缩后仍超 ${MAX_FILE_MB} MB，已跳过`,
+            color: 'orange',
+          })
+          continue
+        }
+        await uploadOne(compressed)
       }
       router.reload({ only: [ 'activity_images' ], preserveScroll: true })
     } finally {

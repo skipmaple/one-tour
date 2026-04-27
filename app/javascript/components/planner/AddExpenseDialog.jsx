@@ -9,11 +9,15 @@ import { modals } from '@mantine/modals'
 import { IconPlus, IconX, IconReceipt2 } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import { effectiveParticipants } from '../../lib/effectiveParticipants'
+import { compressImage } from '../../lib/image-compression'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import UserLabel from './UserLabel'
 
 const MAX_RECEIPTS = 3
+// Server-side max blob size after compression. Match ExpenseReceipt::MAX_FILE_SIZE.
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024
+// Pre-compression input limit. Anything bigger is rejected outright.
+const MAX_RAW_RECEIPT_BYTES = 30 * 1024 * 1024
 const ALLOWED_RECEIPT_TYPES = [ 'image/jpeg', 'image/jpg', 'image/png', 'image/webp' ]
 
 function csrfToken() {
@@ -254,21 +258,35 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
       notifications.show({ message: `不支持 ${file.type},只能传 JPG/PNG/WebP`, color: 'orange' })
       return false
     }
-    if (file.size > MAX_RECEIPT_BYTES) {
-      notifications.show({ message: '单张不能超过 5MB', color: 'orange' })
+    if (file.size > MAX_RAW_RECEIPT_BYTES) {
+      notifications.show({ message: `单张不能超过 ${MAX_RAW_RECEIPT_BYTES / 1024 / 1024}MB`, color: 'orange' })
       return false
     }
     return true
   }
 
-  const handleFilesPicked = (e) => {
+  const handleFilesPicked = async (e) => {
     const files = Array.from(e.target.files || [])
     e.target.value = ''
     if (files.length === 0) return
     const slots = MAX_RECEIPTS - displayReceipts.length
-    const accepted = files.slice(0, slots).filter(validateFile)
+    const candidates = files.slice(0, slots).filter(validateFile)
     if (files.length > slots) {
       notifications.show({ message: `最多 ${MAX_RECEIPTS} 张,已忽略多余的`, color: 'orange' })
+    }
+    // Client-side compress before staging or uploading so weak networks see
+    // ~5x smaller payloads. Falls back to original on compression failure.
+    const accepted = []
+    for (const file of candidates) {
+      const compressed = await compressImage(file)
+      if (compressed.size > MAX_RECEIPT_BYTES) {
+        notifications.show({
+          message: `${file.name} 压缩后仍超 ${MAX_RECEIPT_BYTES / 1024 / 1024}MB,已跳过`,
+          color: 'orange',
+        })
+        continue
+      }
+      accepted.push(compressed)
     }
     if (isEdit) {
       accepted.forEach(uploadReceiptNow)

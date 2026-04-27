@@ -1,6 +1,7 @@
 import { Modal, Stack, TextInput, FileButton, Button, Group, Avatar, Anchor, Text } from '@mantine/core'
 import { useForm, usePage, router } from '@inertiajs/react'
 import { useEffect, useState } from 'react'
+import { compressImage } from '../lib/image-compression'
 
 const NAME_RE = /^[A-Za-z0-9\u4e00-\u9fff]+$/
 
@@ -51,7 +52,19 @@ export default function ProfileSettingsModal({ opened, onClose }) {
           <Stack align="center" gap={6}>
             <FileButton
               accept="image/jpeg,image/png,image/webp"
-              onChange={(f) => form.setData('avatar', f)}
+              onChange={async (f) => {
+                if (!f) {
+                  form.setData('avatar', null)
+                  return
+                }
+                // Avatar shows at 96px, so 512px is plenty. Aggressive compression
+                // since avatars are everywhere in the UI and bandwidth matters.
+                const compressed = await compressImage(f, {
+                  maxSizeMB: 0.3,
+                  maxWidthOrHeight: 512,
+                })
+                form.setData('avatar', compressed)
+              }}
             >
               {(props) => (
                 <Avatar
