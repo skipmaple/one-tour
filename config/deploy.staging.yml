@@ -22,7 +22,8 @@ servers:
 
 proxy:
   ssl: true
-  host: onetour.skipmaple.com
+  hosts:
+    - onetour.skipmaple.com
 
 registry:
   username: skipmaple
