@@ -7,7 +7,7 @@ image: skipmaple/one-tour
 # Deploy to these servers.
 servers:
   web:
-    - 45.63.23.136
+    - 43.103.50.22
   # job:
   #   hosts:
   #     - 192.168.0.1
@@ -19,7 +19,9 @@ servers:
 # Note: If using Cloudflare, set encryption mode in SSL/TLS setting to "Full" to enable CF-to-app encryption.
 proxy:
   ssl: true
-  host: tour.skipmaple.com
+  hosts:
+    - tour.skipmaple.com
+    - onetour.skipmaple.com
 
 # Credentials for your image host.
 registry:
@@ -120,7 +122,7 @@ builder:
 accessories:
   db:
     image: postgres:18
-    host: 45.63.23.136
+    host: 43.103.50.22
     # Only expose to localhost to avoid external access.
     port: "127.0.0.1:5432:5432"
     env:

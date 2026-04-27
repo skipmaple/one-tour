@@ -21,8 +21,8 @@ Rails.application.configure do
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"
 
-  # Store uploaded files on Cloudflare R2 (see config/storage.yml).
-  config.active_storage.service = :cloudflare
+  # Store uploaded files on Aliyun OSS HK (see config/storage.yml).
+  config.active_storage.service = :aliyun_oss
 
   # Assume all access to the app is happening through a SSL-terminating reverse proxy.
   config.assume_ssl = true
