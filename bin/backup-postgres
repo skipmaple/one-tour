@@ -41,6 +41,17 @@ export AWS_DEFAULT_REGION="${OSS_REGION:-cn-hongkong}"
 WORKDIR="$(mktemp -d -t one-tour-backup.XXXXXX)"
 trap 'rm -rf "${WORKDIR}"' EXIT
 
+# OSS requires virtual-hosted-style addressing (`bucket.endpoint`). aws CLI
+# defaults to path-style for non-AWS endpoints, which OSS rejects with
+# `SecondLevelDomainForbidden`. Force virtual-style via per-script aws config.
+mkdir -p "${WORKDIR}/aws"
+cat > "${WORKDIR}/aws/config" <<'AWS_CONFIG'
+[default]
+s3 =
+    addressing_style = virtual
+AWS_CONFIG
+export AWS_CONFIG_FILE="${WORKDIR}/aws/config"
+
 NOW="$(date -u +%Y%m%d-%H%M%SZ)"
 DATE_PREFIX="$(date -u +%Y/%m/%d)"
 DUMP_FILE="${WORKDIR}/${POSTGRES_DB}-${NOW}.dump"

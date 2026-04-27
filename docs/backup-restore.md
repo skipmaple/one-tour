@@ -20,6 +20,14 @@ aws --version
 
 (如果 apt 版本太老或想要 v2:`curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip && unzip /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install`)
 
+**OSS 必须显式声明 virtual-hosted-style 寻址**(否则报 `SecondLevelDomainForbidden`):
+
+```sh
+aws configure set default.s3.addressing_style virtual
+```
+
+这只影响 `~/.aws/config`,本机后续所有 `aws s3` 命令都按 virtual style 走。`bin/backup-postgres` 脚本自带临时配置不依赖这个,但手动运行 `aws s3 ls/cp` 命令前必须设一次。
+
 ### 2. 创建 RAM 子账号(最小化:仅给备份 bucket 必要权限)
 
 阿里云控制台 → RAM 访问控制 → 创建用户(`one-tour-backup`),勾选"OpenAPI 调用访问",拿到 AccessKey ID / Secret。
