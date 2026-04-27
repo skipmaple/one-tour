@@ -22,7 +22,7 @@ servers:
 
 proxy:
   ssl: true
-  host: staging.tour.skipmaple.com
+  host: onetour.skipmaple.com
 
 registry:
   username: skipmaple
