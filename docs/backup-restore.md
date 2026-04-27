@@ -6,14 +6,19 @@
 
 ## 在生产服务器上初次安装
 
-### 1. 安装 ossutil
+### 1. 安装 aws CLI
+
+OSS 兼容 S3 协议,直接用 aws CLI 上传,稳定且各发行版仓库都有。
 
 ```sh
-curl -fsSL https://gosspublic.alicdn.com/ossutil/v2/2.0.7/ossutil-2.0.7-linux-amd64.zip -o /tmp/ossutil.zip
-unzip -j /tmp/ossutil.zip -d /tmp/
-install -m 0755 /tmp/ossutil /usr/local/bin/ossutil
-ossutil version
+# Ubuntu / Debian
+sudo apt-get update && sudo apt-get install -y awscli
+
+# 验证
+aws --version
 ```
+
+(如果 apt 版本太老或想要 v2:`curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip && unzip /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install`)
 
 ### 2. 创建 RAM 子账号(最小化:仅给备份 bucket 必要权限)
 
@@ -41,7 +46,7 @@ ossutil version
 }
 ```
 
-只含写入(`PutObject`)、列举(`ListObjects`,用于 `ossutil ls`)、读取(`GetObject`,用于恢复)。**不含 `DeleteObject`**——保留期由 OSS lifecycle 规则管理,脚本和恢复流程都不需要删权限,泄露面更小。
+只含写入(`PutObject`)、列举(`ListObjects`,用于 `aws s3 ls`)、读取(`GetObject`,用于恢复)。**不含 `DeleteObject`**——保留期由 OSS lifecycle 规则管理,脚本和恢复流程都不需要删权限,泄露面更小。
 
 把这条策略授权给 `one-tour-backup` 用户。
 
@@ -108,8 +113,15 @@ TZ=UTC
 
 ## 列出已有备份
 
+先 source 一下凭证(下面的 `aws s3 ls/cp` 命令都会用):
+
 ```sh
-ossutil ls oss://one-tour-backups/postgres/
+source /etc/one-tour-backup.env
+export AWS_ACCESS_KEY_ID="$OSS_ACCESS_KEY_ID"
+export AWS_SECRET_ACCESS_KEY="$OSS_ACCESS_KEY_SECRET"
+export AWS_DEFAULT_REGION="${OSS_REGION:-cn-hongkong}"
+
+aws s3 ls "s3://${OSS_BUCKET}/postgres/" --endpoint-url "$OSS_ENDPOINT" --recursive
 ```
 
 ## 恢复(DR 演练 / 真灾难)
@@ -117,8 +129,11 @@ ossutil ls oss://one-tour-backups/postgres/
 ### 本地演练(推荐先在本地 docker 跑一次)
 
 ```sh
-# 1. 拉某个备份到本地
-ossutil cp oss://one-tour-backups/postgres/2026/04/25/one_tour_production-XXXX.dump /tmp/restore.dump
+# 1. 拉某个备份到本地(source 凭证后)
+aws s3 cp \
+  "s3://${OSS_BUCKET}/postgres/2026/04/25/one_tour_production-XXXX.dump" \
+  /tmp/restore.dump \
+  --endpoint-url "$OSS_ENDPOINT"
 
 # 2. 起一个干净的 postgres 容器
 docker run -d --name one-tour-restore-test \
@@ -150,8 +165,11 @@ docker rm -f one-tour-restore-test
 > ⚠️ 生产恢复会**清空当前数据库**。先确认现有数据真的丢了 / 损坏了,**不要在还能挽回的时候盲目恢复**。
 
 ```sh
-# 1. 在生产服务器上拉备份
-ossutil cp oss://one-tour-backups/postgres/<path>.dump /tmp/restore.dump
+# 1. 在生产服务器上拉备份(source 凭证后)
+aws s3 cp \
+  "s3://${OSS_BUCKET}/postgres/<path>.dump" \
+  /tmp/restore.dump \
+  --endpoint-url "$OSS_ENDPOINT"
 
 # 2. 停应用容器(避免写入冲突)
 kamal app stop
@@ -185,7 +203,7 @@ tail -50 /var/log/one-tour-backup.log
 
 | 现象 | 检查 |
 |---|---|
-| `ossutil: command not found` | ossutil 没装上 / 不在 PATH。重跑安装步骤。 |
+| `aws: command not found` | aws CLI 没装上。`apt install -y awscli` 重装。 |
 | `ERROR: dump file is X bytes, refusing to upload` | pg_dump 出问题。手动跑 `docker exec one-tour-db pg_dump --username=one_tour --dbname=one_tour_production` 看报错。 |
 | `OSS_BUCKET required` | `/etc/one-tour-backup.env` 没读到。检查路径和权限。 |
 | `403 InvalidAccessKey` | RAM AccessKey 失效或权限不对。重新生成 + 检查策略。 |

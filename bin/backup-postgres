@@ -30,8 +30,13 @@ POSTGRES_DB="${POSTGRES_DB:-one_tour_production}"
 : "${OSS_ACCESS_KEY_ID:?OSS_ACCESS_KEY_ID required}"
 : "${OSS_ACCESS_KEY_SECRET:?OSS_ACCESS_KEY_SECRET required}"
 
-# ossutil reads these from env automatically.
-export OSS_ENDPOINT OSS_ACCESS_KEY_ID OSS_ACCESS_KEY_SECRET
+# aws CLI reads AWS_* from env. OSS is S3-compatible so we shim our OSS_*
+# names onto AWS_* (semantic clarity in the env file, AWS naming for the tool).
+export AWS_ACCESS_KEY_ID="${OSS_ACCESS_KEY_ID}"
+export AWS_SECRET_ACCESS_KEY="${OSS_ACCESS_KEY_SECRET}"
+# Region is required by AWS CLI; OSS doesn't really care but the default
+# matches the HK bucket location.
+export AWS_DEFAULT_REGION="${OSS_REGION:-cn-hongkong}"
 
 WORKDIR="$(mktemp -d -t one-tour-backup.XXXXXX)"
 trap 'rm -rf "${WORKDIR}"' EXIT
@@ -60,6 +65,8 @@ log "dump complete: ${SIZE} bytes"
 OSS_KEY="postgres/${DATE_PREFIX}/${POSTGRES_DB}-${NOW}.dump"
 log "uploading to oss://${OSS_BUCKET}/${OSS_KEY}"
 
-ossutil cp -f "${DUMP_FILE}" "oss://${OSS_BUCKET}/${OSS_KEY}"
+aws s3 cp "${DUMP_FILE}" "s3://${OSS_BUCKET}/${OSS_KEY}" \
+  --endpoint-url "${OSS_ENDPOINT}" \
+  --only-show-errors
 
 log "ok: oss://${OSS_BUCKET}/${OSS_KEY}"
