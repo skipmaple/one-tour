@@ -110,6 +110,7 @@
 - [ ] `config/storage.yml` 加 `aliyun_oss` service,沿用 `aws-sdk-s3`(OSS S3 兼容)
 - [ ] 安装 `rclone`,配置 R2 source + OSS dst,**初次全量 sync**
 - [ ] 准备 `bin/migrate-blobs-service-name`(更新 `active_storage_blobs.service_name`)
+- [ ] **R2 残留引用审计**:`grep -rn 'cloudflarestorage\|r2-' app/ config/ public/`,确保所有非 Active Storage 的硬编码引用迁到 OSS 域名(国内访问 r2 域名几乎不通)
 - [ ] 在 staging / 本地 docker 验证:用 OSS 配置启 Rails,旧 blob 能读、新 blob 能写
 
 **Track C — 切换日(A + B 一起切)**
@@ -161,8 +162,13 @@
 
 ### Week 5(5/23 – 5/29)— 5 人 onboarding + 真实测试
 
-- [ ] 写"如何使用 one-tour PWA"图文教程
-- [ ] 召集 5 人现场演练(面对面 1.5–2 小时)
+- [ ] 写"如何使用 one-tour PWA"图文教程,**重点覆盖 PWA 安装三步法**:
+  1. 微信群点链接 → 内置浏览器打开(可能弹"非微信官方网页"中间页,继续)
+  2. **右上角三点 → "在浏览器中打开"(Android)/ "用 Safari 打开"(iOS)** ← 必经步骤
+  3. 系统浏览器中 → 添加到主屏幕
+  > 微信内嵌浏览器**不暴露**"添加到主屏幕"入口,这一步绕不开
+- [ ] **iOS 用户特别确认**:必须用 **Safari** 添加,Chrome / UC / QQ / 夸克都只创建快捷方式书签不是真 PWA
+- [ ] 召集 5 人现场演练(面对面 1.5–2 小时,看着每个人完整跑一遍三步法)
 - [ ] 每人手机装 PWA + 触发首次缓存
 - [ ] Chrome DevTools 模拟弱网(Slow 3G / Offline)测试
 - [ ] 收集 P0 / P1 bug 列表
@@ -207,12 +213,16 @@
 - ❌ Real-time 协作改造(已有 Action Cable 不动)
 - ❌ 离线地图 / 高德地图 PWA 缓存(出行用高德 App 本身就够,不重造)
 - ❌ Chat 功能离线化(AI 助手只在有网时用)
+- ❌ Web Push 通知(iOS 17 早期有 6 个月回归 bug;国产 Android 没 FCM 链路;通知用 ActionCable 应用内即可)
+- ❌ AI Chat 对外开放 / 公开宣传 PWA 链接(《生成式 AI 服务管理暂行办法》第 2 条以"向境内公众提供"为门槛,5 人内部用不触发;一旦对公众即需大模型备案 — 工程量极大,小团队基本过不了)
 
 ## 风险登记
 
 | 风险 | 概率 | 影响 | 缓解 |
 |---|---|---|---|
 | Service Worker 在 iOS Safari 行为不符预期 | 高 | 中 | iOS fallback:App 打开时主动检查队列;UI 显示醒目"立即同步"按钮 |
+| **iOS 7 天未访问清空 SW / IndexedDB / Cache** | **中** | **高** | onboarding 强调"出发后每 3 天打开一次";主屏放"刷新缓存"按钮让用户主动触发;假设离线数据可能丢失,关键内容 PDF 兜底 |
+| **微信内嵌浏览器无法装 PWA 到桌面** | **必现** | **中** | onboarding 三步法明确教学:微信打开 → 用浏览器打开 → 添加桌面;iOS 必须用 Safari |
 | 阿里云 SWAS HK 在新疆某些 ISP 抽风 | 中 | 高 | 出发前找新疆朋友实测;PDF + 微信兜底 |
 | `pg_dump` 备份在生产数据增长后超时 | 低 | 高 | 监控备份耗时;数据量 > 10 GB 时切 `pg_basebackup` |
 | 5 人之一手机型号特别老,PWA 装不上 | 中 | 低 | 留 H5 模式作为降级访问;重要内容 PDF 兜底 |
@@ -278,6 +288,12 @@
 
 ---
 
-**版本**:v1.1(2026-04-25 · R2 → OSS HK 收敛)
+**版本**:v1.2(2026-04-25 · 中国 PWA 实战调研补丁)
 **作者**:架构评审收敛后产物
 **状态**:已批准实施 · Week 1 进行中
+
+**v1.2 变更**:
+- 风险登记新增 iOS 7 天清理、微信无法直装桌面两项
+- Track B 加 R2 残留引用审计步骤(grep 硬编码引用)
+- Week 5 onboarding 明确 PWA 安装三步法(必须教用户从微信跳出)
+- 不在范围内:Web Push、AI 对外开放(后者是合规红线)
