@@ -56,6 +56,11 @@ env:
     - R2_SECRET_ACCESS_KEY
     - R2_ENDPOINT
     - R2_BUCKET
+    - OSS_ACCESS_KEY_ID
+    - OSS_ACCESS_KEY_SECRET
+    - OSS_ENDPOINT
+    - OSS_BUCKET
+    - OSS_REGION
     - SENTRY_DSN_BACKEND
   clear:
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
