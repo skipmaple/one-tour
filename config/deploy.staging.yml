@@ -1,0 +1,97 @@
+# Staging deployment to Aliyun SWAS HK.
+# Use: bin/kamal <command> -d staging
+#
+# This is a transitional config used during the Vultr → SWAS migration.
+# Once Phase 2 cutover completes, deploy.yml takes over and this file is removed.
+#
+# Important differences from deploy.yml:
+#   - servers / accessories.db.host point to SWAS (43.103.50.22)
+#   - proxy.host uses staging subdomain (gray-cloud DNS, no CF proxy)
+#   - Postgres data lives in a separate Docker volume on SWAS,
+#     does NOT share storage with the Vultr prod instance.
+#
+# Everything else (image, secrets, env, builder) is identical to prod
+# so the staging container exercises the same code path as prod will after cutover.
+
+service: one-tour
+image: skipmaple/one-tour
+
+servers:
+  web:
+    - 43.103.50.22
+
+proxy:
+  ssl: true
+  host: staging.tour.skipmaple.com
+
+registry:
+  username: skipmaple
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+env:
+  secret:
+    - RAILS_MASTER_KEY
+    - ONE_TOUR_DATABASE_PASSWORD
+    - GITHUB_CLIENT_ID
+    - GITHUB_CLIENT_SECRET
+    - GOOGLE_CLIENT_ID
+    - GOOGLE_CLIENT_SECRET
+    - FEISHU_APP_ID
+    - FEISHU_APP_SECRET
+    - OPENAI_API_KEY
+    - OPENAI_API_BASE
+    - LLM_MODEL
+    - AMAP_API_KEY
+    - AMAP_JS_API_KEY
+    - AMAP_JS_API_SECURITY_CODE
+    - GOOGLE_MAPS_API_KEY
+    - RESEND_API_KEY
+    - MAIL_FROM
+    - EMAIL_VERIFICATION_PEPPER
+    - R2_ACCESS_KEY_ID
+    - R2_SECRET_ACCESS_KEY
+    - R2_ENDPOINT
+    - R2_BUCKET
+    - OSS_ACCESS_KEY_ID
+    - OSS_ACCESS_KEY_SECRET
+    - OSS_ENDPOINT
+    - OSS_BUCKET
+    - OSS_REGION
+    - SENTRY_DSN_BACKEND
+  clear:
+    SOLID_QUEUE_IN_PUMA: true
+    DB_HOST: one-tour-db
+
+aliases:
+  console: app exec --interactive --reuse "bin/rails console"
+  shell: app exec --interactive --reuse "bash"
+  logs: app logs -f
+  dbc: app exec --interactive --reuse "bin/rails dbconsole"
+
+volumes:
+  - "one-tour_storage:/rails/storage"
+
+asset_path: /rails/public/assets
+
+builder:
+  arch: amd64
+  secrets:
+    - VITE_SENTRY_DSN_FRONTEND
+    - SENTRY_AUTH_TOKEN
+    - SENTRY_ORG
+    - SENTRY_PROJECT_FRONTEND
+
+accessories:
+  db:
+    image: postgres:18
+    host: 43.103.50.22
+    port: "127.0.0.1:5432:5432"
+    env:
+      clear:
+        POSTGRES_USER: one_tour
+        POSTGRES_DB: one_tour_production
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - data:/var/lib/postgresql
