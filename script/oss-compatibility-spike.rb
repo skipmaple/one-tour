@@ -22,6 +22,7 @@
 require "aws-sdk-s3"
 require "net/http"
 require "tempfile"
+require "time"  # standalone 脚本(非 Rails),Time#iso8601 需显式 require
 require "securerandom"
 
 BUCKET = ENV.fetch("OSS_BUCKET")

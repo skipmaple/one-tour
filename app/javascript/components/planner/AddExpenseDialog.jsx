@@ -472,9 +472,13 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
       const results = await Promise.allSettled(pendingFiles.map((p) => {
         const fileIdx = nextFileIdx()
         return xhrRequest(`/expenses/${created.id}/receipts`, mkForm('file', p.file), {
-          onProgress: (prog) => setProgressMap((prev) => ({ ...prev, [fileIdx]: prog })),
+          onProgress: (prog) => {
+            if (unmountedRef.current) return
+            setProgressMap((prev) => ({ ...prev, [fileIdx]: prog }))
+          },
           sentryExtra: { tour_id: tour.id, expense_id: created.id },
         }).finally(() => {
+          if (unmountedRef.current) return
           setProgressMap((prev) => { const next = { ...prev }; delete next[fileIdx]; return next })
         })
       }))
