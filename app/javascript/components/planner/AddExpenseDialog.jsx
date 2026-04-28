@@ -681,7 +681,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
         </Group>
         {!readOnly && (
           <Text size="xs" c="dimmed">
-            最多 {MAX_RECEIPTS} 张,JPG / PNG / WebP,单张 5MB 以内
+            最多 {MAX_RECEIPTS} 张,JPG / PNG / WebP,原图 ≤ 30MB(系统自动压缩)
             {!isEdit && pendingFiles.length > 0 && `（保存时上传）`}
           </Text>
         )}
