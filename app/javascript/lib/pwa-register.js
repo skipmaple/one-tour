@@ -9,18 +9,18 @@
 import { registerSW } from 'virtual:pwa-register'
 
 export function setupPWA() {
-  if (typeof window === 'undefined') return  // SSR safety(本项目无 SSR,但保险)
-  if (!('serviceWorker' in navigator)) return  // 老浏览器 / 不支持环境
+  // 老 iOS Safari、微信内嵌、Firefox private mode 等环境 navigator.serviceWorker 不存在
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
 
   registerSW({
     immediate: true,
     onRegisteredSW(swUrl) {
-      // 仅 dev 时打印,prod 静默。Sentry 不上报(Q2 决策范围外)
+      // 注册成功是 happy path,不上报 Sentry;仅 dev 打印便于调试
       if (import.meta.env.DEV) console.log('[PWA] SW registered:', swUrl)
     },
     onRegisterError(err) {
-      // 注册失败通常是浏览器拒绝(scope 问题、HTTPS 问题等),不是业务错误,
-      // 不弹 UI 但 log 出来便于调试
+      // 注册失败通常是浏览器环境性问题(scope / HTTPS / 微信内嵌等),
+      // 不可 actionable per-user;console 留痕便于真机调试,不弹 UI、不上 Sentry
       console.warn('[PWA] SW register failed:', err)
     },
     // 显式不传 onNeedRefresh / onOfflineReady — autoUpdate 模式不需要

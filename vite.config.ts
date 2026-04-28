@@ -45,6 +45,7 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
       },
+      // dev 不测 SW 行为,prod build 验证;开启可能与 Vite-Ruby HMR 路径相互拦截
       devOptions: {
         enabled: false,
       },
