@@ -45,12 +45,7 @@ function captureUploadSize(page, urlPattern, { fulfillResponse } = {}) {
   })
 }
 
-// Mock activity image POST 200 — 后端实际响应里有 ActivityImage record;
-// 我们只需返回最小 envelope 让 client 不报错。
-const ACTIVITY_IMAGE_OK = {
-  status: 200,
-  body: JSON.stringify({ id: 1, url: '/x.webp', medium_url: '/x.webp', width: 100, height: 100 }),
-}
+import { ACTIVITY_IMAGE_OK } from './helpers/responses'
 
 test.beforeEach(async ({ page }) => {
   await loginAsDeveloper(page)

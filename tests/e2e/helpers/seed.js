@@ -1,5 +1,9 @@
 // tests/e2e/helpers/seed.js
 //
+// TODO(perf): 当 e2e case 数 > 12 时,把 tour 创建提到 globalSetup +
+// share storageState。当前每个 test 重跑 onboarding ~8s,18 cases ≈ 2.4min
+// 串行,加 chromium 启动开销有边缘 timeout 风险。
+//
 // 通过 UI 流创建一个可用于上传测试的 fresh tour + activity。
 // 流程:
 //   1. POST /tours → 跳转 /tours/:id (空 onboarding)

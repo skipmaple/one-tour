@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test'
 import { loginAsDeveloper } from './helpers/auth'
 import { seedTour } from './helpers/seed'
+import { ACTIVITY_IMAGE_OK } from './helpers/responses'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -17,13 +18,15 @@ test.beforeEach(async ({ page }) => {
 
 test('R1: ActivityGallery 5MB,503 一次后 200,重试成功', async ({ page }) => {
   let attempt = 0
+  // 第一次 503 模拟瞬时故障,第二次 fulfill 200 — 不打 dev 后端,
+  // 避免在 dev 数据库留 orphan ActivityImage record + 后端抖动 flake。
   await page.route(/\/activities\/\d+\/images$/, async (route) => {
     if (route.request().method() !== 'POST') return route.continue()
     attempt++
     if (attempt === 1) {
       return route.fulfill({ status: 503, body: '' })
     }
-    return route.continue()
+    return route.fulfill(ACTIVITY_IMAGE_OK)
   })
 
   const { openActivityEditor } = await seedTour(page)
