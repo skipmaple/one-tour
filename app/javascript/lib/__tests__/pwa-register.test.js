@@ -2,15 +2,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// vite-plugin-pwa 提供的虚拟模块,vitest 下需要 mock
-const registerSWMock = vi.fn()
-vi.mock('virtual:pwa-register', () => ({
-  registerSW: registerSWMock,
-}))
-
 describe('pwa-register', () => {
   beforeEach(() => {
-    registerSWMock.mockReset()
     vi.resetModules() // 让 import 重新触发 setupPWA()
   })
 
@@ -18,46 +11,46 @@ describe('pwa-register', () => {
     vi.unstubAllGlobals()
   })
 
-  it('calls registerSW with onRegisteredSW + onRegisterError callbacks', async () => {
-    vi.stubGlobal('navigator', { serviceWorker: { register: vi.fn() } })
+  it('calls navigator.serviceWorker.register with /sw.js + scope: /', async () => {
+    const registerMock = vi.fn().mockResolvedValue({ scope: 'http://localhost/' })
+    vi.stubGlobal('navigator', { serviceWorker: { register: registerMock } })
     await import('../pwa-register')
 
-    expect(registerSWMock).toHaveBeenCalledTimes(1)
-    const opts = registerSWMock.mock.calls[0][0]
-    expect(opts.immediate).toBe(true)
-    expect(typeof opts.onRegisteredSW).toBe('function')
-    expect(typeof opts.onRegisterError).toBe('function')
-    // 显式断言:不挂 onNeedRefresh / onOfflineReady(autoUpdate 静默)
-    expect(opts.onNeedRefresh).toBeUndefined()
-    expect(opts.onOfflineReady).toBeUndefined()
+    expect(registerMock).toHaveBeenCalledTimes(1)
+    expect(registerMock).toHaveBeenCalledWith('/sw.js', { scope: '/' })
   })
 
-  it('onRegisteredSW logs only in DEV', async () => {
-    vi.stubGlobal('navigator', { serviceWorker: { register: vi.fn() } })
+  it('logs SW scope only in DEV after successful register', async () => {
+    const reg = { scope: 'http://localhost/' }
+    const registerMock = vi.fn().mockResolvedValue(reg)
+    vi.stubGlobal('navigator', { serviceWorker: { register: registerMock } })
     vi.stubGlobal('console', { log: vi.fn(), warn: vi.fn() })
     await import('../pwa-register')
 
-    const opts = registerSWMock.mock.calls[0][0]
-    opts.onRegisteredSW('http://localhost:9000/sw.js')
+    // 等 promise resolve
+    await new Promise((resolve) => setTimeout(resolve, 0))
 
-    expect(console.log).toHaveBeenCalledWith('[PWA] SW registered:', 'http://localhost:9000/sw.js')
+    expect(console.log).toHaveBeenCalledWith('[PWA] SW registered:', 'http://localhost/')
   })
 
-  it('onRegisterError warns to console (not throw)', async () => {
-    vi.stubGlobal('navigator', { serviceWorker: { register: vi.fn() } })
-    vi.stubGlobal('console', { log: vi.fn(), warn: vi.fn() })
-    await import('../pwa-register')
-
-    const opts = registerSWMock.mock.calls[0][0]
+  it('warns to console when register rejects (not throw)', async () => {
     const err = new Error('scope mismatch')
-    expect(() => opts.onRegisterError(err)).not.toThrow()
+    const registerMock = vi.fn().mockRejectedValue(err)
+    vi.stubGlobal('navigator', { serviceWorker: { register: registerMock } })
+    vi.stubGlobal('console', { log: vi.fn(), warn: vi.fn() })
+    await import('../pwa-register')
+
+    // 等 promise reject + catch handler 跑完
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
     expect(console.warn).toHaveBeenCalledWith('[PWA] SW register failed:', err)
   })
 
   it('skips registration when serviceWorker not in navigator', async () => {
+    const registerMock = vi.fn()
     vi.stubGlobal('navigator', {})
     await import('../pwa-register')
 
-    expect(registerSWMock).not.toHaveBeenCalled()
+    expect(registerMock).not.toHaveBeenCalled()
   })
 })

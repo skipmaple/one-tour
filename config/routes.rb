@@ -16,6 +16,11 @@ Rails.application.routes.draw do
   # PWA manifest(Rails 8 自带 Rails::Pwa 控制器,view 在 app/views/pwa/manifest.json.erb)
   get "manifest", to: "rails/pwa#manifest", as: :pwa_manifest
 
+  # PWA Service Worker — 从 root / 服务并加 Service-Worker-Allowed: /
+  # header,让 SW scope 是 / 而不是 /vite/(vite-plugin-pwa 实际把 sw.js
+  # 输出到 public/vite/sw.js,但 SW scope 必须 / 才能拦截业务路径)
+  get "sw.js", to: "service_workers#show", as: :pwa_service_worker
+
   # ActionCable
   mount ActionCable.server => "/cable"
 
