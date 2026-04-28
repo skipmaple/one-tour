@@ -3,6 +3,8 @@
 > **目标场景**:5 人小队 2026 年 6 月中旬赴新疆伊犁(那拉提 / 赛里木湖 / 夏塔 / 昭苏)旅行,期间使用 one-tour 协作规划行程、记录开支、上传照片视频。
 >
 > **核心约束**:深山景区频繁无信号 · 民宿 WiFi 弱且不稳 · 50 天交付窗口 · 单人开发 · 不做 ICP 备案
+>
+> 生产环境架构(SWAS HK + OSS HK proxy mode + 切换日陷阱沉淀)详见 [swas-cutover.md](swas-cutover.md)。
 
 ## TL;DR
 
@@ -12,7 +14,7 @@
 | **存储** | 阿里云 OSS 香港(主)+ R2 保留 30 天作为回滚保险 |
 | **DNS** | Cloudflare 解析(灰云直连),非代理 |
 | **数据库备份** | `pg_dump` cron → OSS HK,每日,30 天 lifecycle 滚动 |
-| **上传链路** | Active Storage Direct Upload(OSS HK + S3 兼容 multipart) |
+| **上传链路** | 客户端压缩(`browser-image-compression`)+ 自写 `xhrRequest` helper(retry / progress / abort / Sentry) |
 | **图片优化** | 客户端 `browser-image-compression` 转 WebP + resize |
 | **离线读** | Service Worker + Workbox `CacheFirst` 缓存上次响应 |
 | **离线写** | Workbox `BackgroundSyncPlugin`(Android)+ App 重启检查队列(iOS fallback) |
@@ -80,7 +82,7 @@
 | 应用服务器 | 阿里云中国站 SWAS HK 国际型 2C/4G | 替换 Vultr NJ |
 | 数据库 | Postgres 18(同机 Docker accessory) | 不引入托管 PG |
 | 对象存储 | 阿里云 OSS HK · 主 bucket + 备份 bucket | 替换 R2 · 不切七牛/又拍 |
-| 上传 | Active Storage Direct Upload + OSS S3 兼容 multipart | 不引入 tus / tusd |
+| 上传 | `xhrRequest` helper(`app/javascript/lib/xhr-request.js`)+ 客户端压缩,Active Storage **proxy mode**(见 [swas-cutover.md](swas-cutover.md))| 不引入 tus / tusd · 不用 Direct Upload |
 | 客户端图片压缩 | `browser-image-compression` → WebP | - |
 | Service Worker | `vite-plugin-pwa`(基于 Workbox) | 不手写 SW |
 | 离线写队列 | `BackgroundSyncPlugin` + 自管理 IndexedDB | 不引入 Dexie |
@@ -128,14 +130,18 @@
 
 ### Week 2(5/2 – 5/8)— 上传链路改造
 
-- [ ] 启用 Active Storage Direct Upload(`form.file_field :photo, direct_upload: true`)
-- [ ] 前端集成 `browser-image-compression`:HEIC/JPEG → WebP,长边 ≤ 2048px
-- [ ] 实测视频上传(50–500 MB)走 OSS multipart(SDK 自动分片)
-- [ ] OSS bucket CORS 配置(允许浏览器 PUT / POST direct upload)
-- [ ] 上传失败基础重试(指数退避 3 次)
-- [ ] UI:上传进度条 + 暂停 / 取消按钮
+> **v1.3 修订**:Direct Upload 路径在切换日 OSS SigV4 兼容性事故后被砍(见 [swas-cutover.md](swas-cutover.md) "已知陷阱 1"),改走客户端压缩 + 自写 `xhrRequest` helper + Active Storage proxy mode。
 
-**交付物**:照片视频上传链路从源头省 70%+ 流量,失败可重试。
+- [x] 客户端图片压缩:`browser-image-compression`,JPEG/HEIC → WebP,长边 ≤ 2048px,GIF / <500KB 跳过
+- [x] `xhrRequest` helper:FormData/JSON 两栖,指数退避 3 次(1s / 2s),仅 408/429/500/502/503/504 + 网络错误 retry,419/422 立即失败,AbortSignal,CSRF 自动注入,Sentry 终态上报(`tag: endpoint/final_status/effective_type`)
+- [x] 进度 UI:Mantine `Progress` 单一组件,无文字 —— ActivityGalleryTab 横扫整 batch,AddExpenseDialog 字节级聚合(并发模型保留)
+- [x] `useGalleryUploader` hook:从 `ActivityGalleryTab` 抽出,`unmountedRef` 守护 unmount-mid-flight 的副作用
+- [x] AddExpenseDialog Phase 2 try/finally + unmount 守护:确保 `setSaving(false)` 在 post-allSettled 副作用抛错时仍跑到
+- [x] 14 vitest 单测(helper)+ 53 vitest files / 539 tests 全过
+- [x] Playwright + 18 E2E 骨架(7 真过 / 11 skip 待人工补 selector):case 1-4(Activity Image)+ R1/R2/R6(retry/422)真验证 spec;case 5-12 + R3-R5 占位带 TODO
+- [ ] **未做**:视频上传(50-500 MB) —— Active Storage proxy mode 下视频走 SWAS 转发,需要先评估 multipart 分片是否仍有意义。出行前优先级降级。
+
+**交付物**:照片上传链路从源头省 70%+ 流量,失败重试 3 次,Sentry 兜底监控。Direct Upload 路径放弃。
 
 ### Week 3(5/9 – 5/15)— PWA 基础
 
@@ -201,7 +207,8 @@
 
 明确**不做**,避免 scope creep:
 
-- ❌ tus 协议 / tusd 容器(Active Storage Direct Upload 已够)
+- ❌ **Active Storage Direct Upload**(三步签名流程对 PWA + 弱网不友好;OSS SigV4 对 `response-content-disposition` 参数验签不一致触发"bucket acl"误导错误,Week 2 修订版砍掉,改走客户端压缩 + xhrRequest + Active Storage proxy mode。详见 [swas-cutover.md](swas-cutover.md) "已知陷阱 1"。)
+- ❌ tus 协议 / tusd 容器(Active Storage proxy mode 已够)
 - ❌ Dexie + IndexedDB 数据层(Workbox 自管理够用)
 - ❌ PaperTrail + 冲突 UI / undo(乐观锁 + 弹窗够用)
 - ❌ CRDT(Linear 都只在一个字段用,5 人小队完全过度)
@@ -230,6 +237,7 @@
 | `active_storage_blobs.service_name` UPDATE 误伤 | 低 | 高 | 切换前先 SELECT COUNT 确认范围;事务包裹;DB 切前已有备份 |
 | OSS RAM 凭证泄露(写权限) | 低 | 高 | 子账号仅授权 1 个 bucket 的最小权限;凭证仅在 `.env.production` |
 | 视频上传在弱网下反复失败 | 高 | 中 | 视频默认仅 WiFi 上传;失败 3 次后让用户决定继续或放弃 |
+| `xhrRequest` 是新代码,生产首次面世,可能有 edge case | 中 | 中 | 14 vitest 覆盖核心分支(retry / abort / progress / Sentry);7 E2E 覆盖 happy path + retry/422;Sentry final-failure 上报作安全网 + 5 人小规模观察期 |
 | 用户在景区编辑产生冲突 | 低 | 低 | 乐观锁弹窗"张三刚才改过这里,确认覆盖?" |
 | 50 天 timeline 延期 | 高 | 高 | Week 6 起按降级预案逐项砍功能,保底是 PDF |
 
@@ -288,9 +296,15 @@
 
 ---
 
-**版本**:v1.2(2026-04-25 · 中国 PWA 实战调研补丁)
+**版本**:v1.3(2026-04-28 · Week 2 上传链路落地 + Direct Upload 退场)
 **作者**:架构评审收敛后产物
-**状态**:已批准实施 · Week 1 进行中
+**状态**:已批准实施 · Week 1 完成 · Week 2 主体完成(代码已 commit,待 deploy)
+
+**v1.3 变更**:
+- TL;DR + 技术栈表:Active Storage Direct Upload → `xhrRequest` helper + 客户端压缩(proxy mode 详见 swas-cutover.md)
+- Week 2 任务列表展开为 7 项细分(压缩 / helper / 进度 / hook / 兜底 / 单测 / E2E);视频上传降级为非阻塞
+- 不在范围内:Active Storage Direct Upload 列入(原因 = OSS SigV4 兼容性事故 + PWA 不友好)
+- 风险登记新增:`xhrRequest` 新代码风险 + Sentry 安全网
 
 **v1.2 变更**:
 - 风险登记新增 iOS 7 天清理、微信无法直装桌面两项
