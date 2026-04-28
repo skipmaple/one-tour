@@ -49,15 +49,15 @@ export default defineConfig({
         navigateFallback: null,
         runtimeCaching: [
           // === NetworkOnly:auth / login / up ===
+          // method 默认就是 'GET',Workbox 不为非 GET 自动注册 route,所以
+          // POST/PATCH/DELETE 已经天然不缓存,无需显式 method 字段
           {
             urlPattern: ({ url }) =>
               /^\/auth\//.test(url.pathname) ||
               /^\/login(_test)?$/.test(url.pathname) ||
               /^\/logout$/.test(url.pathname) ||
-              /^\/profile\/sign_in_links\//.test(url.pathname) ||
               /^\/up$/.test(url.pathname),
             handler: 'NetworkOnly',
-            method: 'GET',
           },
           // === CacheFirst:PWA 图标 ===
           {
