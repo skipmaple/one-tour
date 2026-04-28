@@ -15,7 +15,10 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    command: 'bin/dev',
+    // bin/dev 默认 PORT=3000(原生 Rails 习惯),本仓库主 worktree 跑 9000;
+    // reuseExistingServer 在已跑场景下复用,但 fresh checkout / CI 必须显式
+    // 覆盖端口,否则 Playwright 启服后 wait 9000 会 timeout。
+    command: 'PORT=9000 bin/dev',
     port: 9000,
     reuseExistingServer: true,
     timeout: 60_000,

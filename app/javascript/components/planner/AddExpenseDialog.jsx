@@ -315,18 +315,25 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
     setUploadsInFlight((n) => n + 1)
     xhrRequest(`/expenses/${expense.id}/receipts`, mkForm('file', file), {
       method: 'POST',
-      onProgress: (p) => setProgressMap((prev) => ({ ...prev, [fileIdx]: p })),
+      onProgress: (p) => {
+        if (unmountedRef.current) return
+        setProgressMap((prev) => ({ ...prev, [fileIdx]: p }))
+      },
       sentryExtra: { expense_id: expense.id },
     })
-      .then(() => router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] }))
+      .then(() => {
+        if (unmountedRef.current) return
+        router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] })
+      })
       .catch((err) => {
-        if (err.name === 'AbortError') return
+        if (err.name === 'AbortError' || unmountedRef.current) return
         notifications.show({
           message: `上传失败：${err.body?.errors?.join('；') || err.message || ''}`,
           color: 'red',
         })
       })
       .finally(() => {
+        if (unmountedRef.current) return
         setUploadsInFlight((n) => n - 1)
         setProgressMap((prev) => { const next = { ...prev }; delete next[fileIdx]; return next })
       })
@@ -448,6 +455,7 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
         sentryExtra: { tour_id: tour.id },
       })
     } catch (err) {
+      if (unmountedRef.current) return
       if (err.name === 'AbortError') { setSaving(false); return }
       setSaving(false)
       notifications.show({

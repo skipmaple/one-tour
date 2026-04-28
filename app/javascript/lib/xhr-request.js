@@ -125,7 +125,10 @@ function sleepWithSignal(ms, signal) {
       clearTimeout(timer)
       reject(new DOMException('Aborted', 'AbortError'))
     }
-    signal?.addEventListener('abort', onAbort)
+    // { once: true } —— abort 触发后浏览器自动 remove,避免 listener 在
+    // 长生命 AbortSignal 上累积(现实中 caller 每次 batch 重建 controller,
+    // 但显式 once 是更便宜的防御)
+    signal?.addEventListener('abort', onAbort, { once: true })
   })
 }
 
