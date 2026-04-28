@@ -52,6 +52,14 @@ s3 =
 AWS_CONFIG
 export AWS_CONFIG_FILE="${WORKDIR}/aws/config"
 
+# aws CLI v2.23+ 默认对所有 PutObject 启用 aws-chunked + sha256 trailer
+# (CRC32 也会发),OSS 不支持 → "aws-chunked encoding is not supported with
+# the specified x-amz-content-sha256 value"。同 Active Storage 在
+# config/storage.yml 里设的 request_checksum_calculation: when_required —
+# 只在服务端要求 checksum 时才发。
+export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
+
 NOW="$(date -u +%Y%m%d-%H%M%SZ)"
 DATE_PREFIX="$(date -u +%Y/%m/%d)"
 DUMP_FILE="${WORKDIR}/${POSTGRES_DB}-${NOW}.dump"
