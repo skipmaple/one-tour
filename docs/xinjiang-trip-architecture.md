@@ -139,9 +139,8 @@
 - [x] AddExpenseDialog Phase 2 try/finally + unmount 守护:确保 `setSaving(false)` 在 post-allSettled 副作用抛错时仍跑到
 - [x] 14 vitest 单测(helper)+ 53 vitest files / 539 tests 全过
 - [x] Playwright + 18 E2E 骨架(7 真过 / 11 skip 待人工补 selector):case 1-4(Activity Image)+ R1/R2/R6(retry/422)真验证 spec;case 5-12 + R3-R5 占位带 TODO
-- [ ] **未做**:视频上传(50-500 MB) —— Active Storage proxy mode 下视频走 SWAS 转发,需要先评估 multipart 分片是否仍有意义。出行前优先级降级。
 
-**交付物**:照片上传链路从源头省 70%+ 流量,失败重试 3 次,Sentry 兜底监控。Direct Upload 路径放弃。
+**交付物**:照片上传链路从源头省 70%+ 流量,失败重试 3 次,Sentry 兜底监控。Direct Upload 路径放弃。视频上传 v1.4 砍出范围(见下)。
 
 ### Week 3(5/9 – 5/15)— PWA 基础
 
@@ -208,6 +207,7 @@
 明确**不做**,避免 scope creep:
 
 - ❌ **Active Storage Direct Upload**(三步签名流程对 PWA + 弱网不友好;OSS SigV4 对 `response-content-disposition` 参数验签不一致触发"bucket acl"误导错误,Week 2 修订版砍掉,改走客户端压缩 + xhrRequest + Active Storage proxy mode。详见 [swas-cutover.md](swas-cutover.md) "已知陷阱 1"。)
+- ❌ **视频上传(50-500 MB)**(v1.4 砍。proxy mode 下视频走 SWAS 转发,带宽 + 时延性价比低;5 人出行直接用手机相机 / 微信群传视频更顺手。出行后再评估。)
 - ❌ tus 协议 / tusd 容器(Active Storage proxy mode 已够)
 - ❌ Dexie + IndexedDB 数据层(Workbox 自管理够用)
 - ❌ PaperTrail + 冲突 UI / undo(乐观锁 + 弹窗够用)
@@ -296,13 +296,18 @@
 
 ---
 
-**版本**:v1.3(2026-04-28 · Week 2 上传链路落地 + Direct Upload 退场)
+**版本**:v1.4(2026-04-28 · Vultr 销毁 + 视频上传 cut + DNS Auto)
 **作者**:架构评审收敛后产物
-**状态**:已批准实施 · Week 1 完成 · Week 2 主体完成(代码已 commit,待 deploy)
+**状态**:已批准实施 · Week 1 完成 · Week 2 主体完成(代码已 commit,待 deploy + 5 人 dogfood)· 切换收尾 100%
 
-**v1.3 变更**:
+**v1.4 变更**:
+- 切换收尾完成:Vultr NJ 销毁(节省 $10/月)+ Cloudflare DNS TTL 恢复 Auto + Sentry 二检无新增 error
+- Week 2 任务列表:视频上传 TODO 删除,改进"不在范围内"
+- 不在范围内新增:视频上传(50-500 MB)—— proxy mode 性价比低,出行用相机 / 微信传足够,出行后再评估
+
+**v1.3 变更**(2026-04-28):
 - TL;DR + 技术栈表:Active Storage Direct Upload → `xhrRequest` helper + 客户端压缩(proxy mode 详见 swas-cutover.md)
-- Week 2 任务列表展开为 7 项细分(压缩 / helper / 进度 / hook / 兜底 / 单测 / E2E);视频上传降级为非阻塞
+- Week 2 任务列表展开为 7 项细分(压缩 / helper / 进度 / hook / 兜底 / 单测 / E2E)
 - 不在范围内:Active Storage Direct Upload 列入(原因 = OSS SigV4 兼容性事故 + PWA 不友好)
 - 风险登记新增:`xhrRequest` 新代码风险 + Sentry 安全网
 
