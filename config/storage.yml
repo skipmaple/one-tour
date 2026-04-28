@@ -6,22 +6,10 @@ local:
   service: Disk
   root: <%= Rails.root.join("storage") %>
 
-# Cloudflare R2 via S3-compatible API
-# aws-sdk-s3 >= 1.178 defaults to CRC32 checksums which R2 rejects;
-# disable them with the "when_required" flags below.
-cloudflare:
-  service: S3
-  access_key_id:                  <%= ENV["R2_ACCESS_KEY_ID"] %>
-  secret_access_key:              <%= ENV["R2_SECRET_ACCESS_KEY"] %>
-  endpoint:                       <%= ENV["R2_ENDPOINT"] %>
-  bucket:                         <%= ENV["R2_BUCKET"] %>
-  region:                         auto
-  force_path_style:               true
-  request_checksum_calculation:   when_required
-  response_checksum_validation:   when_required
-
 # Aliyun OSS Hong Kong via S3-compatible API.
-# Migration target from `cloudflare` — see docs/xinjiang-trip-architecture.md.
+# Migration target from R2(已退役,Vultr 销毁后 R2_* env 已从 .env.production 删除,
+# 旧 cloudflare service block 删除以避免 Active Storage eager-load 时用空 ENV
+# 实例化 Aws::S3::Client 触发 MissingRegionError。R2 lifecycle 30 天后自动清空)。
 # Compatibility verified by script/oss-compatibility-spike.rb
 # (SigV4, multipart, presigned PUT/GET all pass on aws-sdk-s3 1.220).
 #
