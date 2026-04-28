@@ -7,6 +7,7 @@ import { Notifications } from '@mantine/notifications'
 import { DatesProvider } from '@mantine/dates'
 import 'dayjs/locale/zh-cn'
 import '@mantine/core/styles.css'
+import '../lib/pwa-register'  // 注册 SW(SW per-origin 全局生效,只调一次)
 import '@mantine/notifications/styles.css'
 import '@mantine/dates/styles.css'
 import '@mantine/charts/styles.css'

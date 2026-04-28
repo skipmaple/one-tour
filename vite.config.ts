@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { defineConfig } from 'vite'
 import RubyPlugin from 'vite-plugin-ruby'
+import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   build: {
@@ -35,6 +36,18 @@ export default defineConfig({
       project: process.env.SENTRY_PROJECT_FRONTEND,
       authToken: process.env.SENTRY_AUTH_TOKEN,
       disable: !process.env.SENTRY_AUTH_TOKEN,
+    }),
+    VitePWA({
+      registerType: 'autoUpdate',
+      manifest: false,
+      injectRegister: false,
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+      },
+      devOptions: {
+        enabled: false,
+      },
     }),
   ],
   test: {

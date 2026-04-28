@@ -13,6 +13,9 @@ Rails.application.routes.draw do
   post "/auth/email/send",   to: "sessions#send_code"
   post "/auth/email/verify", to: "sessions#verify_code"
 
+  # PWA manifest(Rails 8 自带 Rails::Pwa 控制器,view 在 app/views/pwa/manifest.json.erb)
+  get "manifest", to: "rails/pwa#manifest", as: :pwa_manifest
+
   # ActionCable
   mount ActionCable.server => "/cable"
 
