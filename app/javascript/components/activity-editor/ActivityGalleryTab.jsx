@@ -4,9 +4,7 @@ import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { IconPhoto, IconStar, IconStarFilled, IconPencil, IconX, IconUpload } from '@tabler/icons-react'
 import ActivityGalleryLightbox from './ActivityGalleryLightbox'
-import useGalleryUploader from '../../hooks/useGalleryUploader'
-
-const MAX_PER_ACTIVITY = 20
+import useGalleryUploader, { MAX_PER_ACTIVITY } from '../../hooks/useGalleryUploader'
 
 export default function ActivityGalleryTab({ activityId, images, hasCoordinates }) {
   const ordered = [ ...images ].sort((a, b) => a.position - b.position)

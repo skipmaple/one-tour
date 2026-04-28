@@ -6,7 +6,7 @@ import { xhrRequest, mkForm } from '../lib/xhr-request'
 
 // Accepted MIME types match ActivityImage::ALLOWED_CONTENT_TYPES on the server.
 const ACCEPT_TYPES = 'image/jpeg,image/jpg,image/png,image/webp,image/gif'
-const MAX_PER_ACTIVITY = 20
+export const MAX_PER_ACTIVITY = 20
 // Server-side max blob size after compression. Match ActivityImage::MAX_FILE_SIZE.
 const MAX_FILE_MB = 10
 // Max raw file size before compression. Anything bigger is rejected outright
