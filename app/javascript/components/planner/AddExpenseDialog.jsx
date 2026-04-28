@@ -86,6 +86,9 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   const pendingFilesRef = useRef(pendingFiles)
   pendingFilesRef.current = pendingFiles
   const fileInputRef = useRef(null)
+  // Guards Phase 2 post-allSettled side effects (router.reload / setState / onClose)
+  // when the dialog unmounts mid-flight. Mirrors useGalleryUploader's pattern.
+  const unmountedRef = useRef(false)
   const initialSnapshotRef = useRef('')
   // Tracks whether the user has manually toggled any participant checkbox.
   // When still false, switching the `activityId` re-prefills participantIds
@@ -220,8 +223,10 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   }, [opened, expense?.id, initialActivityId])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Revoke preview object URLs on unmount — reads from the ref so we see the
-  // current list, not the one captured at mount.
+  // current list, not the one captured at mount. Also flips unmountedRef so
+  // any in-flight Phase 2 uploads skip their post-processing side effects.
   useEffect(() => () => {
+    unmountedRef.current = true
     pendingFilesRef.current.forEach((p) => URL.revokeObjectURL(p.url))
   }, [])
 
@@ -446,36 +451,43 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
       if (err.name === 'AbortError') { setSaving(false); return }
       setSaving(false)
       notifications.show({
-        message: err.body?.errors?.join('；') || err.message || '保存失败',
+        message: `保存失败:${err.body?.errors?.join('；') || err.message || ''}`,
         color: 'red',
       })
       return
     }
 
-    const results = await Promise.allSettled(pendingFiles.map((p) => {
-      const fileIdx = nextFileIdx()
-      setProgressMap((prev) => ({ ...prev, [fileIdx]: { percentage: 0, loaded: 0, total: 0 } }))
-      return xhrRequest(`/expenses/${created.id}/receipts`, mkForm('file', p.file), {
-        onProgress: (prog) => setProgressMap((prev) => ({ ...prev, [fileIdx]: prog })),
-        sentryExtra: { tour_id: tour.id, expense_id: created.id },
-      }).finally(() => {
-        setProgressMap((prev) => { const next = { ...prev }; delete next[fileIdx]; return next })
-      })
-    }))
+    // Phase 2: try/finally guarantees setSaving(false) even if a post-processing
+    // side effect (router.reload / cleanupPendingFiles / onClose) throws —
+    // otherwise the Save button would stay loading forever.
+    try {
+      const results = await Promise.allSettled(pendingFiles.map((p) => {
+        const fileIdx = nextFileIdx()
+        return xhrRequest(`/expenses/${created.id}/receipts`, mkForm('file', p.file), {
+          onProgress: (prog) => setProgressMap((prev) => ({ ...prev, [fileIdx]: prog })),
+          sentryExtra: { tour_id: tour.id, expense_id: created.id },
+        }).finally(() => {
+          setProgressMap((prev) => { const next = { ...prev }; delete next[fileIdx]; return next })
+        })
+      }))
 
-    const failed = results.filter((r) => r.status === 'rejected').length
-    router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] })
-    setSaving(false)
-    if (failed === 0) {
-      notifications.show({ message: '已记下这笔花销', color: 'green' })
-    } else {
-      notifications.show({
-        message: `花销已保存，但 ${failed} 张小票上传失败,可进入编辑重试`,
-        color: 'orange',
-      })
+      if (unmountedRef.current) return
+
+      const failed = results.filter((r) => r.status === 'rejected').length
+      router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] })
+      if (failed === 0) {
+        notifications.show({ message: '已记下这笔花销', color: 'green' })
+      } else {
+        notifications.show({
+          message: `花销已保存，但 ${failed} 张小票上传失败,可进入编辑重试`,
+          color: 'orange',
+        })
+      }
+      cleanupPendingFiles()
+      onClose()
+    } finally {
+      if (!unmountedRef.current) setSaving(false)
     }
-    cleanupPendingFiles()
-    onClose()
   }
 
   // Byte-level aggregated progress across all in-flight receipt uploads.
