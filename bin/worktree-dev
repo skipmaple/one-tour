@@ -13,6 +13,12 @@
 #   `mise exec -- bundle exec ...` (see CLAUDE.md Gotchas)
 set -euo pipefail
 
+# Ruby 3.4 / dotenv-rails 读 .env 也吃 default external encoding;若调用方
+# shell 没设 UTF-8 locale,.env 里的中文注释会触发 ASCII byte sequence
+# 错误。同 bin/dev 的兜底,在 worktree 入口也强制 UTF-8。
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 cmd="${1:-}"
 case "$cmd" in
   up|down) ;;
