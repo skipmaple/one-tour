@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react'
-import { Button, Group, Stack, Text, TextInput, ActionIcon } from '@mantine/core'
+import { useEffect, useRef, useState } from 'react'
+import { Button, Group, Progress, Stack, Text, TextInput, ActionIcon } from '@mantine/core'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { IconPhoto, IconStar, IconStarFilled, IconPencil, IconX, IconUpload } from '@tabler/icons-react'
 import ActivityGalleryLightbox from './ActivityGalleryLightbox'
 import { compressImage } from '../../lib/image-compression'
+import { xhrRequest, mkForm } from '../../lib/xhr-request'
 
 // Accepted MIME types match ActivityImage::ALLOWED_CONTENT_TYPES on the server.
 const ACCEPT_TYPES = 'image/jpeg,image/jpg,image/png,image/webp,image/gif'
@@ -18,9 +19,14 @@ const MAX_RAW_MB = 50
 export default function ActivityGalleryTab({ activityId, images, hasCoordinates }) {
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
+  const [batchProgress, setBatchProgress] = useState(null)
+  // { current, total, percentage } | null
+  const abortRef = useRef(null)
   const [editingCaptionFor, setEditingCaptionFor] = useState(null)
   const [captionDraft, setCaptionDraft] = useState('')
   const [lightboxIndex, setLightboxIndex] = useState(null)
+
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   const ordered = [ ...images ].sort((a, b) => a.position - b.position)
   const atLimit = ordered.length >= MAX_PER_ACTIVITY
@@ -39,49 +45,68 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
       })
       return
     }
-    setUploading(true)
-    try {
-      for (const file of files) {
-        if (file.size > MAX_RAW_MB * 1024 * 1024) {
-          notifications.show({
-            message: `${file.name} 超过 ${MAX_RAW_MB} MB，已跳过`,
-            color: 'orange',
-          })
-          continue
-        }
-        const compressed = await compressImage(file)
-        if (compressed.size > MAX_FILE_MB * 1024 * 1024) {
-          notifications.show({
-            message: `${file.name} 压缩后仍超 ${MAX_FILE_MB} MB，已跳过`,
-            color: 'orange',
-          })
-          continue
-        }
-        await uploadOne(compressed)
+
+    // Pre-process: validate + compress 同步整个 batch，失败的先剔
+    const accepted = []
+    for (const file of files) {
+      if (file.size > MAX_RAW_MB * 1024 * 1024) {
+        notifications.show({
+          message: `${file.name} 超过 ${MAX_RAW_MB} MB，已跳过`,
+          color: 'orange',
+        })
+        continue
       }
-      router.reload({ only: [ 'activity_images' ], preserveScroll: true })
+      const compressed = await compressImage(file)
+      if (compressed.size > MAX_FILE_MB * 1024 * 1024) {
+        notifications.show({
+          message: `${file.name} 压缩后仍超 ${MAX_FILE_MB} MB，已跳过`,
+          color: 'orange',
+        })
+        continue
+      }
+      accepted.push(compressed)
+    }
+    if (accepted.length === 0) return
+
+    setUploading(true)
+    abortRef.current = new AbortController()
+
+    try {
+      for (let i = 0; i < accepted.length; i++) {
+        const file = accepted[i]
+        try {
+          await uploadOne(
+            file,
+            (p) => setBatchProgress({
+              current: i + 1,
+              total: accepted.length,
+              percentage: ((i + p.percentage / 100) / accepted.length) * 100,
+            }),
+            abortRef.current.signal,
+          )
+        } catch (err) {
+          if (err.name === 'AbortError') return
+          notifications.show({
+            title: file.name,
+            message: err.body?.errors?.join('；') || err.message || '上传失败',
+            color: 'red',
+          })
+        }
+      }
     } finally {
+      setBatchProgress(null)
       setUploading(false)
+      router.reload({ only: [ 'activity_images' ], preserveScroll: true })
     }
   }
 
-  const uploadOne = async (file) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await fetch(`/activities/${activityId}/images`, {
+  const uploadOne = (file, onProgress, signal) =>
+    xhrRequest(`/activities/${activityId}/images`, mkForm('file', file), {
       method: 'POST',
-      headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
-      body: formData,
+      signal,
+      onProgress,
+      sentryExtra: { activity_id: activityId },
     })
-    if (!res.ok) {
-      let msg = '上传失败'
-      try {
-        const body = await res.json()
-        if (body?.errors?.length) msg = body.errors.join('；')
-      } catch {}
-      notifications.show({ title: `${file.name}`, message: msg, color: 'red' })
-    }
-  }
 
   const handleSetCover = async (image) => {
     const res = await fetch(`/activity_images/${image.id}`, {
@@ -170,6 +195,8 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
           上传
         </Button>
       </Group>
+
+      {batchProgress && <Progress value={batchProgress.percentage} size="xs" />}
 
       <div style={{
         display: 'grid',
