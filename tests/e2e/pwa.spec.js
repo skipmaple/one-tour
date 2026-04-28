@@ -60,19 +60,31 @@ test('P3: /icon.png CacheFirst — offline 仍可加载(prod only)', async ({ co
   const swExists = await swServed(page)
   test.skip(!swExists, 'SW only in prod build')
 
-  // 在线访问一次 → SW 缓存进 pwa-icons cache
+  // 在线访问一次,**用浏览器内 fetch** 让请求经过 SW 注册到 pwa-icons cache
+  // (page.request.* 是 Playwright Node HTTP client,不走 SW)
   await page.goto('/')
-  const iconRes1 = await page.request.get('/icon.png')
-  expect(iconRes1.ok()).toBe(true)
+  const iconRes1 = await page.evaluate(() =>
+    fetch('/icon.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
+  )
+  expect(iconRes1.ok).toBe(true)
 
-  // 等 SW 完成 cache write
-  await page.waitForTimeout(500)
+  // poll Cache API 等 SW write 真实完成,避免 hardcoded sleep race
+  await expect.poll(
+    async () => page.evaluate(async () => {
+      const cache = await caches.open('pwa-icons')
+      const match = await cache.match('/icon.png')
+      return Boolean(match)
+    }),
+    { timeout: 5_000 },
+  ).toBe(true)
 
-  // 切到 offline,重新访问 — CacheFirst 应该直接给缓存
+  // offline 后浏览器 fetch — CacheFirst 命中 cache
   await context.setOffline(true)
-  const iconRes2 = await page.request.get('/icon.png')
-  expect(iconRes2.ok()).toBe(true)
-  expect(iconRes2.headers()['content-type']).toContain('image')
+  const iconRes2 = await page.evaluate(() =>
+    fetch('/icon.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
+  )
+  expect(iconRes2.ok).toBe(true)
+  expect(iconRes2.ct).toContain('image')
 
   await context.setOffline(false)
 })
@@ -100,14 +112,18 @@ test('P5: NetworkOnly /login — offline 直接失败,不命中 stale cache(prod
   const swExists = await swServed(page)
   test.skip(!swExists, 'SW only in prod build')
 
-  // 先在线访问 /login(让 SW 看到这个请求,确认 NetworkOnly 不缓存)
+  // 先在线访问 /login,让 SW 看到这个请求(NetworkOnly route 不应写 cache)
   await page.goto('/login')
   await page.waitForLoadState('networkidle')
 
-  // 切 offline 直接 request /login — NetworkOnly 没缓存,应失败
+  // offline 后用浏览器内 fetch(经过 SW)— NetworkOnly 不命中 stale cache,
+  // 浏览器 fetch 会 throw TypeError(Failed to fetch);Node HTTP client
+  // 不经 SW 路径,所以这里必须用 page.evaluate 才能真验证 SW 行为
   await context.setOffline(true)
-  const res = await page.request.get('/login').catch((e) => ({ ok: () => false, error: e }))
-  expect(res.ok()).toBe(false)
+  const failed = await page.evaluate(() =>
+    fetch('/login').then(() => false).catch(() => true),
+  )
+  expect(failed).toBe(true)
 
   await context.setOffline(false)
 })
