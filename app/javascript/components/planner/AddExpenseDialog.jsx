@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
 import {
   Modal, Stack, Group, Button, Select, NumberInput, TextInput,
-  Checkbox, Text, Divider, SegmentedControl, ActionIcon,
+  Checkbox, Text, Divider, SegmentedControl, ActionIcon, Progress,
 } from '@mantine/core'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
@@ -10,6 +10,7 @@ import { IconPlus, IconX, IconReceipt2 } from '@tabler/icons-react'
 import { useMediaQuery } from '@mantine/hooks'
 import { effectiveParticipants } from '../../lib/effectiveParticipants'
 import { compressImage } from '../../lib/image-compression'
+import { xhrRequest, mkForm } from '../../lib/xhr-request'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
 import UserLabel from './UserLabel'
 
@@ -68,6 +69,12 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   // is derived as `uploadsInFlight > 0`.
   const [uploadsInFlight, setUploadsInFlight] = useState(0)
   const uploading = uploadsInFlight > 0
+  // Per-file upload byte progress for both edit-mode concurrent uploads and
+  // create-mode Promise.allSettled batch. Keyed by a monotonic fileIdx so each
+  // request gets its own slot — aggregate {loaded,total} drives one Progress.
+  const [progressMap, setProgressMap] = useState({})
+  const fileIdxRef = useRef(0)
+  const nextFileIdx = () => ++fileIdxRef.current
   const [amountError, setAmountError] = useState(null)
   // CREATE mode: files are staged locally until the expense gets an id,
   // then uploaded in a second phase on save. Each stored as { file, url }
@@ -299,23 +306,25 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   }
 
   const uploadReceiptNow = (file) => {
-    const fd = new FormData()
-    fd.append('file', file)
+    const fileIdx = nextFileIdx()
     setUploadsInFlight((n) => n + 1)
-    fetch(`/expenses/${expense.id}/receipts`, {
+    xhrRequest(`/expenses/${expense.id}/receipts`, mkForm('file', file), {
       method: 'POST',
-      body: fd,
-      headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
+      onProgress: (p) => setProgressMap((prev) => ({ ...prev, [fileIdx]: p })),
+      sentryExtra: { expense_id: expense.id },
     })
-      .then(async (r) => {
-        if (!r.ok) {
-          const err = await r.json().catch(() => ({}))
-          throw new Error(err.errors?.join('；') || `HTTP ${r.status}`)
-        }
-        router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] })
+      .then(() => router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] }))
+      .catch((err) => {
+        if (err.name === 'AbortError') return
+        notifications.show({
+          message: `上传失败：${err.body?.errors?.join('；') || err.message || ''}`,
+          color: 'red',
+        })
       })
-      .catch((err) => notifications.show({ message: `上传失败：${err.message}`, color: 'red' }))
-      .finally(() => setUploadsInFlight((n) => n - 1))
+      .finally(() => {
+        setUploadsInFlight((n) => n - 1)
+        setProgressMap((prev) => { const next = { ...prev }; delete next[fileIdx]; return next })
+      })
   }
 
   const deleteReceipt = (receipt) => {
@@ -428,55 +437,54 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
   }
 
   const createWithPendingReceipts = async (payload) => {
+    let created
     try {
-      const res = await fetch(`/tours/${tour.id}/expenses`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'X-CSRF-Token': csrfToken(),
-        },
+      created = await xhrRequest(`/tours/${tour.id}/expenses`, payload, {
+        sentryExtra: { tour_id: tour.id },
       })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.errors?.join('；') || `HTTP ${res.status}`)
-      }
-      const created = await res.json()
-
-      const results = await Promise.allSettled(pendingFiles.map((p) => {
-        const fd = new FormData()
-        fd.append('file', p.file)
-        return fetch(`/expenses/${created.id}/receipts`, {
-          method: 'POST',
-          body: fd,
-          headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
-        }).then(async (r) => {
-          if (!r.ok) {
-            const err = await r.json().catch(() => ({}))
-            throw new Error(err.errors?.join('；') || `HTTP ${r.status}`)
-          }
-        })
-      }))
-
-      const failed = results.filter((r) => r.status === 'rejected').length
-      router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] })
-      setSaving(false)
-      if (failed === 0) {
-        notifications.show({ message: '已记下这笔花销', color: 'green' })
-      } else {
-        notifications.show({
-          message: `花销已保存，但 ${failed} 张小票上传失败,可进入编辑重试`,
-          color: 'orange',
-        })
-      }
-      cleanupPendingFiles()
-      onClose()
     } catch (err) {
+      if (err.name === 'AbortError') { setSaving(false); return }
       setSaving(false)
-      notifications.show({ message: `保存失败：${err.message}`, color: 'red' })
+      notifications.show({
+        message: err.body?.errors?.join('；') || err.message || '保存失败',
+        color: 'red',
+      })
+      return
     }
+
+    const results = await Promise.allSettled(pendingFiles.map((p) => {
+      const fileIdx = nextFileIdx()
+      setProgressMap((prev) => ({ ...prev, [fileIdx]: { percentage: 0, loaded: 0, total: 0 } }))
+      return xhrRequest(`/expenses/${created.id}/receipts`, mkForm('file', p.file), {
+        onProgress: (prog) => setProgressMap((prev) => ({ ...prev, [fileIdx]: prog })),
+        sentryExtra: { tour_id: tour.id, expense_id: created.id },
+      }).finally(() => {
+        setProgressMap((prev) => { const next = { ...prev }; delete next[fileIdx]; return next })
+      })
+    }))
+
+    const failed = results.filter((r) => r.status === 'rejected').length
+    router.reload({ only: [ 'expenses', 'expenses_summary', 'flash' ] })
+    setSaving(false)
+    if (failed === 0) {
+      notifications.show({ message: '已记下这笔花销', color: 'green' })
+    } else {
+      notifications.show({
+        message: `花销已保存，但 ${failed} 张小票上传失败,可进入编辑重试`,
+        color: 'orange',
+      })
+    }
+    cleanupPendingFiles()
+    onClose()
   }
+
+  // Byte-level aggregated progress across all in-flight receipt uploads.
+  // One <Progress> renders for the whole batch — avoids "3 bars side by side"
+  // jitter when concurrent edit-mode uploads finish out of order.
+  const inFlight = Object.keys(progressMap).length > 0
+  const totalLoaded = Object.values(progressMap).reduce((s, p) => s + p.loaded, 0)
+  const totalSize   = Object.values(progressMap).reduce((s, p) => s + p.total,  0)
+  const overallPct  = totalSize > 0 ? (totalLoaded / totalSize) * 100 : 0
 
   return (
     <Modal opened={opened} onClose={confirmClose} title={readOnly ? '查看花销' : (isEdit ? '改一笔花销' : '记一笔花销')} size={isMobile ? '100%' : 'md'} fullScreen={isMobile} padding="md">
@@ -678,6 +686,8 @@ export default function AddExpenseDialog({ opened, onClose, tour, days, activiti
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
         />
+
+        {inFlight && <Progress value={overallPct} size="xs" mb="xs" />}
 
         <Group justify="flex-end" mt="md">
           {readOnly ? (
