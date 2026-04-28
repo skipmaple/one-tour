@@ -15,6 +15,10 @@ ARG NODE_VERSION=22
 FROM node:${NODE_VERSION}-slim AS node_modules
 WORKDIR /rails
 COPY package.json package-lock.json ./
+# Skip Playwright chromium download in production build (~150MB,e2e 仅本地用):
+# @playwright/test 是 devDep,但 npm ci 默认装全部依赖。环境变量阻止
+# postinstall 脚本下载浏览器二进制。详见 https://playwright.dev/docs/browsers#install-system-dependencies
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm ci
 
 FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base

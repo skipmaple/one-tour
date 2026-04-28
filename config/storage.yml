@@ -20,6 +20,26 @@ cloudflare:
   request_checksum_calculation:   when_required
   response_checksum_validation:   when_required
 
+# Aliyun OSS Hong Kong via S3-compatible API.
+# Migration target from `cloudflare` — see docs/xinjiang-trip-architecture.md.
+# Compatibility verified by script/oss-compatibility-spike.rb
+# (SigV4, multipart, presigned PUT/GET all pass on aws-sdk-s3 1.220).
+#
+# Endpoint:
+# - In production (on SWAS HK), use the internal endpoint
+#   (oss-cn-hongkong-internal.aliyuncs.com) — same-region traffic is free.
+# - In dev / on a non-Aliyun host, fall back to the public endpoint
+#   (oss-cn-hongkong.aliyuncs.com).
+# Active Storage runs in proxy mode (see config/environments/production.rb)
+# so the browser never sees these endpoints directly — only the server does.
+aliyun_oss:
+  service: S3
+  access_key_id:     <%= ENV["OSS_ACCESS_KEY_ID"] %>
+  secret_access_key: <%= ENV["OSS_ACCESS_KEY_SECRET"] %>
+  endpoint:          <%= ENV["OSS_ENDPOINT_INTERNAL"].presence || ENV["OSS_ENDPOINT"] %>
+  bucket:            <%= ENV["OSS_BUCKET"] %>
+  region:            <%= ENV["OSS_REGION"] || "cn-hongkong" %>
+
 # Use bin/rails credentials:edit to set the AWS secrets (as aws:access_key_id|secret_access_key)
 # amazon:
 #   service: S3

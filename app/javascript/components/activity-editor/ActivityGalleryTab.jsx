@@ -1,74 +1,27 @@
-import { useRef, useState } from 'react'
-import { Button, Group, Stack, Text, TextInput, ActionIcon } from '@mantine/core'
+import { useState } from 'react'
+import { Button, Group, Progress, Stack, Text, TextInput, ActionIcon } from '@mantine/core'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { IconPhoto, IconStar, IconStarFilled, IconPencil, IconX, IconUpload } from '@tabler/icons-react'
 import ActivityGalleryLightbox from './ActivityGalleryLightbox'
-
-// Accepted MIME types match ActivityImage::ALLOWED_CONTENT_TYPES on the server.
-const ACCEPT_TYPES = 'image/jpeg,image/jpg,image/png,image/webp,image/gif'
-const MAX_PER_ACTIVITY = 20
-const MAX_FILE_MB = 10
+import useGalleryUploader, { MAX_PER_ACTIVITY } from '../../hooks/useGalleryUploader'
 
 export default function ActivityGalleryTab({ activityId, images, hasCoordinates }) {
-  const fileInputRef = useRef(null)
-  const [uploading, setUploading] = useState(false)
-  const [editingCaptionFor, setEditingCaptionFor] = useState(null)
-  const [captionDraft, setCaptionDraft] = useState('')
-  const [lightboxIndex, setLightboxIndex] = useState(null)
-
   const ordered = [ ...images ].sort((a, b) => a.position - b.position)
   const atLimit = ordered.length >= MAX_PER_ACTIVITY
 
-  const openFilePicker = () => fileInputRef.current?.click()
+  const {
+    uploading,
+    batchProgress,
+    fileInputRef,
+    openFilePicker,
+    handleFilesSelected,
+    accept,
+  } = useGalleryUploader(activityId, { existingCount: ordered.length })
 
-  const handleFilesSelected = async (e) => {
-    const files = Array.from(e.target.files || [])
-    e.target.value = ''
-    if (files.length === 0) return
-    if (ordered.length + files.length > MAX_PER_ACTIVITY) {
-      notifications.show({
-        title: '一次最多 20 张',
-        message: `本站点已有 ${ordered.length} 张，还能再传 ${MAX_PER_ACTIVITY - ordered.length} 张`,
-        color: 'orange',
-      })
-      return
-    }
-    setUploading(true)
-    try {
-      for (const file of files) {
-        if (file.size > MAX_FILE_MB * 1024 * 1024) {
-          notifications.show({
-            message: `${file.name} 超过 ${MAX_FILE_MB} MB，已跳过`,
-            color: 'orange',
-          })
-          continue
-        }
-        await uploadOne(file)
-      }
-      router.reload({ only: [ 'activity_images' ], preserveScroll: true })
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const uploadOne = async (file) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await fetch(`/activities/${activityId}/images`, {
-      method: 'POST',
-      headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
-      body: formData,
-    })
-    if (!res.ok) {
-      let msg = '上传失败'
-      try {
-        const body = await res.json()
-        if (body?.errors?.length) msg = body.errors.join('；')
-      } catch {}
-      notifications.show({ title: `${file.name}`, message: msg, color: 'red' })
-    }
-  }
+  const [editingCaptionFor, setEditingCaptionFor] = useState(null)
+  const [captionDraft, setCaptionDraft] = useState('')
+  const [lightboxIndex, setLightboxIndex] = useState(null)
 
   const handleSetCover = async (image) => {
     const res = await fetch(`/activity_images/${image.id}`, {
@@ -131,7 +84,7 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
         <input
           ref={fileInputRef}
           type="file"
-          accept={ACCEPT_TYPES}
+          accept={accept}
           multiple
           hidden
           onChange={handleFilesSelected}
@@ -157,6 +110,8 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
           上传
         </Button>
       </Group>
+
+      {batchProgress && <Progress value={batchProgress.percentage} size="xs" />}
 
       <div style={{
         display: 'grid',
@@ -267,7 +222,7 @@ export default function ActivityGalleryTab({ activityId, images, hasCoordinates 
       <input
         ref={fileInputRef}
         type="file"
-        accept={ACCEPT_TYPES}
+        accept={accept}
         multiple
         hidden
         onChange={handleFilesSelected}

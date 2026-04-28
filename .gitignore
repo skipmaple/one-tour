@@ -43,6 +43,9 @@ node_modules
 
 .superpowers
 .playwright-mcp
+# Playwright artifacts on test failures (traces, screenshots, error context)
+test-results/
+playwright-report/
 # Local per-worktree sandboxes (created by `git worktree add .claude/worktrees/...`).
 # These share history via .git but must never be committed to the repo.
 /.claude/worktrees/

@@ -7,7 +7,7 @@ image: skipmaple/one-tour
 # Deploy to these servers.
 servers:
   web:
-    - 45.63.23.136
+    - 43.103.50.22
   # job:
   #   hosts:
   #     - 192.168.0.1
@@ -56,6 +56,12 @@ env:
     - R2_SECRET_ACCESS_KEY
     - R2_ENDPOINT
     - R2_BUCKET
+    - OSS_ACCESS_KEY_ID
+    - OSS_ACCESS_KEY_SECRET
+    - OSS_ENDPOINT
+    - OSS_ENDPOINT_INTERNAL
+    - OSS_BUCKET
+    - OSS_REGION
     - SENTRY_DSN_BACKEND
   clear:
     # Run the Solid Queue Supervisor inside the web server's Puma process to do jobs.
@@ -115,7 +121,7 @@ builder:
 accessories:
   db:
     image: postgres:18
-    host: 45.63.23.136
+    host: 43.103.50.22
     # Only expose to localhost to avoid external access.
     port: "127.0.0.1:5432:5432"
     env:

@@ -3,9 +3,12 @@
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@sentry/vite-plugin": "^5.2.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -38,6 +41,7 @@
     "@sentry/react": "^10.49.0",
     "@tabler/icons-react": "^3.41.1",
     "@vitejs/plugin-react": "^6.0.1",
+    "browser-image-compression": "^2.0.2",
     "codemirror": "^6.0.2",
     "dayjs": "^1.11.20",
     "diff": "^9.0.0",

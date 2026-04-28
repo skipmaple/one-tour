@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# Daily Postgres backup → Aliyun OSS HK.
+#
+# Reads config from /etc/one-tour-backup.env (or $ONE_TOUR_BACKUP_ENV).
+# Required: OSS_BUCKET, OSS_ENDPOINT, OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET.
+# Optional: POSTGRES_CONTAINER, POSTGRES_USER, POSTGRES_DB.
+#
+# Only backs up the primary db. cache/queue/cable are ephemeral
+# (SolidCache / SolidQueue / SolidCable) and rebuild themselves on first boot.
+#
+# Retention is handled by an OSS lifecycle rule on the bucket — see
+# docs/backup-restore.md for the rule definition.
+
+set -euo pipefail
+
+ENV_FILE="${ONE_TOUR_BACKUP_ENV:-/etc/one-tour-backup.env}"
+if [[ -f "${ENV_FILE}" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+  set +a
+fi
+
+POSTGRES_CONTAINER="${POSTGRES_CONTAINER:-one-tour-db}"
+POSTGRES_USER="${POSTGRES_USER:-one_tour}"
+POSTGRES_DB="${POSTGRES_DB:-one_tour_production}"
+
+: "${OSS_BUCKET:?OSS_BUCKET required (e.g. one-tour-backups)}"
+: "${OSS_ENDPOINT:?OSS_ENDPOINT required (e.g. https://oss-cn-hongkong.aliyuncs.com)}"
+: "${OSS_ACCESS_KEY_ID:?OSS_ACCESS_KEY_ID required}"
+: "${OSS_ACCESS_KEY_SECRET:?OSS_ACCESS_KEY_SECRET required}"
+
+# aws CLI reads AWS_* from env. OSS is S3-compatible so we shim our OSS_*
+# names onto AWS_* (semantic clarity in the env file, AWS naming for the tool).
+export AWS_ACCESS_KEY_ID="${OSS_ACCESS_KEY_ID}"
+export AWS_SECRET_ACCESS_KEY="${OSS_ACCESS_KEY_SECRET}"
+# Region is required by AWS CLI; OSS doesn't really care but the default
+# matches the HK bucket location.
+export AWS_DEFAULT_REGION="${OSS_REGION:-cn-hongkong}"
+
+WORKDIR="$(mktemp -d -t one-tour-backup.XXXXXX)"
+trap 'rm -rf "${WORKDIR}"' EXIT
+
+# OSS requires virtual-hosted-style addressing (`bucket.endpoint`). aws CLI
+# defaults to path-style for non-AWS endpoints, which OSS rejects with
+# `SecondLevelDomainForbidden`. Force virtual-style via per-script aws config.
+mkdir -p "${WORKDIR}/aws"
+cat > "${WORKDIR}/aws/config" <<'AWS_CONFIG'
+[default]
+s3 =
+    addressing_style = virtual
+AWS_CONFIG
+export AWS_CONFIG_FILE="${WORKDIR}/aws/config"
+
+NOW="$(date -u +%Y%m%d-%H%M%SZ)"
+DATE_PREFIX="$(date -u +%Y/%m/%d)"
+DUMP_FILE="${WORKDIR}/${POSTGRES_DB}-${NOW}.dump"
+
+log() { printf '[%s] %s\n' "$(date -u +%FT%TZ)" "$*"; }
+
+log "pg_dump ${POSTGRES_DB} via container ${POSTGRES_CONTAINER}"
+
+# -Fc: custom format (compressed, supports selective restore via pg_restore).
+docker exec "${POSTGRES_CONTAINER}" \
+  pg_dump --username="${POSTGRES_USER}" --format=custom --dbname="${POSTGRES_DB}" \
+  > "${DUMP_FILE}"
+
+SIZE="$(stat -c%s "${DUMP_FILE}" 2>/dev/null || stat -f%z "${DUMP_FILE}")"
+if [[ "${SIZE}" -lt 1024 ]]; then
+  log "ERROR: dump file is ${SIZE} bytes, refusing to upload"
+  exit 1
+fi
+log "dump complete: ${SIZE} bytes"
+
+# Date-prefixed key plays well with OSS lifecycle rules and is human-browsable.
+OSS_KEY="postgres/${DATE_PREFIX}/${POSTGRES_DB}-${NOW}.dump"
+log "uploading to oss://${OSS_BUCKET}/${OSS_KEY}"
+
+aws s3 cp "${DUMP_FILE}" "s3://${OSS_BUCKET}/${OSS_KEY}" \
+  --endpoint-url "${OSS_ENDPOINT}" \
+  --only-show-errors
+
+log "ok: oss://${OSS_BUCKET}/${OSS_KEY}"

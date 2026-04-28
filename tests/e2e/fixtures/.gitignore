@@ -1,0 +1,4 @@
+# 生成的 fixture 图片不进 git(60MB 太大,其余靠 generate.sh 重现)
+*.jpg
+*.png
+*.gif

@@ -1,5 +1,13 @@
 #!/usr/bin/env sh
 
+# Foreman 0.90 + Ruby 3.4 read env files with the default external encoding;
+# without LANG/LC_ALL set to a UTF-8 locale, non-ASCII bytes (e.g., Chinese
+# comments in .env) trigger "invalid byte sequence in US-ASCII" at startup.
+# Force UTF-8 here so behavior is stable across shells / IDE-spawned terminals
+# / Preview-MCP harnesses that don't inherit the user's locale config.
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 export PORT="${PORT:-3000}"
 
 if command -v overmind 1> /dev/null 2>&1
