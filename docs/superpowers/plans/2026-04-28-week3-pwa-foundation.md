@@ -6,7 +6,7 @@
 
 **Architecture:** Vite + vite-plugin-pwa(Workbox 7.x)注入 SW;Workbox 分级缓存(NetworkFirst Inertia GET / CacheFirst static + Active Storage / NetworkOnly auth);Rails 8 自带 manifest ERB 提供 PWA manifest;`autoUpdate + skipWaiting + clientsClaim` 静默升级。
 
-**Tech Stack:** Vite 6 + vite-plugin-pwa ^1 + Workbox 7 + Inertia.js 2 + React 19 + Mantine v9 + Vitest 4.1 + Playwright 1.x
+**Tech Stack:** Vite 8 + vite-plugin-pwa ^1 + Workbox 7 + Inertia.js 2 + React 19 + Mantine v9 + Vitest 4.1 + Playwright 1.x
 
 **Spec:** [docs/superpowers/specs/2026-04-28-week3-pwa-foundation-design.md](docs/superpowers/specs/2026-04-28-week3-pwa-foundation-design.md)
 
