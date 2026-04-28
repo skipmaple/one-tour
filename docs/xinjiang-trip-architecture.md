@@ -144,16 +144,20 @@
 
 ### Week 3(5/9 – 5/15)— PWA 基础
 
-- [ ] Vite 接入 `vite-plugin-pwa`(基于 Workbox)
-- [ ] manifest.json + icons + "添加到主屏幕"配置
-- [ ] **分级缓存策略**(避免登录用户私有数据被 CacheFirst 缓存):
-  - `CacheFirst`:仅指纹化静态资源(`/assets/*-[hash].js|css`,字体,图标)
-  - `NetworkFirst`:HTML 导航 + 业务 JSON GET(`/guidebooks/*` 等),离线时返回缓存,在线优先取新
-  - 排除:登录态接口(`/me`,`/login` 等)和敏感数据,可在 SW 路由里按路径黑名单跳过缓存
-- [ ] iOS Safari + Android Chrome 真机测试 PWA 安装
-- [ ] 飞行模式下能打开 App 看上次内容
+- [x] Vite 接入 `vite-plugin-pwa`(基于 Workbox 7.x),autoUpdate + skipWaiting + clientsClaim 静默升级
+- [x] Rails 8 自带 manifest endpoint /manifest 启用,内容改 OneTour + Mantine 蓝主题 + 中文描述
+- [x] **分级缓存策略**:
+  - `NetworkOnly`:auth / login / logout / up — 不缓存
+  - `CacheFirst`:/icon.{svg,png}(5 entry, 90d)+ /rails/active_storage/{blobs,representations}/(100 entry, 30d)+ Vite precache 自动 hashed assets
+  - `NetworkFirst`:Inertia GETs(X-Inertia: true header,50 entry, 7d, 10s timeout)
+  - 不缓存 root HTML(navigateFallback: null),避免 Inertia version mismatch 时迷惑用户
+- [x] Vitest 4 用例(pwa-register)+ Playwright 5 用例(P1 manifest / P2 SW / P3 CacheFirst / P4 NetworkFirst offline / P5 NetworkOnly fail)
+- [ ] iOS Safari + Android Chrome 真机测试 PWA 安装(deploy 后做)
+- [ ] 飞行模式下能打开 App 看上次内容(真机测试一并完成)
 
-**交付物**:5 人手机能装上 PWA,断网能读上次访问的页面。
+**实施细节**:[docs/superpowers/specs/2026-04-28-week3-pwa-foundation-design.md](docs/superpowers/specs/2026-04-28-week3-pwa-foundation-design.md)
+
+**交付物**:5 人手机能装上 PWA,断网能读上次访问的页面 — 代码已落地,真机验证 deploy 后做。
 
 ### Week 4(5/16 – 5/22)— 写队列 + 状态 UI
 
@@ -238,6 +242,7 @@
 | OSS RAM 凭证泄露(写权限) | 低 | 高 | 子账号仅授权 1 个 bucket 的最小权限;凭证仅在 `.env.production` |
 | 视频上传在弱网下反复失败 | 高 | 中 | 视频默认仅 WiFi 上传;失败 3 次后让用户决定继续或放弃 |
 | `xhrRequest` 是新代码,生产首次面世,可能有 edge case | 中 | 中 | 14 vitest 覆盖核心分支(retry / abort / progress / Sentry);7 E2E 覆盖 happy path + retry/422;Sentry final-failure 上报作安全网 + 5 人小规模观察期 |
+| `vite-plugin-pwa` 是新引入,Vite Ruby 多 entrypoint 下 SW 注入可能踩冷僻坑 | 中 | 中 | Phase 1 最小骨架先打通(只跑 SW 注册,无 routing);Phase 2-3 渐进加策略 + Lighthouse + Playwright + 真机三道防御 |
 | 用户在景区编辑产生冲突 | 低 | 低 | 乐观锁弹窗"张三刚才改过这里,确认覆盖?" |
 | 50 天 timeline 延期 | 高 | 高 | Week 6 起按降级预案逐项砍功能,保底是 PDF |
 
@@ -296,14 +301,19 @@
 
 ---
 
-**版本**:v1.4(2026-04-28 · Vultr 销毁 + 视频上传 cut + DNS Auto)
+**版本**:v1.5(2026-04-28 · Week 3 PWA 基础落地)
 **作者**:架构评审收敛后产物
-**状态**:已批准实施 · Week 1 完成 · Week 2 主体完成(代码已 commit,待 deploy + 5 人 dogfood)· 切换收尾 100%
+**状态**:已批准实施 · Week 1-2 完成 · Week 3 主体完成(代码已 commit,待 deploy + 真机验证)· 切换收尾 100%
 
-**v1.4 变更**:
-- 切换收尾完成:Vultr NJ 销毁(节省 $10/月)+ Cloudflare DNS TTL 恢复 Auto + Sentry 二检无新增 error
-- Week 2 任务列表:视频上传 TODO 删除,改进"不在范围内"
-- 不在范围内新增:视频上传(50-500 MB)—— proxy mode 性价比低,出行用相机 / 微信传足够,出行后再评估
+**v1.5 变更**:
+- Week 3 任务表 5 项打 ✅(2 项真机测试 deploy 后做)
+- 风险登记新增:vite-plugin-pwa 新引入风险 + 三道防御(Phase 渐进 + Lighthouse + Playwright + 真机)
+- 实施细节链到 docs/superpowers/specs/2026-04-28-week3-pwa-foundation-design.md
+
+**v1.4 变更**(2026-04-28):
+- 切换收尾完成:Vultr NJ 销毁 ✓ Cloudflare DNS TTL Auto ✓ Sentry 二检无新增 error ✓
+- 视频上传(50-500 MB)cut:proxy mode 性价比低,出行用相机/微信传更顺手
+- 不在范围内新增条目记录决策原因
 
 **v1.3 变更**(2026-04-28):
 - TL;DR + 技术栈表:Active Storage Direct Upload → `xhrRequest` helper + 客户端压缩(proxy mode 详见 swas-cutover.md)
