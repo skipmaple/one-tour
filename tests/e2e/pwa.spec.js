@@ -89,21 +89,55 @@ test('P3: /icon.png CacheFirst — offline 仍可加载(prod only)', async ({ co
   await context.setOffline(false)
 })
 
-test('P4: Inertia GET NetworkFirst — offline 后能看到 cached(prod only)', async ({ context, page }) => {
+test('P4: Inertia GET NetworkFirst — offline 后能看到 cached XHR(prod only)', async ({ context, page }) => {
   const swExists = await swServed(page)
   test.skip(!swExists, 'SW only in prod build')
 
-  // 在线访问 /tours
+  // P4 规则只对 X-Inertia: true 的 XHR 生效。`page.goto('/tours')` 是
+  // document navigation,不带 X-Inertia 头,根本不写 inertia-pages。
+  // `page.reload()` 同理是 document nav,加上 navigateFallback: null →
+  // offline reload 必然失败。原版 reload + 看 anchor 文字的写法在 prod
+  // 跑也不会通过,所以等于个 skip-only 死代码。
+  // 重写:从 data-page 取 Inertia version → 显式 fetch 一次 Inertia XHR
+  // 写 cache → offline 同样的 XHR 期望 NetworkFirst 兜 cache 200。
+
   await page.goto('/tours')
   await page.waitForLoadState('networkidle')
 
-  // 切 offline 后 reload(NetworkFirst 命中 cache)
-  await context.setOffline(true)
-  await page.reload({ waitUntil: 'domcontentloaded' })
+  const inertiaVersion = await page.evaluate(() => {
+    const data = document.getElementById('app')?.dataset?.page
+    if (!data) return ''
+    try { return JSON.parse(data).version || '' } catch { return '' }
+  })
 
-  // 不应该看到 Inertia "request failed" modal — 看到 cached 内容
-  // 用 /tours 列表页常见 anchor:实际 prod 跑时如不命中需调整
-  await expect(page.locator('text=/全部旅程|候选池|我的旅程/').first()).toBeVisible({ timeout: 10_000 })
+  const fetchToursAsInertia = () =>
+    page.evaluate(async (v) => {
+      const r = await fetch('/tours', {
+        headers: {
+          'X-Inertia': 'true',
+          'X-Inertia-Version': v,
+          Accept: 'text/html, application/xhtml+xml',
+        },
+      })
+      return { status: r.status }
+    }, inertiaVersion)
+
+  // 在线先 warmup — 写 inertia-pages cache
+  const warm = await fetchToursAsInertia()
+  expect(warm.status).toBe(200)
+
+  await expect.poll(
+    async () => page.evaluate(async () => {
+      const cache = await caches.open('inertia-pages')
+      return (await cache.keys()).length
+    }),
+    { timeout: 5_000 },
+  ).toBeGreaterThan(0)
+
+  // offline — NetworkFirst 命中 cache,同样 XHR 仍 200
+  await context.setOffline(true)
+  const offline = await fetchToursAsInertia()
+  expect(offline.status).toBe(200)
 
   await context.setOffline(false)
 })

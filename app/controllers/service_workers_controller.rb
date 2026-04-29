@@ -5,9 +5,9 @@ class ServiceWorkersController < ApplicationController
   # public/vite/sw.js 并加 Service-Worker-Allowed: / header,让
   # SW scope 提升到 /,workbox runtimeCaching 才能生效。
   #
-  # 不走 ApplicationController 的认证 callback —— SW 注册时浏览器
-  # 没 cookie 也得能拿到。
-  skip_before_action :authenticate_user!, raise: false
+  # SW 注册时浏览器即使没登录态也得能拿到 sw.js;ApplicationController
+  # 没强制全局 require_login(各 controller 自己 before_action),所以这里
+  # 不需要额外 skip auth。
 
   # Rails 的 protect_from_forgery 会在 after_action 里跑
   # verify_same_origin_request,把 SW 注册当跨域 script 拒掉(返回 422

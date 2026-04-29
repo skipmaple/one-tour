@@ -11,13 +11,13 @@ describe('pwa-register', () => {
     vi.unstubAllGlobals()
   })
 
-  it('calls navigator.serviceWorker.register with /sw.js + scope: /', async () => {
+  it('calls navigator.serviceWorker.register with /sw.js + scope: / + updateViaCache: none', async () => {
     const registerMock = vi.fn().mockResolvedValue({ scope: 'http://localhost/' })
     vi.stubGlobal('navigator', { serviceWorker: { register: registerMock } })
     await import('../pwa-register')
 
     expect(registerMock).toHaveBeenCalledTimes(1)
-    expect(registerMock).toHaveBeenCalledWith('/sw.js', { scope: '/' })
+    expect(registerMock).toHaveBeenCalledWith('/sw.js', { scope: '/', updateViaCache: 'none' })
   })
 
   it('logs SW scope only in DEV after successful register', async () => {
@@ -47,10 +47,26 @@ describe('pwa-register', () => {
   })
 
   it('skips registration when serviceWorker not in navigator', async () => {
-    const registerMock = vi.fn()
-    vi.stubGlobal('navigator', {})
+    // 用 Proxy 让 `'serviceWorker' in navigator` 返回 false 并埋探针 —
+    // pwa-register 早 return 后 .serviceWorker 应永远没被读到。原版直接
+    // `vi.stubGlobal('navigator', {})` + `expect(registerMock).not.toHaveBeenCalled()`
+    // 是 tautology:registerMock 没绑到任何地方,断言永远真。
+    const accessProbe = vi.fn()
+    const stubNavigator = new Proxy(
+      {},
+      {
+        has(_, prop) {
+          return prop === 'serviceWorker' ? false : Reflect.has(_, prop)
+        },
+        get(_, prop) {
+          if (prop === 'serviceWorker') accessProbe()
+          return undefined
+        },
+      },
+    )
+    vi.stubGlobal('navigator', stubNavigator)
     await import('../pwa-register')
 
-    expect(registerMock).not.toHaveBeenCalled()
+    expect(accessProbe).not.toHaveBeenCalled()
   })
 })

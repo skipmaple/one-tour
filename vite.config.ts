@@ -38,7 +38,11 @@ export default defineConfig({
       disable: !process.env.SENTRY_AUTH_TOKEN,
     }),
     VitePWA({
-      registerType: 'autoUpdate',
+      // registerType 不显式设置 — injectRegister: false 后,我们手动从
+      // pwa-register.js 调 navigator.serviceWorker.register('/sw.js'),
+      // VitePWA 的 register 流程整个没参与,registerType 设了反而误导。
+      // 自动更新走 sw.js 内 skipWaiting + clientsClaim,加上 pwa-register
+      // 用 updateViaCache: 'none' 让浏览器 SW 检查不被 HTTP cache 拖。
       manifest: false,
       injectRegister: false,
       workbox: {
@@ -71,11 +75,14 @@ export default defineConfig({
               expiration: { maxEntries: 5, maxAgeSeconds: 90 * 24 * 60 * 60 },
             },
           },
-          // === CacheFirst:Active Storage blob redirect / variant ===
-          // URL 里带 blob digest,变更即新 URL,适合长期 cache
+          // === CacheFirst:Active Storage blob proxy / redirect / variant ===
+          // URL 里带 blob digest,变更即新 URL,适合长期 cache。
+          // production.rb 配 resolve_model_to_route = :rails_storage_proxy,
+          // 真实 URL 是 /rails/active_storage/blobs/proxy/...(不是 redirect),
+          // representations 同理。两路径都覆盖以防 storage backend 切回 redirect。
           {
             urlPattern: ({ url }) =>
-              /^\/rails\/active_storage\/(blobs\/redirect|representations)\//.test(url.pathname),
+              /^\/rails\/active_storage\/(blobs|representations)\/(proxy|redirect)\//.test(url.pathname),
             handler: 'CacheFirst',
             options: {
               cacheName: 'active-storage-blobs',

@@ -95,8 +95,8 @@ Browser
 |---|---|---|---|
 | Vite precacheManifest 自动注入 | — | — | hashed assets,文件名变就自然替换 |
 | `^/icon\.(svg\|png)$` | 5 | 90 | PWA 图标,变化频率极低 |
-| `^/rails/active_storage/blobs/redirect/.*` | 100 | 30 | Active Storage proxy presigned URL,blob digest 在 URL 里 |
-| `^/rails/active_storage/representations/.*` | 100 | 30 | variant URL,同上 |
+| `^/rails/active_storage/blobs/(proxy\|redirect)/.*` | 100 | 30 | Active Storage blob URL;production.rb 当前是 proxy mode (`resolve_model_to_route = :rails_storage_proxy`),redirect 兜底以备 storage backend 切回。blob digest 在 URL 里 |
+| `^/rails/active_storage/representations/(proxy\|redirect)/.*` | 100 | 30 | variant URL,同上 |
 
 `maxEntries` 用 Workbox `ExpirationPlugin` 触发 LRU 淘汰。
 

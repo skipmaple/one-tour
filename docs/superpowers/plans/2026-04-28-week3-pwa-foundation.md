@@ -706,8 +706,10 @@ vite.config.ts workbox.runtimeCaching 加 4 类 routing(顺序匹配):
 - NetworkOnly:/auth/* /login(_test)? /logout /profile/sign_in_links/*
   /up — auth 流不缓存
 - CacheFirst:/icon.{svg,png} (5 entry, 90d) — PWA 图标
-- CacheFirst:/rails/active_storage/{blobs/redirect,representations}/
-  (100 entry, 30d) — blob digest 在 URL 里,长期 cache 安全
+- CacheFirst:/rails/active_storage/{blobs,representations}/{proxy,redirect}/
+  (100 entry, 30d) — production.rb 走 proxy mode,真实 URL 是
+  /rails/active_storage/blobs/proxy/...;redirect 兜底以备 backend 切回。
+  blob digest 在 URL 里,长期 cache 安全
 - NetworkFirst:Inertia GETs (X-Inertia: true header) (50 entry, 7d,
   network timeout 10s) — 离线时 fallback 上次访问页面
 

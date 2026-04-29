@@ -19,7 +19,9 @@ export function setupPWA() {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
 
   navigator.serviceWorker
-    .register('/sw.js', { scope: '/' })
+    // updateViaCache: 'none' — 浏览器查 SW 字节变化时不走 HTTP cache,
+    // 否则 sw.js 自己被中间层 cache 住,新 SW 没法及时被发现安装。
+    .register('/sw.js', { scope: '/', updateViaCache: 'none' })
     .then((reg) => {
       if (import.meta.env.DEV) console.log('[PWA] SW registered:', reg.scope)
     })
