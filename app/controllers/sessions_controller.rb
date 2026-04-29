@@ -7,8 +7,24 @@ class SessionsController < ApplicationController
   # 也没必要;header 错了直接 head :not_found,不会到 mutation 路径。
   skip_before_action :verify_authenticity_token, only: :test_login
 
+  # Brute-force defense:同 IP 每分钟最多 5 次 /login_test 尝试,超出 429。
+  # 64-byte STAGING_LOGIN_SECRET 本身 keyspace 已经实质不可能爆破,这条是
+  # defense in depth,主要防 log noise 和 staging container CPU。test env
+  # 跑 10 个 spec 不撞限(spec 串行 + Rails.cache 用 :null_store 不共享)。
+  rate_limit to: 5, within: 1.minute, only: :test_login,
+             by: -> { request.remote_ip },
+             with: -> { head :too_many_requests }
+
   def new
-    render inertia: "Auth/Login", props: { dev_login_enabled: Rails.env.development? }
+    render inertia: "Auth/Login", props: {
+      dev_login_enabled: Rails.env.development?,
+      # Staging 公开 URL,但 OAuth/Resend secrets 没 push 进 staging container,
+      # 真 OAuth + email-code 都走不通。Login UI 在 staging 显示一个 secret-gate
+      # form,team 成员从 .env.staging 拿 STAGING_LOGIN_SECRET 粘贴 + user_id
+      # 即登入。Form 内部 POST /login_test 走同一条 header gate(secure_compare
+      # + 长度判,brute force 不可行)。Prod 永远 false。
+      staging_login_enabled: Rails.env.staging?
+    }
   end
 
   def create
