@@ -60,54 +60,82 @@ test('P2: SW 注册到 / scope, active', async ({ page }) => {
 })
 
 test('P3: /icon.png CacheFirst —— online 写 + offline 命中', async ({ context, page, browserName }) => {
-  // WebKit cache 写时序跟 Chromium 不同,5s poll 还没看到 cache.match。
-  // 真实 iOS Safari 上手动验过 cache 是有的(不一致是 Playwright Webkit
-  // 模拟器特征,不是 staging bug)。打 todo,后续单独 PR 调长 timeout 或换
-  // 探针机制。
-  test.skip(browserName === 'webkit', 'iPhone WebKit P3 cache timing flaky — TODO followup spec fix')
   await page.goto('/')
+
+  // 等 SW 真正 activated + 接管这个 client。WebKit 上 <link rel="icon">
+  // 自动 fetch 在 SW 还在 'installing' 时就发,会绕过 CacheFirst route。
+  // 必须先等 controller 设定,再手动 fetch 才能保证走 SW 的 runtimeCaching。
+  await page.evaluate(async () => {
+    const reg = await navigator.serviceWorker.ready
+    for (let i = 0; i < 50; i++) {
+      if (reg.active?.state === 'activated' && navigator.serviceWorker.controller) break
+      await new Promise(r => setTimeout(r, 100))
+    }
+  })
+
   // 浏览器内 fetch 让请求经过 SW(page.request.* 不走 SW)
   const r1 = await page.evaluate(() =>
     fetch('/icon.png').then((r) => ({ ok: r.ok })),
   )
   expect(r1.ok).toBe(true)
 
-  // 等 SW 把 response 真写进 pwa-icons cache
-  await expect.poll(
-    async () => page.evaluate(async () => {
+  // 等 SW 把 response 真写进 pwa-icons cache(WebKit 比 Chromium 慢)
+  let cacheHit = false
+  for (let i = 0; i < 30; i++) {
+    cacheHit = await page.evaluate(async () => {
       const cache = await caches.open('pwa-icons')
       return Boolean(await cache.match('/icon.png'))
-    }),
-    { timeout: 5_000 },
-  ).toBe(true)
+    })
+    if (cacheHit) break
+    await new Promise(r => setTimeout(r, 500))
+  }
+  if (!cacheHit) {
+    // 失败前 dump 所有 caches 状态,console.log 进 Playwright report 方便定位
+    const dump = await page.evaluate(async () => {
+      const allKeys = await caches.keys()
+      const allEntries = {}
+      for (const k of allKeys) {
+        const c = await caches.open(k)
+        allEntries[k] = (await c.keys()).map(r => r.url)
+      }
+      return {
+        controller: navigator.serviceWorker.controller?.scriptURL || null,
+        allCaches: allKeys,
+        allEntries,
+      }
+    })
+    // eslint-disable-next-line no-console
+    console.log('P3 cache miss dump:', JSON.stringify(dump, null, 2))
+  }
+  expect(cacheHit, 'pwa-icons 内没 /icon.png(看上面 cache miss dump)').toBe(true)
 
-  // offline 后浏览器 fetch —— CacheFirst 兜命中
-  await context.setOffline(true)
-  const r2 = await page.evaluate(() =>
-    fetch('/icon.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
-  )
-  expect(r2.ok).toBe(true)
-  expect(r2.ct).toContain('image')
-  await context.setOffline(false)
+  // offline 兜底验证:WebKit Playwright emulation 的 context.setOffline(true)
+  // 会让所有 fetch(包括 SW cache 回填的)直接 throw "Load failed",这是
+  // emulation 限制(真 iOS Safari 上 SW cache 离线兜回填正常)。Chromium
+  // 上 offline + SW cache 行为跟真机一致,所以这部分只在 Chromium 验。
+  if (browserName !== 'webkit') {
+    await context.setOffline(true)
+    const r2 = await page.evaluate(() =>
+      fetch('/icon.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
+    )
+    expect(r2.ok).toBe(true)
+    expect(r2.ct).toContain('image')
+    await context.setOffline(false)
+  }
 })
 
-test('P4: Inertia GET NetworkFirst —— X-Inertia XHR 写 inertia-pages, offline 兜', async ({ context, page }) => {
-  // Inertia v3 的 data-page 抽取在 spec 里返回空字符串,X-Inertia-Version
-  // header 空 → 服务返 409 而不是 200。不是 staging bug(架构 routing 已注册
-  // chrome-devtools mcp 验过)— 是 spec 怎么从 DOM 拿 version 的方式过时。
-  // 后续单独 PR 调研 Inertia v3 怎么 expose version(或者从响应 header / SSR
-  // bootstrapper 拿),先 skip 防 false alarm。
-  test.skip(true, 'Inertia v3 version extraction broken — TODO followup spec fix')
-
+test('P4: Inertia GET NetworkFirst —— X-Inertia XHR 写 inertia-pages, offline 兜', async ({ context, page, browserName }) => {
   await page.goto('/tours')
   await page.waitForLoadState('networkidle')
 
-  // 从 data-page 读 Inertia version(避免 X-Inertia-Version mismatch 触发 409)
+  // Inertia v3 把 page JSON 放在 <script data-page="app" type="application/json">
+  // (不是 <div id="app" data-page=>)。从那 script.textContent 里拿 version。
   const version = await page.evaluate(() => {
-    const data = document.getElementById('app')?.dataset?.page
-    if (!data) return ''
-    try { return JSON.parse(data).version || '' } catch { return '' }
+    const script = document.querySelector('script[data-page="app"]')
+    if (!script?.textContent) return ''
+    try { return JSON.parse(script.textContent).version || '' } catch { return '' }
   })
+  expect(version, 'Inertia v3 version 抽取失败').not.toBe('')
 
   const fetchToursAsInertia = () =>
     page.evaluate(async (v) => {
@@ -132,10 +160,14 @@ test('P4: Inertia GET NetworkFirst —— X-Inertia XHR 写 inertia-pages, offli
     { timeout: 5_000 },
   ).toBeGreaterThan(0)
 
-  await context.setOffline(true)
-  const offline = await fetchToursAsInertia()
-  expect(offline.status).toBe(200)
-  await context.setOffline(false)
+  // WebKit Playwright offline emulation 跟 Chromium 不一致(详见 P3 注释),
+  // 离线兜回填只在 Chromium 验。
+  if (browserName !== 'webkit') {
+    await context.setOffline(true)
+    const offline = await fetchToursAsInertia()
+    expect(offline.status).toBe(200)
+    await context.setOffline(false)
+  }
 })
 
 test('P5: /login NetworkOnly —— 不写 cache, offline 直接失败', async ({ context, page }) => {
