@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button, Stack, Title, Paper, Center, Text, Alert, Divider, TextInput, PasswordInput } from '@mantine/core'
-import { usePage } from '@inertiajs/react'
+import { Head, usePage } from '@inertiajs/react'
 import EmailLoginForm from '../../components/EmailLoginForm'
 
 // All icons from Simple Icons (https://simpleicons.org) — MIT license, fill-based monochrome
@@ -94,7 +94,7 @@ function StagingQuickLogin() {
             {error}
           </Alert>
         )}
-        <Button type="submit" loading={submitting} fullWidth size="md" color="orange">
+        <Button type="submit" loading={submitting} fullWidth size="md" color="orange.8">
           Staging 登入
         </Button>
       </Stack>
@@ -106,8 +106,10 @@ export default function Login() {
   const { flash, dev_login_enabled, staging_login_enabled } = usePage().props
 
   return (
-    <Center mih="80vh">
-      <Paper shadow="sm" p="xl" radius="md" w={400}>
+    <>
+      <Head title="登录 · OneTour" />
+      <Center component="main" mih="80vh">
+        <Paper shadow="sm" p="xl" radius="md" w={400}>
         <Stack align="center" gap="lg">
           <Title order={2}>登录</Title>
           <Text size="sm" c="dimmed">选择登录方式</Text>
@@ -154,6 +156,7 @@ export default function Login() {
         </Stack>
       </Paper>
     </Center>
+    </>
   )
 }
 
