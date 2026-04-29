@@ -8,12 +8,14 @@ class SessionsController < ApplicationController
   skip_before_action :verify_authenticity_token, only: :test_login
 
   # Brute-force defense:同 IP 每分钟最多 5 次 /login_test 尝试,超出 429。
-  # 64-byte STAGING_LOGIN_SECRET 本身 keyspace 已经实质不可能爆破,这条是
-  # defense in depth,主要防 log noise 和 staging container CPU。test env
-  # 跑 10 个 spec 不撞限(spec 串行 + Rails.cache 用 :null_store 不共享)。
-  rate_limit to: 5, within: 1.minute, only: :test_login,
-             by: -> { request.remote_ip },
-             with: -> { head :too_many_requests }
+  # 64-byte STAGING_LOGIN_SECRET keyspace 已经实质不可能爆破,这条是 defense
+  # in depth + 防 log noise / 容器 CPU。
+  #
+  # 用手动 cache.increment(同 RouteLegsController#throttle!)而不是 Rails 8
+  # `rate_limit` 宏,因为后者在 class load 时把 Rails.cache 实例 capture 进
+  # before_action 闭包,spec 替换 Rails.cache 后宏的 store 还指向原 :null_store
+  # 不可测。手动 throttle per-request 取 Rails.cache.increment,可测。
+  before_action :throttle_test_login!, only: :test_login
 
   def new
     render inertia: "Auth/Login", props: {
@@ -102,6 +104,15 @@ class SessionsController < ApplicationController
   end
 
   private
+
+    TEST_LOGIN_RATE_LIMIT = 5
+    TEST_LOGIN_RATE_WINDOW = 1.minute
+
+    def throttle_test_login!
+      key = "throttle:login_test:#{request.remote_ip}"
+      count = Rails.cache.increment(key, 1, expires_in: TEST_LOGIN_RATE_WINDOW)
+      head :too_many_requests if count && count > TEST_LOGIN_RATE_LIMIT
+    end
 
     def staging_login_secret_valid?
       expected = ENV["STAGING_LOGIN_SECRET"].to_s

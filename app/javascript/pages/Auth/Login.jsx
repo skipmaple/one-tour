@@ -28,7 +28,9 @@ function OAuthButton({ provider, label, icon }) {
 }
 
 function StagingQuickLogin() {
-  const [userId, setUserId] = useState('1')
+  // userId 默认空 + required —— 防止有人粘 secret 后直接 submit 误以
+  // user 1(通常是 admin)身份登入。必须显式输 id。
+  const [userId, setUserId] = useState('')
   const [secret, setSecret] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -67,10 +69,14 @@ function StagingQuickLogin() {
       <Stack gap="xs">
         <TextInput
           label="User ID"
+          placeholder="数字 user.id"
           required
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
           size="sm"
+          // numeric only — 引导输 id 而非 email/name
+          inputMode="numeric"
+          autoComplete="off"
         />
         <PasswordInput
           label="Staging Secret"
@@ -79,6 +85,9 @@ function StagingQuickLogin() {
           value={secret}
           onChange={(e) => setSecret(e.target.value)}
           size="sm"
+          // 提示浏览器不要 autofill / password manager 不要存 ——
+          // staging secret 是共享凭证,QA 机器存了会泄漏
+          autoComplete="new-password"
         />
         {error && (
           <Alert color="red" variant="light">
