@@ -48,6 +48,9 @@ function StagingQuickLogin() {
       })
       if (res.ok) {
         window.location.href = '/'
+      } else if (res.status === 429) {
+        // Rails 8 rate_limit 触发:同 IP 1 分钟 5 次。提示去等
+        setError('请求过于频繁,请等 1 分钟后再试')
       } else {
         // staging gate:secret 错 / user_id 不存在都返 404,不区分(防探测)
         setError('登入失败 — secret 或 user_id 错误')

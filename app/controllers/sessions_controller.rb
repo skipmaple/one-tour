@@ -23,7 +23,10 @@ class SessionsController < ApplicationController
       # form,team 成员从 .env.staging 拿 STAGING_LOGIN_SECRET 粘贴 + user_id
       # 即登入。Form 内部 POST /login_test 走同一条 header gate(secure_compare
       # + 长度判,brute force 不可行)。Prod 永远 false。
-      staging_login_enabled: Rails.env.staging?
+      # 同时要求 STAGING_LOGIN_SECRET 真有值 —— 没配 secret 时 form 显示但
+      # 所有 submit 都会被 controller 内部 `expected.empty?` 拒,UI 会让人
+      # 困惑找半天。直接不显示,顺带省掉无效请求。
+      staging_login_enabled: Rails.env.staging? && ENV["STAGING_LOGIN_SECRET"].present?
     }
   end
 
