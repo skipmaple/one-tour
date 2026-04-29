@@ -1,4 +1,12 @@
 class SessionsController < ApplicationController
+  # /login_test 是 test + staging E2E 的自动化 backdoor —— 外部 POST 没 CSRF
+  # token,Rails 默认 protect_from_forgery 拦掉返 422。test env 跑 spec 时
+  # 默认 allow_forgery_protection = false 不踩,但 staging env 的 forgery
+  # protection 是开的,所以 E2E 自动化必须显式 skip。安全等价:test_login
+  # 内部已经用 X-Staging-Login-Secret header 严格 gate,header 对了 CSRF
+  # 也没必要;header 错了直接 head :not_found,不会到 mutation 路径。
+  skip_before_action :verify_authenticity_token, only: :test_login
+
   def new
     render inertia: "Auth/Login", props: { dev_login_enabled: Rails.env.development? }
   end
@@ -50,17 +58,42 @@ class SessionsController < ApplicationController
     render json: { ok: false, error: e.message }, status: :too_many_requests
   end
 
-  # Test-only action for setting session in request specs
+  # Test helper —— test env 跑 request spec 用(无 gate),staging env 给
+  # PWA E2E 自动化用(必须带 X-Staging-Login-Secret header 才能用,值在
+  # ENV 里;生产没人知道这值,加上 routes.rb 也只在 staging.rb 挂这条 route,
+  # 双层 gate)。
   def test_login
     if Rails.env.test?
       session[:user_id] = params[:user_id]
       head :ok
+    elsif Rails.env.staging? && staging_login_secret_valid?
+      user = User.find_by(id: params[:user_id])
+      if user
+        session[:user_id] = user.id
+        head :ok
+      else
+        head :not_found
+      end
     else
-      raise ActionController::RoutingError, "Not Found"
+      # 公开 staging 上 /login_test 总是被扫描器探测,raise RoutingError
+      # 会每次产 error-level stack(放大 log noise + 轻 DoS)。直接 head :not_found
+      # 同等 404 响应,不抛 exception。production 命中此分支也走这条。
+      head :not_found
     end
   end
 
   private
+
+    def staging_login_secret_valid?
+      expected = ENV["STAGING_LOGIN_SECRET"].to_s
+      return false if expected.empty? # 没配 secret 直接拒,默认拒
+      provided = request.headers["X-Staging-Login-Secret"].to_s
+      # secure_compare 要求两边等长才是 constant-time,长度不等的实现可能直接
+      # raise(老 Ruby) 或泄漏 timing(差长度的早期退出)。先长度判,再 compare。
+      return false unless provided.bytesize == expected.bytesize
+      ActiveSupport::SecurityUtils.secure_compare(provided, expected)
+    end
+
     def find_or_create_user_by_email(raw_email)
       email = EmailVerification.normalize_email(raw_email)
       User.find_by(email: email) || User.create!(

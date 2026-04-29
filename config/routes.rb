@@ -85,8 +85,11 @@ Rails.application.routes.draw do
   # Can be used by load balancers and uptime monitors to verify that the app is live.
   get "up" => "rails/health#show", as: :rails_health_check
 
-  # Test helper (only in test env)
-  if Rails.env.test?
+  # Test helper —— test env 直接挂(spec 用),staging env 也挂但 controller
+  # 内部用 STAGING_LOGIN_SECRET header 严格 gate(staging.tour.skipmaple.com
+  # 是公开的,没 gate 任何人都能拿任意 user 身份登入)。E2E 自动化脚本带
+  # X-Staging-Login-Secret header 走,生产没人知道这值。
+  if Rails.env.test? || Rails.env.staging?
     post "/login_test", to: "sessions#test_login"
   end
 end
