@@ -5,8 +5,14 @@
 # MSSQL 上;47G 磁盘 12G 剩。staging 跑 Rails + Postgres 双容器,目标占用
 # < 500MB RAM + < 2GB 磁盘,以免 OOM-killer 波及 Bitwarden。
 #
-# 部署:`kamal -d staging setup`(首次)或 `kamal -d staging deploy`(后续)
-# 域名:staging.tour.skipmaple.com(用户先 DNS A 记录指过去)
+# ⚠️ 部署只能用 wrapper:`scripts/kamal-staging.sh setup` / `... deploy`
+#
+# **绝对不要用 `kamal -d staging`** —— 那是 deploy.yml + deploy.staging.yml
+# 深度 merge,prod host 43.103.50.22 会被一并卷进来。曾经踩过坑。
+# wrapper 用 `-c config/staging/deploy.yml` 强制单文件 + pre-flight grep
+# 检查 resolved config 不含 prod IP,任何泄漏直接 exit 1。
+#
+# 域名:staging.tour.skipmaple.com(DNS A 记录指过去)
 
 service: one-tour-staging
 

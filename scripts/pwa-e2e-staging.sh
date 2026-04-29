@@ -3,11 +3,13 @@
 # profile(Pixel 5 + iPhone 15)。
 #
 # 前置:
-# 1. PR #58 merged + `kamal -d staging setup` 跑过
-# 2. `kamal -d staging app exec --reuse "bin/rails db:seed"` 创建测试用户
+# 1. PR #58 merged + `scripts/kamal-staging.sh setup` 跑过
+#    ⚠️ **绝不要用 `kamal -d staging`** —— deep-merge prod hosts 进来会动 prod。
+#    永远走 wrapper:`scripts/kamal-staging.sh ...`
+# 2. `scripts/kamal-staging.sh app exec --reuse "bin/rails db:seed"` 创建测试用户
 # 3. `.env.staging` 含 STAGING_LOGIN_SECRET
 # 4. 取 staging test user id:
-#    kamal -d staging app exec --reuse "bin/rails runner 'puts User.find_by(email: %{staging-e2e@example.com}).id'"
+#    scripts/kamal-staging.sh app exec --reuse "bin/rails runner 'puts User.find_by(email: %{staging-e2e@example.com}).id'"
 #    然后填进 .env.staging:STAGING_TEST_USER_ID=<id>
 #
 # 用:`scripts/pwa-e2e-staging.sh`
