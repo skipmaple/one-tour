@@ -37,9 +37,13 @@ Rails.application.configure do
   # ActionCable adapter 来自 config/cable.yml staging block(async)。
   config.action_cable.allowed_request_origins = [ "https://staging.tour.skipmaple.com" ]
 
-  # Mailer 在 staging 不真发(没 RESEND_API_KEY)。test 模式 deliveries 进
-  # ActionMailer::Base.deliveries 数组,不会去打 SMTP。
-  config.action_mailer.delivery_method = :test
+  # Mailer 在 staging 不真发(没 RESEND_API_KEY)。
+  # 用 :file 而不是 :test —— :test 累积到 ActionMailer::Base.deliveries 数组
+  # 不释放,staging 长跑(每次 send_code 都 deliver_later)会 OOM。:file 写
+  # 到 tmp/mails/ 不占进程内存,需要查发了什么直接 ssh 看文件。
+  config.action_mailer.delivery_method = :file
+  config.action_mailer.file_settings = { location: Rails.root.join("tmp/mails") }
+  config.action_mailer.perform_deliveries = true
   config.action_mailer.raise_delivery_errors = false
   config.action_mailer.default_url_options = { host: "staging.tour.skipmaple.com", protocol: "https" }
 
