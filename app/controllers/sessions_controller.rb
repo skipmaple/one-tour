@@ -43,6 +43,12 @@ class SessionsController < ApplicationController
 
   def destroy
     session.delete(:user_id)
+    # 清浏览器全部 cache(含 SW Cache Storage `inertia-pages` /
+    # `active-storage-blobs`),防设备共享时前一用户私有数据离线被下一用户
+    # 看到。Clear-Site-Data 是 W3C 标准 header,Chromium / Firefox 都支持,
+    # iOS 16.4+ Safari 也支持(老 iOS 退化为只清 cookies,session 已 delete
+    # 也算 fallback safe)。架构师 review SC-2 列的 privacy follow-up。
+    response.set_header("Clear-Site-Data", '"cache", "storage"')
     redirect_to root_path
   end
 
