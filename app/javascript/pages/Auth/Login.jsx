@@ -1,4 +1,5 @@
-import { Button, Stack, Title, Paper, Center, Text, Alert, Divider } from '@mantine/core'
+import { useState } from 'react'
+import { Button, Stack, Title, Paper, Center, Text, Alert, Divider, TextInput, PasswordInput } from '@mantine/core'
 import { usePage } from '@inertiajs/react'
 import EmailLoginForm from '../../components/EmailLoginForm'
 
@@ -26,8 +27,83 @@ function OAuthButton({ provider, label, icon }) {
   )
 }
 
+function StagingQuickLogin() {
+  // userId 默认空 + required —— 防止有人粘 secret 后直接 submit 误以
+  // user 1(通常是 admin)身份登入。必须显式输 id。
+  const [userId, setUserId] = useState('')
+  const [secret, setSecret] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setSubmitting(true)
+    try {
+      const res = await fetch('/login_test', {
+        method: 'POST',
+        headers: {
+          'X-Staging-Login-Secret': secret,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `user_id=${encodeURIComponent(userId)}`,
+      })
+      if (res.ok) {
+        window.location.href = '/'
+      } else if (res.status === 429) {
+        // Rails 8 rate_limit 触发:同 IP 1 分钟 5 次。提示去等
+        setError('请求过于频繁,请等 1 分钟后再试')
+      } else {
+        // staging gate:secret 错 / user_id 不存在都返 404,不区分(防探测)
+        setError('登入失败 — secret 或 user_id 错误')
+      }
+    } catch (err) {
+      setError(`网络错误:${err.message}`)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit}>
+      <Stack gap="xs">
+        <TextInput
+          label="User ID"
+          placeholder="数字 user.id"
+          required
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+          size="sm"
+          // numeric only — 引导输 id 而非 email/name
+          inputMode="numeric"
+          autoComplete="off"
+        />
+        <PasswordInput
+          label="Staging Secret"
+          description="从 .env.staging 拷"
+          required
+          value={secret}
+          onChange={(e) => setSecret(e.target.value)}
+          size="sm"
+          // 提示浏览器不要 autofill / password manager 不要存 ——
+          // staging secret 是共享凭证,QA 机器存了会泄漏
+          autoComplete="new-password"
+        />
+        {error && (
+          <Alert color="red" variant="light">
+            {error}
+          </Alert>
+        )}
+        <Button type="submit" loading={submitting} fullWidth size="md" color="orange">
+          Staging 登入
+        </Button>
+      </Stack>
+    </form>
+  )
+}
+
 export default function Login() {
-  const { flash, dev_login_enabled } = usePage().props
+  const { flash, dev_login_enabled, staging_login_enabled } = usePage().props
 
   return (
     <Center mih="80vh">
@@ -65,6 +141,13 @@ export default function Login() {
                 >
                   开发者登录
                 </Button>
+              </>
+            )}
+
+            {staging_login_enabled && (
+              <>
+                <Divider label="Staging 环境" labelPosition="center" />
+                <StagingQuickLogin />
               </>
             )}
           </Stack>

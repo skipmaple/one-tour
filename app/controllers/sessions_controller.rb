@@ -7,8 +7,29 @@ class SessionsController < ApplicationController
   # 也没必要;header 错了直接 head :not_found,不会到 mutation 路径。
   skip_before_action :verify_authenticity_token, only: :test_login
 
+  # Brute-force defense:同 IP 每分钟最多 5 次 /login_test 尝试,超出 429。
+  # 64-byte STAGING_LOGIN_SECRET keyspace 已经实质不可能爆破,这条是 defense
+  # in depth + 防 log noise / 容器 CPU。
+  #
+  # 用手动 cache.increment(同 RouteLegsController#throttle!)而不是 Rails 8
+  # `rate_limit` 宏,因为后者在 class load 时把 Rails.cache 实例 capture 进
+  # before_action 闭包,spec 替换 Rails.cache 后宏的 store 还指向原 :null_store
+  # 不可测。手动 throttle per-request 取 Rails.cache.increment,可测。
+  before_action :throttle_test_login!, only: :test_login
+
   def new
-    render inertia: "Auth/Login", props: { dev_login_enabled: Rails.env.development? }
+    render inertia: "Auth/Login", props: {
+      dev_login_enabled: Rails.env.development?,
+      # Staging 公开 URL,但 OAuth/Resend secrets 没 push 进 staging container,
+      # 真 OAuth + email-code 都走不通。Login UI 在 staging 显示一个 secret-gate
+      # form,team 成员从 .env.staging 拿 STAGING_LOGIN_SECRET 粘贴 + user_id
+      # 即登入。Form 内部 POST /login_test 走同一条 header gate(secure_compare
+      # + 长度判,brute force 不可行)。Prod 永远 false。
+      # 同时要求 STAGING_LOGIN_SECRET 真有值 —— 没配 secret 时 form 显示但
+      # 所有 submit 都会被 controller 内部 `expected.empty?` 拒,UI 会让人
+      # 困惑找半天。直接不显示,顺带省掉无效请求。
+      staging_login_enabled: Rails.env.staging? && ENV["STAGING_LOGIN_SECRET"].present?
+    }
   end
 
   def create
@@ -83,6 +104,15 @@ class SessionsController < ApplicationController
   end
 
   private
+
+    TEST_LOGIN_RATE_LIMIT = 5
+    TEST_LOGIN_RATE_WINDOW = 1.minute
+
+    def throttle_test_login!
+      key = "throttle:login_test:#{request.remote_ip}"
+      count = Rails.cache.increment(key, 1, expires_in: TEST_LOGIN_RATE_WINDOW)
+      head :too_many_requests if count && count > TEST_LOGIN_RATE_LIMIT
+    end
 
     def staging_login_secret_valid?
       expected = ENV["STAGING_LOGIN_SECRET"].to_s

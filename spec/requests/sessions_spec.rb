@@ -109,5 +109,38 @@ RSpec.describe "Sessions", type: :request do
       expect(response).to have_http_status(:not_found)
       expect(session[:user_id]).to be_nil
     end
+
+    context "rate_limit (brute-force defense)" do
+      # Rails 8 rate_limit 用 Rails.cache 做计数。test env 默认 :null_store 不
+      # 累积,要测限流必须换真 cache。沿用 spec/requests/route_legs_spec.rb 同
+      # 一模式,around 临时换 MemoryStore。
+      around do |example|
+        original = Rails.cache
+        Rails.cache = ActiveSupport::Cache::MemoryStore.new
+        example.run
+      ensure
+        Rails.cache = original
+      end
+
+      it "rate limits to 5 attempts per minute per IP (6th 返 429)" do
+        # 5 次合法 secret 应都返 200(每次都成功登入)
+        5.times do
+          post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => secret }
+          expect(response).to have_http_status(:ok)
+        end
+        # 第 6 次同分钟同 IP → 429,不再走到 controller
+        post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => secret }
+        expect(response).to have_http_status(:too_many_requests)
+      end
+
+      it "wrong-secret attempts also count toward limit (防 brute force)" do
+        5.times do
+          post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => "wrong#{rand(1000)}" }
+          expect(response).to have_http_status(:not_found)
+        end
+        post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => secret }
+        expect(response).to have_http_status(:too_many_requests)
+      end
+    end
   end
 end
