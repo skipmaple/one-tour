@@ -2,9 +2,13 @@
  * WCAG AA 4.5:1。改用 gray.7 (#495057),contrast ~7.6:1 通过。
  * 影响 Text c="dimmed" / Divider label / InputWrapper.description 等。
  *
- * 必须在 @mantine/core/styles.css 之后导入(inertia.jsx 控制顺序),
- * 否则同 :root 选择器 Mantine cascade 后赢。
+ * 必须匹配 Mantine 的 :root[data-mantine-color-scheme="light"] specificity
+ * (0,1,1),纯 :root (0,0,1) 输 cascade。dark scheme 由 Mantine 自己处理,
+ * 我们只覆盖 light(prod 默认)。
+ *
+ * 必须在 @mantine/core/styles.css 之后导入(inertia.jsx 控制顺序)。
  */
+:root[data-mantine-color-scheme="light"],
 :root {
   --mantine-color-dimmed: var(--mantine-color-gray-7);
 }
