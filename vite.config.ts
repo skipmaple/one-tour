@@ -90,8 +90,12 @@ export default defineConfig({
             options: {
               cacheName: 'active-storage-blobs',
               expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              // 401/403/404 不缓存(用户没权限或 blob 删除时不该兜错给离线用户)
-              cacheableResponse: { statuses: [ 200 ] },
+              // 0 是 opaque(no-cors cross-origin),200 是 same-origin success。
+              // 当前 prod 走 proxy 模式 → 同源 200;但 routes 同时匹配 redirect
+              // (storage backend 切回 redirect 时的兼容),那个路径跟随到跨域 OSS
+              // 会拿 opaque,只 [200] 会让 redirect 路径永远不进 cache。两个 status
+              // 都允许,401/403/404 仍被排除(用户无权限/blob 删除不兜错)。
+              cacheableResponse: { statuses: [ 0, 200 ] },
             },
           },
           // === NetworkFirst:Inertia GETs(X-Inertia: true header)===
