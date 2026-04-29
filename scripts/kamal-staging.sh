@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kamal staging wrapper —— 强制 `-c config/staging/deploy.yml` 模式 +
-# pre-flight prod host 白名单检查 + 隔离 secrets-common(避免 prod env 漏过来)。
+# pre-flight prod host 白名单检查 + 注入 staging secrets。
 #
 # ## 为什么不用 `kamal -d staging`
 #
@@ -13,8 +13,12 @@
 # 这个 wrapper 强制:
 # 1. `-c config/staging/deploy.yml` 单文件模式(kamal 不 merge deploy.yml)
 # 2. pre-flight grep prod IP — resolved config 里看到立刻 abort
-# 3. 临时挪开 .kamal/secrets-common(prod 专用密码源),kamal staging 只 source
-#    .kamal/staging/secrets(staging 自包含)
+# 3. 把 `.kamal/staging/secrets` 拷到 `.kamal/secrets` —— kamal source 顺序里
+#    secrets-common 先(prod 共享:KAMAL_REGISTRY_PASSWORD / RAILS_MASTER_KEY
+#    在这),`.kamal/secrets` 后(staging override:ONE_TOUR_DATABASE_PASSWORD
+#    等共享 key 被 staging 值覆盖,也加了新 STAGING_LOGIN_SECRET)。后 source
+#    胜,staging container 拿到正确的 staging 密码。trap 退出清掉 .kamal/secrets,
+#    不污染 prod 部署。
 #
 # ## 用法
 #
@@ -28,7 +32,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CONFIG="config/staging/deploy.yml"
-SECRETS_FILE=".kamal/staging/secrets"
+STAGING_SECRETS=".kamal/staging/secrets"
+KAMAL_SECRETS=".kamal/secrets"
 PROD_HOST_PATTERN='43\.103\.50\.22'   # 阿里云 prod IP — 永远不能在 staging resolved config 里出现
 
 # ---- 1. Pre-flight: resolved config 不能含 prod IP ----
@@ -46,36 +51,24 @@ if echo "$RESOLVED" | grep -qE "$PROD_HOST_PATTERN"; then
 fi
 echo "    ✓ resolved config 干净,只含 staging host"
 
-# ---- 2. 临时挪开 secrets-common(避免 prod env 漏入 staging container)----
-SC_DISABLED=""
-if [[ -f .kamal/secrets-common ]]; then
-  # 上次运行如果异常中断,可能留下 .staging-shielded 残骸,直接 mv 会覆盖它
-  # 丢真实 secrets-common(那是 prod 密码总源)。检测到就 abort 让人手清。
-  if [[ -e .kamal/secrets-common.staging-shielded ]]; then
-    echo "❌ .kamal/secrets-common.staging-shielded 已存在 —— 上次运行可能崩溃留下"
+# ---- 2. 注入 staging secrets 到 .kamal/secrets ----
+# kamal source 顺序:secrets-common(prod 共享)→ .kamal/secrets(staging override)
+# 共享 key(ONE_TOUR_DATABASE_PASSWORD 等)会被 staging 值覆盖,新 key
+# (STAGING_LOGIN_SECRET)由 staging secrets 引入。
+if [[ -e "$KAMAL_SECRETS" ]]; then
+  # 上次运行如果异常中断,可能留下 .staging-bak 残骸,直接 mv 会覆盖它丢
+  # 真实文件。检测到就 abort 让人手清。
+  if [[ -e "$KAMAL_SECRETS.staging-bak" ]]; then
+    echo "❌ $KAMAL_SECRETS.staging-bak 已存在 —— 上次运行可能崩溃留下"
     echo "    手动核对两个文件内容,删旧的(or rename),然后重跑。"
-    echo "    diff .kamal/secrets-common .kamal/secrets-common.staging-shielded"
+    echo "    diff $KAMAL_SECRETS $KAMAL_SECRETS.staging-bak"
     exit 1
   fi
-  mv .kamal/secrets-common .kamal/secrets-common.staging-shielded
-  SC_DISABLED="yes"
+  mv "$KAMAL_SECRETS" "$KAMAL_SECRETS.staging-bak"
 fi
-trap '
-  if [[ "$SC_DISABLED" == "yes" && -f .kamal/secrets-common.staging-shielded ]]; then
-    mv .kamal/secrets-common.staging-shielded .kamal/secrets-common
-  fi
-' EXIT
+cp "$STAGING_SECRETS" "$KAMAL_SECRETS"
+trap 'rm -f "$KAMAL_SECRETS"; if [[ -e "$KAMAL_SECRETS.staging-bak" ]]; then mv "$KAMAL_SECRETS.staging-bak" "$KAMAL_SECRETS"; fi' EXIT
 
-# ---- 3. Source staging secrets 进 env ----
-if [[ ! -f "$SECRETS_FILE" ]]; then
-  echo "❌ $SECRETS_FILE 不存在"
-  exit 1
-fi
-set -a
-# shellcheck disable=SC1091
-source "$SECRETS_FILE"
-set +a
-
-# ---- 4. Run kamal ----
+# ---- 3. Run kamal ----
 echo "==> bin/kamal $* -c $CONFIG"
 bin/kamal "$@" -c "$CONFIG"
