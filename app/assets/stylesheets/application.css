@@ -9,10 +9,3 @@
  * Consider organizing styles into separate files for maintainability.
  */
 
-/* Mantine dimmed text 默认 gray.6(#868e96)在白底对比度只 ~3.8:1,
- * 不到 WCAG AA 4.5:1。改用 gray.7(#495057),contrast ~7.6:1 通过 AA。
- * 影响 Text c="dimmed" / Divider label / InputWrapper.description 等。
- */
-:root {
-  --mantine-color-dimmed: var(--mantine-color-gray-7);
-}
