@@ -67,7 +67,10 @@ class SessionsController < ApplicationController
         head :not_found
       end
     else
-      raise ActionController::RoutingError, "Not Found"
+      # 公开 staging 上 /login_test 总是被扫描器探测,raise RoutingError
+      # 会每次产 error-level stack(放大 log noise + 轻 DoS)。直接 head :not_found
+      # 同等 404 响应,不抛 exception。production 命中此分支也走这条。
+      head :not_found
     end
   end
 

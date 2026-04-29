@@ -15,3 +15,8 @@ production:
       writing: cable
   polling_interval: 0.1.seconds
   message_retention: 1.day
+
+# Staging —— in-process async(staging.rb 已配 allowed_request_origins)。
+# 不接 solid_cable 因为 staging 不部 4-DB 结构,且 E2E 不依赖跨进程消息广播。
+staging:
+  adapter: async

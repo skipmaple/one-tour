@@ -34,6 +34,7 @@ Rails.application.configure do
   # SolidQueue / SolidCable 单独 DB,也不需要 background job 跑。
   config.cache_store = :memory_store
   config.active_job.queue_adapter = :async
+  # ActionCable adapter 来自 config/cable.yml staging block(async)。
   config.action_cable.allowed_request_origins = [ "https://staging.tour.skipmaple.com" ]
 
   # Mailer 在 staging 不真发(没 RESEND_API_KEY)。test 模式 deliveries 进

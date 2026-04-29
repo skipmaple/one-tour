@@ -103,12 +103,13 @@ production:
 # Staging —— Vultr E2E box(45.63.23.136 与 Bitwarden 共享),Postgres 18
 # 单库(staging.rb 把 cache/queue/cable 全切 in-process,所以不需要 prod 那
 # 套 4 库结构)。host 由 deploy.staging.yml accessory 'postgres' 提供,
-# kamal docker 网络里通过 service name resolve(one-tour-postgres)。
-# 数据 volume mount 到 host /var/lib/one-tour-staging/postgres。
+# kamal docker 网络里通过 service name resolve `one-tour-staging-postgres`
+# (deploy.staging.yml 的 service name 同名)。数据 volume mount 到 host
+# /var/lib/one-tour-staging/postgres。
 staging:
   primary:
     <<: *default
     database: one_tour_staging
-    host: <%= ENV.fetch("DB_HOST", "one-tour-postgres") %>
+    host: <%= ENV.fetch("DB_HOST", "one-tour-staging-postgres") %>
     username: <%= ENV.fetch("DB_USER", "postgres") %>
     password: <%= ENV["ONE_TOUR_DATABASE_PASSWORD"] %>
