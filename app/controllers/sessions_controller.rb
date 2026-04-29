@@ -7,9 +7,11 @@ class SessionsController < ApplicationController
   # 也没必要;header 错了直接 head :not_found,不会到 mutation 路径。
   skip_before_action :verify_authenticity_token, only: :test_login
 
-  # Brute-force defense:同 IP 每分钟最多 5 次 /login_test 尝试,超出 429。
-  # 64-byte STAGING_LOGIN_SECRET keyspace 已经实质不可能爆破,这条是 defense
-  # in depth + 防 log noise / 容器 CPU。
+  # Brute-force defense:同 IP 每分钟最多 5 次**失败**的 /login_test 尝试,
+  # 超出 429。
+  # 关键:**只数失败请求**(secret 不对 / RAILS_ENV 不是 staging)。带正确
+  # secret 的合法请求不进计数器,所以 E2E suite 跑 100 次 staging 登入也不
+  # 会撞限。爆破方一直试错 secret,5 次后被 429 拦掉。
   #
   # 用手动 cache.increment(同 RouteLegsController#throttle!)而不是 Rails 8
   # `rate_limit` 宏,因为后者在 class load 时把 Rails.cache 实例 capture 进
@@ -109,6 +111,13 @@ class SessionsController < ApplicationController
     TEST_LOGIN_RATE_WINDOW = 1.minute
 
     def throttle_test_login!
+      # test env spec 用 /login_test 频繁,且无 brute-force 风险(test env 走
+      # 的是无 gate 分支,不在 staging gate 上),不限。
+      return if Rails.env.test?
+      # staging gate 通过的合法请求 → 不计数(不限 E2E + 真人合法登入)。
+      # 失败的 / 没带 header / staging 没启的全计入 counter。
+      return if Rails.env.staging? && staging_login_secret_valid?
+
       key = "throttle:login_test:#{request.remote_ip}"
       count = Rails.cache.increment(key, 1, expires_in: TEST_LOGIN_RATE_WINDOW)
       head :too_many_requests if count && count > TEST_LOGIN_RATE_LIMIT

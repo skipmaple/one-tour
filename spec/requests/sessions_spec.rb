@@ -122,24 +122,36 @@ RSpec.describe "Sessions", type: :request do
         Rails.cache = original
       end
 
-      it "rate limits to 5 attempts per minute per IP (6th 返 429)" do
-        # 5 次合法 secret 应都返 200(每次都成功登入)
-        5.times do
+      it "valid secret 不计数(E2E 跑 100 次合法登入也不被限)" do
+        # 50 次合法 secret 全 200,不撞限(模拟 E2E suite 100x staging 登入)
+        50.times do
           post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => secret }
           expect(response).to have_http_status(:ok)
         end
-        # 第 6 次同分钟同 IP → 429,不再走到 controller
-        post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => secret }
-        expect(response).to have_http_status(:too_many_requests)
       end
 
-      it "wrong-secret attempts also count toward limit (防 brute force)" do
+      it "wrong-secret 5 次后 429(brute force defense)" do
+        # 5 次错 secret 都返 404(staging gate 没通过)
         5.times do
           post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => "wrong#{rand(1000)}" }
           expect(response).to have_http_status(:not_found)
         end
-        post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => secret }
+        # 第 6 次错 secret → 429,counter 已 trip
+        post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => "still-wrong" }
         expect(response).to have_http_status(:too_many_requests)
+      end
+
+      it "counter trip 后 valid secret 仍能登入(只 ban 失败请求)" do
+        # 6 次错 secret → counter 已超 5,后续错请求会被 ban
+        6.times do
+          post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => "wrong" }
+        end
+        # 但带 valid secret 进来仍能成功 —— 这是这次改造核心:合法 secret 不
+        # 进 counter 计数,也不被 IP-ban 扫到。爆破方拿到正确 secret 才能登入,
+        # 那时跟合法 user 一样,无差别。
+        post "/login_test", params: { user_id: user.id }, headers: { "X-Staging-Login-Secret" => secret }
+        expect(response).to have_http_status(:ok)
+        expect(session[:user_id]).to eq(user.id)
       end
     end
   end
