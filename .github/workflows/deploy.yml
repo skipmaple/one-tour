@@ -48,10 +48,15 @@ permissions:
   actions: read
   contents: read
 
-concurrency:
-  # 一组 deploy 串行,后发的排队不取消,避免 staging/prod 互相打架
-  group: deploy
-  cancel-in-progress: false
+# Concurrency 拆到 job 级别,prod 卡门不阻塞 staging。原 workflow-level
+# `group: deploy` 把 staging + prod 锁在一组串行,prod 等 reviewer approve
+# 期间后续 push 的 staging 全卡队列 — 测试小步迭代根本不可行。
+#
+# 现在:
+#   staging: 同时只跑 1 个,新 push 来直接 cancel 排队/in-progress 的 staging
+#            (新 commit 才是想测的,旧 staging 没价值)
+#   prod:    串行,新 push 不 cancel(每个被 approve 的 prod deploy 跑完;
+#            如果同时多个 prod 在等 approve,user 可去 UI 手动 cancel 旧的)
 
 jobs:
   # ======== STAGING(CI 成功后自动)========
@@ -61,6 +66,9 @@ jobs:
     # workflow_dispatch 触发时无 workflow_run context,条件评估为 true,正常跑
     # (job 内 CI guard step 再兜一道)。
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: true
     environment:
       name: staging
       url: https://staging.tour.skipmaple.com
@@ -222,6 +230,13 @@ jobs:
   deploy-production:
     needs: deploy-staging
     runs-on: ubuntu-latest
+    # cancel-in-progress: false —— 每个 approve 通过的 prod 部署都要跑完,
+    # 不被新 push 中途 cancel(避免 docker pull 一半 / kamal-proxy 切流量
+    # 一半就被掐)。代价:多个 PR 连续 merge 时会堆出多个 waiting prod
+    # run,user 在 UI 手动 cancel 旧的 + approve 最新的。
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
     environment:
       # GH 配 production env 的 "Required reviewers" 后,这里会卡门等手动 approve
       name: production
