@@ -23,8 +23,19 @@
 #   - Required reviewers        勾你自己 ← 这是 prod 卡门
 name: Deploy
 
+# 触发逻辑:
+# - workflow_run("CI" 完成后)是主路径 —— deploy 只在 CI 真正结束后启动,
+#   只在 CI conclusion == 'success' 时进 staging 部署。CI failed / cancelled
+#   时 deploy 自然 skip,不会动 staging / prod。
+# - workflow_dispatch 是应急手动触发(改 ref 重发 / hotfix 紧急上)。job 内
+#   还有 "Guard — CI must be green" step 兜一道,防止有人手动触发到红 CI 的 sha。
+#
+# 不再用 `on: push: branches: [main]` —— 那会跟 CI 同步起跑,deploy 一启动
+# 立刻 query CI conclusion 看到 "missing"(还在 in_progress)就 exit 1。
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
     inputs:
@@ -43,21 +54,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # ======== STAGING(merge to main 自动)========
+  # ======== STAGING(CI 成功后自动)========
   deploy-staging:
     runs-on: ubuntu-latest
+    # workflow_run 触发时,CI 失败 / cancelled 直接 skip 这个 job,deploy 不跑。
+    # workflow_dispatch 触发时无 workflow_run context,条件评估为 true,正常跑
+    # (job 内 CI guard step 再兜一道)。
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     environment:
       name: staging
       url: https://staging.tour.skipmaple.com
     timeout-minutes: 30
 
     steps:
-      - name: Checkout
+      - name: Checkout target ref
         uses: actions/checkout@v5
         with:
-          # workflow_dispatch 时用 inputs.ref;push 触发时 inputs.ref 是空,
-          # checkout default 自然走 GITHUB_REF(main)
-          ref: ${{ inputs.ref }}
+          # workflow_run 触发时用 head_sha(CI 跑过的 sha,merge 提交);
+          # workflow_dispatch 用 inputs.ref(默认 main)。`||` 第一个 truthy 胜。
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
           fetch-depth: 0
 
       - name: Record target SHA
@@ -217,7 +232,9 @@ jobs:
       - name: Checkout target ref
         uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.ref }}
+          # 同 staging:workflow_run 用 head_sha(跟 staging 部署同 sha,
+          # 保证 prod 部 staging 验过那一坨),workflow_dispatch 用 inputs.ref
+          ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
           fetch-depth: 0
 
       - name: Record target SHA
