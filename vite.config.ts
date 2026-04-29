@@ -60,8 +60,11 @@ export default defineConfig({
             handler: 'NetworkOnly',
           },
           // === CacheFirst:PWA 图标 ===
+          // RegExp urlPattern 在 Workbox 里是 test `request.url` 整个,不是
+          // pathname。`^/icon...$` 永远不命中(URL 首字符是 `h`)。函数式
+          // 显式拿 url.pathname 才对。
           {
-            urlPattern: /^\/icon\.(svg|png)$/,
+            urlPattern: ({ url }) => /^\/icon\.(svg|png)$/.test(url.pathname),
             handler: 'CacheFirst',
             options: {
               cacheName: 'pwa-icons',
@@ -71,7 +74,8 @@ export default defineConfig({
           // === CacheFirst:Active Storage blob redirect / variant ===
           // URL 里带 blob digest,变更即新 URL,适合长期 cache
           {
-            urlPattern: /^\/rails\/active_storage\/(blobs\/redirect|representations)\//,
+            urlPattern: ({ url }) =>
+              /^\/rails\/active_storage\/(blobs\/redirect|representations)\//.test(url.pathname),
             handler: 'CacheFirst',
             options: {
               cacheName: 'active-storage-blobs',

@@ -19,7 +19,17 @@ class ServiceWorkersController < ApplicationController
     if sw_path.exist?
       response.headers["Service-Worker-Allowed"] = "/"
       response.headers["Cache-Control"] = "no-cache"
-      send_data sw_path.read, type: "text/javascript", disposition: "inline"
+      # vite-plugin-pwa 把 sw.js 出在 public/vite/sw.js,内部所有相对路径
+      # (workbox runtime chunk + precache assets/)都假设 SW 自身是
+      # /vite/sw.js。我们从 / 服务它(为了 scope=/),所以这些相对解析全
+      # 错位 — `./workbox-xxx` 会变 /workbox-xxx (404),module 回调从不执
+      # 行,registerRoute 全静默失败。两条 string replace 改回正路径:
+      #   define(["./workbox-XXX"], ...)  → define(["/vite/workbox-XXX"], ...)
+      #   url:"assets/foo"                → url:"/vite/assets/foo"
+      body = sw_path.read
+        .gsub(%r{define\(\["\./workbox-}, 'define(["/vite/workbox-')
+        .gsub(%r{url:"assets/}, 'url:"/vite/assets/')
+      send_data body, type: "text/javascript", disposition: "inline"
     else
       head :not_found
     end
