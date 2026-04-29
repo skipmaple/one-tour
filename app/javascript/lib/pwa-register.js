@@ -16,6 +16,11 @@
 // 不支持 Service Worker 的环境(老 iOS、微信特殊版本)gracefully no-op。
 
 export function setupPWA() {
+  // dev/test 不注册 SW —— vite-plugin-pwa devOptions.enabled: false,
+  // public/vite/sw.js 在 dev build 不出来,Rails ServiceWorkersController
+  // 返回 404,register reject 后每次页面加载吐 console.warn,光开 dev 已经
+  // 噪音。prod build 才有真 sw.js,跑真注册。
+  if (!import.meta.env.PROD) return
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
 
   navigator.serviceWorker

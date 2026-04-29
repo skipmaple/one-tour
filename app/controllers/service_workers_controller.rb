@@ -16,22 +16,37 @@ class ServiceWorkersController < ApplicationController
 
   def show
     sw_path = Rails.root.join("public/vite/sw.js")
-    if sw_path.exist?
-      response.headers["Service-Worker-Allowed"] = "/"
-      response.headers["Cache-Control"] = "no-cache"
-      # vite-plugin-pwa 把 sw.js 出在 public/vite/sw.js,内部所有相对路径
-      # (workbox runtime chunk + precache assets/)都假设 SW 自身是
-      # /vite/sw.js。我们从 / 服务它(为了 scope=/),所以这些相对解析全
-      # 错位 — `./workbox-xxx` 会变 /workbox-xxx (404),module 回调从不执
-      # 行,registerRoute 全静默失败。两条 string replace 改回正路径:
-      #   define(["./workbox-XXX"], ...)  → define(["/vite/workbox-XXX"], ...)
-      #   url:"assets/foo"                → url:"/vite/assets/foo"
-      body = sw_path.read
+    return head(:not_found) unless sw_path.exist?
+
+    stat = sw_path.stat
+
+    response.headers["Service-Worker-Allowed"] = "/"
+    # no-cache:浏览器每次必 revalidate(否则 SW 字节变化检测会被 HTTP
+    # cache 拖)。配 fresh_when 让 revalidation 命中时返回 304,省 body
+    # 又省一次 gsub。
+    response.headers["Cache-Control"] = "no-cache"
+
+    fresh_when(
+      last_modified: stat.mtime.utc,
+      etag: [ "service-worker", stat.size, stat.mtime.to_i, stat.mtime.nsec ],
+    )
+    return if performed?
+
+    # vite-plugin-pwa 把 sw.js 出在 public/vite/sw.js,内部所有相对路径
+    # (workbox runtime chunk + precache assets/)都假设 SW 自身是
+    # /vite/sw.js。我们从 / 服务它(为了 scope=/),所以这些相对解析全
+    # 错位 — `./workbox-xxx` 会变 /workbox-xxx (404),module 回调从不执
+    # 行,registerRoute 全静默失败。两条 string replace 改回正路径:
+    #   define(["./workbox-XXX"], ...)  → define(["/vite/workbox-XXX"], ...)
+    #   url:"assets/foo"                → url:"/vite/assets/foo"
+    # 用 Rails.cache 按 mtime 缓存重写结果 — 同 build 多次请求(stale
+    # client / SW update check)免重读文件 + 重 gsub。
+    body = Rails.cache.fetch([ "sw-rewritten", sw_path.to_s, stat.mtime.to_i, stat.size ]) do
+      File.binread(sw_path)
         .gsub(%r{define\(\["\./workbox-}, 'define(["/vite/workbox-')
         .gsub(%r{url:"assets/}, 'url:"/vite/assets/')
-      send_data body, type: "text/javascript", disposition: "inline"
-    else
-      head :not_found
     end
+
+    send_data body, type: "text/javascript", disposition: "inline"
   end
 end

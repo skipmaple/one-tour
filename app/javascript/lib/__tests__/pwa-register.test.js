@@ -5,10 +5,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 describe('pwa-register', () => {
   beforeEach(() => {
     vi.resetModules() // 让 import 重新触发 setupPWA()
+    // pwa-register 内部 import.meta.env.PROD 守门 —— vitest 默认是 test
+    // 模式 PROD=false,需显式 stub 才能跑到 register 路径(dev/test 噪音
+    // 那条 case 下面单独反向 stub)。
+    vi.stubEnv('PROD', true)
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
   })
 
   it('calls navigator.serviceWorker.register with /sw.js + scope: / + updateViaCache: none', async () => {
@@ -44,6 +49,28 @@ describe('pwa-register', () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
 
     expect(console.warn).toHaveBeenCalledWith('[PWA] SW register failed:', err)
+  })
+
+  it('skips registration in dev/test (import.meta.env.PROD = false)', async () => {
+    // dev/test 模式下 vite-plugin-pwa devOptions.enabled: false → public/vite/sw.js
+    // 不存在 → register reject + 噪音。靠 PROD 守门提前 return。
+    vi.stubEnv('PROD', false)
+    const accessProbe = vi.fn()
+    const stubNavigator = new Proxy(
+      {},
+      {
+        has() { return true }, // 即使 serviceWorker 'in' navigator 看似存在
+        get(_, prop) {
+          if (prop === 'serviceWorker') accessProbe()
+          return undefined
+        },
+      },
+    )
+    vi.stubGlobal('navigator', stubNavigator)
+    await import('../pwa-register')
+
+    // PROD 守门提前 return,navigator.serviceWorker 全程没被读到
+    expect(accessProbe).not.toHaveBeenCalled()
   })
 
   it('skips registration when serviceWorker not in navigator', async () => {
