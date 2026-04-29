@@ -135,7 +135,7 @@ One-Tour（路书）当前没有真正的品牌视觉资产——`public/icon.sv
 
 - **方案 A（推荐）**：圆形构图，米白底 + 小鹿头部正面 + 一颗高亮 teal 斑点作为视觉焦点
 - **方案 B（极简）**：抽象出"鹿角 + 一颗斑点"构成的字符形 icon，用于 favicon 极小尺寸
-- **路径**：替换 `public/icon.svg`、`public/icon.png`，并补齐 `apple-touch-icon`、各尺寸 favicon
+- **路径**：替换 `public/icon.svg`、`public/icon.png`；现有 `<link rel="apple-touch-icon">` 与 favicon 已在 `application.html.erb` 第 19–21 行声明，需要的是替换为新资源并按需追加多尺寸
 - **同时新增**：OG 图（当前完全缺失）、PWA maskable icon
 
 ### 2. AI 助手头像（高价值）
@@ -171,13 +171,13 @@ One-Tour（路书）当前没有真正的品牌视觉资产——`public/icon.sv
 
 1. **形象稿（Week 1）**：找插画师（或用 Midjourney/Stable Diffusion 起稿）出 3 个姿态草图——站立举书 / 坐姿翻地图 / 招手等同伴；同时确认斑点位置规律
 2. **Style guide（Week 2）**：成稿后产出色板 token、表情库（最少 6 表情：默认/开心/好奇/思考/抱歉/睡觉）、姿态库、斑点图形系统规范
-3. **Icon 替换 PR（Week 2 末）**：替换 `public/icon.svg`、`public/icon.png`、补齐 favicon/OG/maskable，更新 `app/views/layouts/application.html.erb` 的图标引用
+3. **Icon 替换 PR（Week 2 末）**：替换 `public/icon.svg`、`public/icon.png`，同步替换现有 favicon / `apple-touch-icon` 资源（已在 layout 中引用），新增 OG / PWA maskable，并在 `app/views/layouts/application.html.erb` 按需追加多尺寸引用
 4. **AI 助手头像接入（Week 3）**：在 `ChatPanel.jsx` 助手消息组件中接入头像
 5. **可量化验证（上线 +30 天）**：跟踪 OG 图分享点击率、App 安装转化率、AI 助手使用率作为对照指标
 
 ## 关键文件参考
 
 - `public/icon.svg`、`public/icon.png` — 待替换的 Rails 默认占位图标
-- `app/views/layouts/application.html.erb` line 18–21 — 字体与图标引用，需补 OG / apple-touch-icon
+- `app/views/layouts/application.html.erb` line 18–21 — 字体与图标引用；favicon / apple-touch-icon 已存在，需将现有引用替换为新资源（可按需追加多尺寸），并新增 OG 标签
 - `app/javascript/components/planner/ChatPanel.jsx` — AI 助手头像接入点
 - `README.md` — 产品定位与功能全景，吉祥物叙事的输入源
