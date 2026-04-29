@@ -49,6 +49,14 @@ echo "    ✓ resolved config 干净,只含 staging host"
 # ---- 2. 临时挪开 secrets-common(避免 prod env 漏入 staging container)----
 SC_DISABLED=""
 if [[ -f .kamal/secrets-common ]]; then
+  # 上次运行如果异常中断,可能留下 .staging-shielded 残骸,直接 mv 会覆盖它
+  # 丢真实 secrets-common(那是 prod 密码总源)。检测到就 abort 让人手清。
+  if [[ -e .kamal/secrets-common.staging-shielded ]]; then
+    echo "❌ .kamal/secrets-common.staging-shielded 已存在 —— 上次运行可能崩溃留下"
+    echo "    手动核对两个文件内容,删旧的(or rename),然后重跑。"
+    echo "    diff .kamal/secrets-common .kamal/secrets-common.staging-shielded"
+    exit 1
+  fi
   mv .kamal/secrets-common .kamal/secrets-common.staging-shielded
   SC_DISABLED="yes"
 fi

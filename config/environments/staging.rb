@@ -12,7 +12,7 @@ Rails.application.configure do
   config.public_file_server.headers = { "cache-control" => "public, max-age=#{1.year.to_i}" }
 
   # 本地 Active Storage —— 不接 OSS。staging 测的是 PWA cache 行为,
-  # 不是 OSS 真实 round-trip。挂在 /rails/storage(deploy.staging.yml
+  # 不是 OSS 真实 round-trip。挂在 /rails/storage(config/staging/deploy.yml
   # volume 持久化)。
   config.active_storage.service = :local
 

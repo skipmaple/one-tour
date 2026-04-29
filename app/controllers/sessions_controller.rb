@@ -80,6 +80,9 @@ class SessionsController < ApplicationController
       expected = ENV["STAGING_LOGIN_SECRET"].to_s
       return false if expected.empty? # 没配 secret 直接拒,默认拒
       provided = request.headers["X-Staging-Login-Secret"].to_s
+      # secure_compare 要求两边等长才是 constant-time,长度不等的实现可能直接
+      # raise(老 Ruby) 或泄漏 timing(差长度的早期退出)。先长度判,再 compare。
+      return false unless provided.bytesize == expected.bytesize
       ActiveSupport::SecurityUtils.secure_compare(provided, expected)
     end
 
