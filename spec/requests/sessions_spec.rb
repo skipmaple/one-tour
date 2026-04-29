@@ -67,6 +67,15 @@ RSpec.describe "Sessions", type: :request do
       expect(session[:user_id]).to be_nil
       expect(response).to redirect_to(root_path)
     end
+
+    it "sets Clear-Site-Data header so browser purges SW Cache Storage" do
+      # 防设备共享时前一用户的 inertia-pages / active-storage-blobs cache
+      # 被下一用户离线访问看到(privacy)。
+      user = create(:user)
+      post "/login_test", params: { user_id: user.id }
+      delete "/logout"
+      expect(response.headers["Clear-Site-Data"]).to eq('"cache", "storage"')
+    end
   end
 
   describe "POST /login_test (staging gate)" do

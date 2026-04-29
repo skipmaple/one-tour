@@ -73,6 +73,9 @@ export default defineConfig({
             options: {
               cacheName: 'pwa-icons',
               expiration: { maxEntries: 5, maxAgeSeconds: 90 * 24 * 60 * 60 },
+              // 只缓存 200。Workbox 默认所有响应都缓存(包括 4xx/5xx),
+              // 错误响应被缓存会一直返错给离线用户,加 statuses filter 防御。
+              cacheableResponse: { statuses: [ 200 ] },
             },
           },
           // === CacheFirst:Active Storage blob proxy / redirect / variant ===
@@ -87,6 +90,8 @@ export default defineConfig({
             options: {
               cacheName: 'active-storage-blobs',
               expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 },
+              // 401/403/404 不缓存(用户没权限或 blob 删除时不该兜错给离线用户)
+              cacheableResponse: { statuses: [ 200 ] },
             },
           },
           // === NetworkFirst:Inertia GETs(X-Inertia: true header)===
@@ -100,6 +105,10 @@ export default defineConfig({
               cacheName: 'inertia-pages',
               expiration: { maxEntries: 50, maxAgeSeconds: 7 * 24 * 60 * 60 },
               networkTimeoutSeconds: 10,
+              // 关键:不缓存 409。deploy 期 Inertia version mismatch 服务返
+              // 409,如果被缓存,后续离线访问拿到的是错误页而不是 stale
+              // 内容,"离线读"目标失效。架构师 review SC-3 列的 Week 4 前必修。
+              cacheableResponse: { statuses: [ 200 ] },
             },
           },
         ],
