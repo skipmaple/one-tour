@@ -94,7 +94,16 @@ function StagingQuickLogin() {
             {error}
           </Alert>
         )}
-        <Button type="submit" loading={submitting} fullWidth size="md" color="orange.8">
+        <Button
+          type="submit"
+          loading={submitting}
+          fullWidth
+          size="md"
+          // Mantine 自带 orange shades 最深 .9 (#d9480f) 跟白字也只 4.07:1 过不了 AA。
+          // 用 orange-900 (#9a3412) inline,白字 ~6.8:1 通过。视觉仍 orange =
+          // "staging-only,跟 prod 区分"。
+          styles={{ root: { backgroundColor: '#9a3412', color: '#fff' } }}
+        >
           Staging 登入
         </Button>
       </Stack>
