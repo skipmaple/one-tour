@@ -16,7 +16,8 @@ const STAGING_URL = process.env.STAGING_URL || 'https://staging.tour.skipmaple.c
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: /pwa-staging\.spec\.js/,
+  // 真测试 + setup project 都跑;setup 在 setup/ 目录下
+  testMatch: /(setup\/.*\.setup\.js|pwa-staging\.spec\.js)/,
   timeout: 60_000,
   expect: { timeout: 15_000 },
   reporter: [['list']],
@@ -24,17 +25,32 @@ export default defineConfig({
     baseURL: STAGING_URL,
     actionTimeout: 15_000,
     trace: 'on-first-retry',
-    // 移动 PWA 一般在 HTTPS prod 部署上跑,trust 自签证书无需(Let's Encrypt)
     ignoreHTTPSErrors: false,
   },
   projects: [
+    // setup 跑一次 /login_test 拿 session cookie 存到 .auth/,真测试 reuse
+    // 后整个 suite 只命中 /login_test 1 次,不撞 PR #60 5/min/IP rate limit
+    {
+      name: 'setup',
+      testMatch: /setup\/staging-auth\.setup\.js/,
+    },
     {
       name: 'mobile-chrome-pixel5',
-      use: { ...devices['Pixel 5'] },
+      testMatch: /pwa-staging\.spec\.js/, // 不跑 setup,只跑真 spec
+      use: {
+        ...devices['Pixel 5'],
+        storageState: 'tests/e2e/.auth/staging-user.json',
+      },
+      dependencies: ['setup'],
     },
     {
       name: 'mobile-safari-iphone15',
-      use: { ...devices['iPhone 15'] },
+      testMatch: /pwa-staging\.spec\.js/,
+      use: {
+        ...devices['iPhone 15'],
+        storageState: 'tests/e2e/.auth/staging-user.json',
+      },
+      dependencies: ['setup'],
     },
   ],
   // 不启 webServer —— staging 是远程,Playwright 直接访问。
