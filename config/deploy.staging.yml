@@ -1,0 +1,66 @@
+# Staging deploy config —— PWA E2E iOS Sim + Android Emu 用。
+#
+# 跑在 Vultr 45.63.23.136(老 prod 已迁阿里云,这台留着跑 Bitwarden + 自建
+# docker registry mirror + 翻墙 proxy)。资源紧:1.9G RAM 共享,80% 在 Bitwarden
+# MSSQL 上;47G 磁盘 12G 剩。staging 跑 Rails + Postgres 双容器,目标占用
+# < 500MB RAM + < 2GB 磁盘,以免 OOM-killer 波及 Bitwarden。
+#
+# 部署:`kamal -d staging setup`(首次)或 `kamal -d staging deploy`(后续)
+# 域名:staging.tour.skipmaple.com(用户先 DNS A 记录指过去)
+
+service: one-tour-staging
+
+image: skipmaple/one-tour
+
+servers:
+  web:
+    - 45.63.23.136
+
+proxy:
+  ssl: true
+  host: staging.tour.skipmaple.com
+  # kamal-proxy 监听 80/443(box 上当前没人占),Let's Encrypt auto-cert
+
+registry:
+  username: skipmaple
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+env:
+  clear:
+    RAILS_ENV: staging
+    DB_HOST: one-tour-staging-postgres
+    DB_USER: postgres
+    # 不接 OSS(active_storage = :local),不接 Sentry(staging E2E 不上报),
+    # 不接 Resend(action_mailer = :test)
+  secret:
+    - RAILS_MASTER_KEY
+    - ONE_TOUR_DATABASE_PASSWORD
+    - STAGING_LOGIN_SECRET
+    - AMAP_JS_API_KEY
+    - AMAP_JS_API_SECURITY_CODE
+
+volumes:
+  # 持久化 Active Storage local files + 任何 staging 数据
+  - "/var/lib/one-tour-staging/storage:/rails/storage"
+
+builder:
+  arch: amd64
+
+# Postgres 18 单库 accessory —— 与 prod parity(同引擎)。staging.rb 把
+# cache/queue/cable 切成 in-process(memory_store + async),所以这里只
+# 需要 1 个库,没有 4-DB 结构。
+accessories:
+  postgres:
+    image: postgres:18
+    host: 45.63.23.136
+    # 不 bind 到 host 端口(staging 不需要外部连),app container 通过 kamal
+    # docker 网络 service name resolve `one-tour-staging-postgres`
+    env:
+      clear:
+        POSTGRES_USER: postgres
+        POSTGRES_DB: one_tour_staging
+      secret:
+        - POSTGRES_PASSWORD
+    volumes:
+      - "/var/lib/one-tour-staging/postgres:/var/lib/postgresql/data"

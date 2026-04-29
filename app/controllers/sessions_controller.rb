@@ -50,17 +50,36 @@ class SessionsController < ApplicationController
     render json: { ok: false, error: e.message }, status: :too_many_requests
   end
 
-  # Test-only action for setting session in request specs
+  # Test helper —— test env 跑 request spec 用(无 gate),staging env 给
+  # PWA E2E 自动化用(必须带 X-Staging-Login-Secret header 才能用,值在
+  # ENV 里;生产没人知道这值,加上 routes.rb 也只在 staging.rb 挂这条 route,
+  # 双层 gate)。
   def test_login
     if Rails.env.test?
       session[:user_id] = params[:user_id]
       head :ok
+    elsif Rails.env.staging? && staging_login_secret_valid?
+      user = User.find_by(id: params[:user_id])
+      if user
+        session[:user_id] = user.id
+        head :ok
+      else
+        head :not_found
+      end
     else
       raise ActionController::RoutingError, "Not Found"
     end
   end
 
   private
+
+    def staging_login_secret_valid?
+      expected = ENV["STAGING_LOGIN_SECRET"].to_s
+      return false if expected.empty? # 没配 secret 直接拒,默认拒
+      provided = request.headers["X-Staging-Login-Secret"].to_s
+      ActiveSupport::SecurityUtils.secure_compare(provided, expected)
+    end
+
     def find_or_create_user_by_email(raw_email)
       email = EmailVerification.normalize_email(raw_email)
       User.find_by(email: email) || User.create!(
