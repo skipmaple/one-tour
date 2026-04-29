@@ -30,7 +30,14 @@ test.beforeEach(async ({ page }) => {
     headers: { 'X-Staging-Login-Secret': STAGING_LOGIN_SECRET },
     form: { user_id: STAGING_TEST_USER_ID },
   })
-  expect(res.ok(), 'login_test should return 200').toBe(true)
+  if (!res.ok()) {
+    // 失败时暴露 status + body 方便定位(secret 不对 / RAILS_ENV 不对 /
+    // user_id 不存在 都返 404,要看 body 区分)
+    const body = await res.text()
+    throw new Error(
+      `login_test failed: status=${res.status()} statusText="${res.statusText()}" body=${body.slice(0, 200)}`,
+    )
+  }
 })
 
 test('P1: /manifest 返回 OneTour standalone PWA 配置', async ({ page }) => {

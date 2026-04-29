@@ -1,4 +1,12 @@
 class SessionsController < ApplicationController
+  # /login_test 是 test + staging E2E 的自动化 backdoor —— 外部 POST 没 CSRF
+  # token,Rails 默认 protect_from_forgery 拦掉返 422。test env 跑 spec 时
+  # 默认 allow_forgery_protection = false 不踩,但 staging env 的 forgery
+  # protection 是开的,所以 E2E 自动化必须显式 skip。安全等价:test_login
+  # 内部已经用 X-Staging-Login-Secret header 严格 gate,header 对了 CSRF
+  # 也没必要;header 错了直接 head :not_found,不会到 mutation 路径。
+  skip_before_action :verify_authenticity_token, only: :test_login
+
   def new
     render inertia: "Auth/Login", props: { dev_login_enabled: Rails.env.development? }
   end

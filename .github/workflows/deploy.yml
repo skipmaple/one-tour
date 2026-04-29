@@ -1,20 +1,31 @@
-# 一键部署 — 在 Actions tab 里点 "Run workflow" 触发。
+# Deploy 流程:
+#   - push to main → 自动跑 deploy-staging
+#   - staging 成功 → deploy-production 卡门等 GitHub Environment "Required
+#     reviewers" 手动 Approve(Settings → Environments → production → 加你
+#     自己当 reviewer)
+#   - 也可 workflow_dispatch 手动从任意 ref 触发(应急 / hotfix 重发)
 #
-# 默认部署 main 最新 commit,也可以在触发时填任意 ref(分支/tag/sha)。
-# 部署前会校验该 commit 的 CI 是否通过;未跑或 failing 会拒绝部署。
+# Secrets / Environments 配置见 docs/deploy-ci-setup.md
 #
-# 需要的 secrets(Settings → Environments → production):
-#   - PROD_ENV_FILE            整个 .env.production 的内容
-#   - RAILS_MASTER_KEY         config/master.key 的内容
-#   - DEPLOY_SSH_PRIVATE_KEY   有 root SSH 权限到生产机的私钥(ed25519 或 RSA)
-#   - DEPLOY_SSH_KNOWN_HOSTS   `ssh-keyscan 45.63.23.136` 的输出
+# Repo-level secrets(staging + prod 共用):
+#   - DEPLOY_SSH_PRIVATE_KEY    SSH 私钥(对两台 host 都 authorized)
+#   - RAILS_MASTER_KEY          config/master.key 内容(decrypt credentials)
 #
-# 可选(在 Environment 设置里):
-#   - Required reviewers    部署前需要人工 approve(推荐勾自己当刹车)
-#   - Deployment branches   只允许从 main 触发
+# Environment "staging" secrets:
+#   - STAGING_ENV_FILE          .env.staging 全内容
+#   - PROD_ENV_FILE             .env.production 全内容(staging 的 .kamal/staging/secrets
+#                               读 AMAP_JS_API_KEY 等共享 key 时会去 grep .env.production)
+#   - STAGING_KNOWN_HOSTS       `ssh-keyscan 45.63.23.136` 输出
+#
+# Environment "production" secrets:
+#   - PROD_ENV_FILE             .env.production 全内容
+#   - PROD_KNOWN_HOSTS          `ssh-keyscan 43.103.50.22` 输出
+#   - Required reviewers        勾你自己 ← 这是 prod 卡门
 name: Deploy
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       ref:
@@ -22,22 +33,184 @@ on:
         required: false
         default: main
 
-# Least-privilege token scopes. `actions: read` 是 `gh api` 查 CI 状态要的;
-# `contents: read` 是 actions/checkout 要的。显式声明一个 scope 会把未声明
-# 的 scope 置为 none,所以两个都必须写上,不能只写一个。
 permissions:
   actions: read
   contents: read
 
 concurrency:
-  # 多次点"Run workflow"不会互相打架:后发者排队等前者结束。
-  group: deploy-production
+  # 一组 deploy 串行,后发的排队不取消,避免 staging/prod 互相打架
+  group: deploy
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  # ======== STAGING(merge to main 自动)========
+  deploy-staging:
     runs-on: ubuntu-latest
-    environment: production
+    environment:
+      name: staging
+      url: https://staging.tour.skipmaple.com
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # workflow_dispatch 时用 inputs.ref;push 触发时 inputs.ref 是空,
+          # checkout default 自然走 GITHUB_REF(main)
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Record target SHA
+        id: sha
+        run: echo "value=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate required staging secrets present
+        env:
+          STAGING_ENV_FILE: ${{ secrets.STAGING_ENV_FILE }}
+          PROD_ENV_FILE:    ${{ secrets.PROD_ENV_FILE }}
+          MASTER_KEY:       ${{ secrets.RAILS_MASTER_KEY }}
+          SSH_KEY:          ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS:      ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          missing=()
+          [ -z "$STAGING_ENV_FILE" ] && missing+=("STAGING_ENV_FILE")
+          [ -z "$PROD_ENV_FILE" ]    && missing+=("PROD_ENV_FILE")
+          [ -z "$MASTER_KEY" ]       && missing+=("RAILS_MASTER_KEY")
+          [ -z "$SSH_KEY" ]          && missing+=("DEPLOY_SSH_PRIVATE_KEY")
+          [ -z "$KNOWN_HOSTS" ]      && missing+=("STAGING_KNOWN_HOSTS")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing required secrets: ${missing[*]}"
+            echo "::error::Add them in Settings → Environments → staging."
+            exit 1
+          fi
+          echo "All 5 staging secrets present."
+
+      - name: Guard — CI must be green on target commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_SHA: ${{ steps.sha.outputs.value }}
+        run: |
+          set -euo pipefail
+          conclusion=$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&per_page=20" \
+            --jq '[.workflow_runs[] | select(.name == "CI")] | .[0].conclusion // "missing"')
+          echo "CI on ${TARGET_SHA}: ${conclusion}"
+          if [ "$conclusion" != "success" ]; then
+            echo "::error::CI on ${TARGET_SHA} is '${conclusion}'. staging deploy refuses to run."
+            exit 1
+          fi
+
+      - name: Materialize .env.staging
+        env:
+          STAGING_ENV_FILE: ${{ secrets.STAGING_ENV_FILE }}
+        run: |
+          printf '%s' "$STAGING_ENV_FILE" > .env.staging
+          chmod 600 .env.staging
+          lines=$(grep -c '^[A-Z][A-Z0-9_]*=' .env.staging || true)
+          echo ".env.staging loaded with $lines env vars"
+          if [ "$lines" -lt 2 ]; then
+            echo "::error::.env.staging has only $lines vars (expected ≥ 2: ONE_TOUR_DATABASE_PASSWORD + STAGING_LOGIN_SECRET)"
+            exit 1
+          fi
+
+      - name: Materialize .env.production(.kamal/staging/secrets reads AMAP from here)
+        env:
+          PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
+        run: |
+          printf '%s' "$PROD_ENV_FILE" > .env.production
+          chmod 600 .env.production
+          lines=$(grep -c '^[A-Z][A-Z0-9_]*=' .env.production || true)
+          echo ".env.production loaded with $lines env vars"
+          if [ "$lines" -lt 15 ]; then
+            echo "::error::.env.production has only $lines vars (expected 20+)"
+            exit 1
+          fi
+
+      - name: Materialize config/master.key
+        env:
+          MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+        run: |
+          printf '%s' "$MASTER_KEY" > config/master.key
+          chmod 600 config/master.key
+
+      - name: Trust staging SSH host
+        env:
+          KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Start ssh-agent
+        uses: webfactory/ssh-agent@v0.10.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version-file: .ruby-version
+          bundler-cache: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # 关键防线:resolved staging config 不能含 prod IP(防 -d 类 deep-merge
+      # 陷阱再现 — 详见 CLAUDE.md "Deploying staging" gotcha)
+      - name: Pre-flight — resolved staging config has no prod host
+        run: |
+          if bin/kamal config -c config/staging/deploy.yml | grep -qE '43\.103\.50\.22'; then
+            echo "::error::Prod IP 43.103.50.22 in resolved staging config — aborting"
+            exit 1
+          fi
+          echo "✓ resolved staging config clean"
+
+      # 模仿 scripts/kamal-staging.sh wrapper:cp staging secrets 到
+      # .kamal/secrets,kamal source 顺序里它在 secrets-common 之后,共享
+      # key(ONE_TOUR_DATABASE_PASSWORD 等)被 staging 值覆盖
+      - name: Inject staging secrets to .kamal/secrets
+        run: |
+          if [ -e .kamal/secrets ]; then
+            echo "::error::.kamal/secrets already exists,unexpected"
+            exit 1
+          fi
+          cp .kamal/staging/secrets .kamal/secrets
+
+      - name: Deploy with Kamal(staging)
+        run: bin/kamal deploy -c config/staging/deploy.yml
+
+      - name: Smoke test
+        run: |
+          set -e
+          echo '== /up =='
+          curl -fsS https://staging.tour.skipmaple.com/up | head -c 100; echo
+          echo '== /manifest =='
+          curl -fsS https://staging.tour.skipmaple.com/manifest | grep -q '"name":"OneTour"' && echo '  ✓ name=OneTour'
+          echo '== /sw.js gsub guard =='
+          curl -fsS https://staging.tour.skipmaple.com/sw.js | grep -q 'define(\["/vite/workbox-' && echo '  ✓ /vite/ rewrite intact'
+
+      - name: Summary
+        if: always()
+        env:
+          TARGET_SHA: ${{ steps.sha.outputs.value }}
+          STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### staging 部署: \`${STATUS}\`"
+            echo ""
+            echo "- Commit: \`${TARGET_SHA}\`"
+            echo "- 目标: https://staging.tour.skipmaple.com"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ======== PRODUCTION(staging 通过 + 你 GH UI 手动 Approve 后才跑)========
+  deploy-production:
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment:
+      # GH 配 production env 的 "Required reviewers" 后,这里会卡门等手动 approve
+      name: production
+      url: https://tour.skipmaple.com
     timeout-minutes: 30
 
     steps:
@@ -51,42 +224,38 @@ jobs:
         id: sha
         run: echo "value=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      # Without this fail-fast,空的 secret 会被写成空文件,kamal 会在后面
-      # 用 "Rails can't decrypt credentials" 之类的神秘错误挂掉,排查困难。
-      - name: Validate required secrets are present
+      - name: Validate required prod secrets are present
         env:
           PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
-          MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-          SSH_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
-          KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          MASTER_KEY:    ${{ secrets.RAILS_MASTER_KEY }}
+          SSH_KEY:       ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS:   ${{ secrets.PROD_KNOWN_HOSTS }}
         run: |
           missing=()
           [ -z "$PROD_ENV_FILE" ] && missing+=("PROD_ENV_FILE")
           [ -z "$MASTER_KEY" ]    && missing+=("RAILS_MASTER_KEY")
           [ -z "$SSH_KEY" ]       && missing+=("DEPLOY_SSH_PRIVATE_KEY")
-          [ -z "$KNOWN_HOSTS" ]   && missing+=("DEPLOY_SSH_KNOWN_HOSTS")
+          [ -z "$KNOWN_HOSTS" ]   && missing+=("PROD_KNOWN_HOSTS")
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error::Missing required secrets: ${missing[*]}"
             echo "::error::Add them in Settings → Environments → production."
             exit 1
           fi
-          echo "All 4 required secrets present."
+          echo "All 4 prod secrets present."
 
-      # 不让一键部署推红代码上生产 —— 查目标 commit 的 CI 是否绿。
+      # 不让一键部署推红代码上生产 —— 查目标 commit 的 CI 是否绿
       - name: Guard — CI must be green on target commit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TARGET_SHA: ${{ steps.sha.outputs.value }}
         run: |
           set -euo pipefail
-          echo "Checking CI on $TARGET_SHA"
           conclusion=$(gh api \
             "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${TARGET_SHA}&per_page=20" \
             --jq '[.workflow_runs[] | select(.name == "CI")] | .[0].conclusion // "missing"')
-          echo "CI conclusion: ${conclusion}"
+          echo "CI on ${TARGET_SHA}: ${conclusion}"
           if [ "$conclusion" != "success" ]; then
-            echo "::error::CI on ${TARGET_SHA} is '${conclusion}'. Deploy refuses to run."
-            echo "::error::Push the commit and wait for CI green, or re-run CI if it's flaky."
+            echo "::error::CI on ${TARGET_SHA} is '${conclusion}'. prod deploy refuses to run."
             exit 1
           fi
 
@@ -94,15 +263,8 @@ jobs:
         env:
           PROD_ENV_FILE: ${{ secrets.PROD_ENV_FILE }}
         run: |
-          # printf via env-var avoids the classic heredoc bug where secret
-          # content happens to contain the EOF marker.
           printf '%s' "$PROD_ENV_FILE" > .env.production
           chmod 600 .env.production
-          # Sanity check — all .kamal/secrets grep patterns will silently fail
-          # (producing empty env values) if this file is malformed. Count lines
-          # so a corrupt secret gets caught early instead of deploying an app
-          # with empty OAuth/R2/AMAP keys. Digits must be allowed after the
-          # first char — otherwise keys like R2_ACCESS_KEY_ID go uncounted.
           lines=$(grep -c '^[A-Z][A-Z0-9_]*=' .env.production || true)
           echo "Loaded .env.production with $lines env vars"
           if [ "$lines" -lt 15 ]; then
@@ -119,14 +281,13 @@ jobs:
 
       - name: Trust production SSH host
         env:
-          KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+          KNOWN_HOSTS: ${{ secrets.PROD_KNOWN_HOSTS }}
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           printf '%s\n' "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
 
-      # ssh-agent handles private-key newline edge-cases and cleans up on exit.
       - name: Start ssh-agent with deploy key
         uses: webfactory/ssh-agent@v0.10.0
         with:
@@ -135,15 +296,13 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: .ruby-version
+          ruby-version-file: .ruby-version
           bundler-cache: true
 
-      # Kamal's `deploy` does build + push + release. Needs Buildx on the runner
-      # since the Dockerfile uses BuildKit secrets (Sentry source-map upload).
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
-      - name: Deploy with Kamal
+      - name: Deploy with Kamal(production)
         run: bin/kamal deploy
 
       - name: Summary
@@ -153,9 +312,9 @@ jobs:
           STATUS: ${{ job.status }}
         run: |
           {
-            echo "### 部署结果: \`${STATUS}\`"
+            echo "### production 部署: \`${STATUS}\`"
             echo ""
             echo "- Commit: \`${TARGET_SHA}\`"
             echo "- Ref: \`${{ inputs.ref }}\`"
-            echo "- 目标: tour.skipmaple.com"
+            echo "- 目标: https://tour.skipmaple.com"
           } >> "$GITHUB_STEP_SUMMARY"
