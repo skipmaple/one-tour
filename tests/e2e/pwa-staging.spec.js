@@ -59,7 +59,7 @@ test('P2: SW 注册到 / scope, active', async ({ page }) => {
   expect(result.active).toBe('activated')
 })
 
-test('P3: /icon.png CacheFirst —— online 写 + offline 命中', async ({ context, page, browserName }) => {
+test('P3: /icon.png CacheFirst —— online 写 cache(+ offline 命中,Chromium only)', async ({ context, page, browserName }) => {
   await page.goto('/')
 
   // 等 SW 真正 activated + 接管这个 client。WebKit 上 <link rel="icon">
@@ -124,18 +124,24 @@ test('P3: /icon.png CacheFirst —— online 写 + offline 命中', async ({ con
   }
 })
 
-test('P4: Inertia GET NetworkFirst —— X-Inertia XHR 写 inertia-pages, offline 兜', async ({ context, page, browserName }) => {
+test('P4: Inertia NetworkFirst —— X-Inertia XHR 写 inertia-pages(+ offline 兜,Chromium only)', async ({ context, page, browserName }) => {
   await page.goto('/tours')
   await page.waitForLoadState('networkidle')
 
-  // Inertia v3 把 page JSON 放在 <script data-page="app" type="application/json">
-  // (不是 <div id="app" data-page=>)。从那 script.textContent 里拿 version。
+  // Inertia version 抽取 —— v3 把 page JSON 放在
+  // <script data-page="app" type="application/json"> 里;v2 / 老 inertia-rails
+  // 在 <div id="app" data-page="...">。两种都试,谁有用谁。
+  // tests/e2e/pwa.spec.js 之前用 #app.dataset.page,fallback 互不冲突。
   const version = await page.evaluate(() => {
-    const script = document.querySelector('script[data-page="app"]')
-    if (!script?.textContent) return ''
-    try { return JSON.parse(script.textContent).version || '' } catch { return '' }
+    const tryParse = (raw) => {
+      if (!raw) return ''
+      try { return JSON.parse(raw).version || '' } catch { return '' }
+    }
+    const fromScript = tryParse(document.querySelector('script[data-page="app"]')?.textContent)
+    if (fromScript) return fromScript
+    return tryParse(document.getElementById('app')?.dataset?.page)
   })
-  expect(version, 'Inertia v3 version 抽取失败').not.toBe('')
+  expect(version, 'Inertia version 抽取失败(script[data-page="app"] 和 #app.dataset.page 都拿不到)').not.toBe('')
 
   const fetchToursAsInertia = () =>
     page.evaluate(async (v) => {
