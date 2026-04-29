@@ -56,6 +56,12 @@ builder:
 # Postgres 18 单库 accessory —— 与 prod parity(同引擎)。staging.rb 把
 # cache/queue/cable 切成 in-process(memory_store + async),所以这里只
 # 需要 1 个库,没有 4-DB 结构。
+#
+# ⚠️ Postgres 18 镜像把数据目录约定改了:不再支持 mount `/var/lib/postgresql/data`,
+# 必须 mount 父目录 `/var/lib/postgresql`,镜像默认 PGDATA 在
+# `/var/lib/postgresql/18/docker` 子目录。如果用旧 mount 路径,postgres 18
+# 检测到 data 立刻报错 "unused mount/volume" 拒绝启动。
+# 详见 https://github.com/docker-library/postgres/issues/37
 accessories:
   postgres:
     image: postgres:18
@@ -69,4 +75,4 @@ accessories:
       secret:
         - POSTGRES_PASSWORD
     volumes:
-      - "/var/lib/one-tour-staging/postgres:/var/lib/postgresql/data"
+      - "/var/lib/one-tour-staging/postgres:/var/lib/postgresql"
