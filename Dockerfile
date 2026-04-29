@@ -14,7 +14,9 @@ ARG NODE_VERSION=22
 # JavaScript dependencies stage — cached independently from Ruby gems
 FROM node:${NODE_VERSION}-slim AS node_modules
 WORKDIR /rails
-COPY package.json package-lock.json ./
+# .npmrc 含 legacy-peer-deps=true(vite-plugin-pwa@1.2 peer 卡 vite@7,project
+# 用 vite@8,实际兼容只是 strict 拒)。漏 COPY 它 → npm ci ERESOLVE → build 失败。
+COPY .npmrc package.json package-lock.json ./
 # Skip Playwright chromium download in production build (~150MB,e2e 仅本地用):
 # @playwright/test 是 devDep,但 npm ci 默认装全部依赖。环境变量阻止
 # postinstall 脚本下载浏览器二进制。详见 https://playwright.dev/docs/browsers#install-system-dependencies
