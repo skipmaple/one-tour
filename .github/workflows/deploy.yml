@@ -230,13 +230,16 @@ jobs:
   deploy-production:
     needs: deploy-staging
     runs-on: ubuntu-latest
-    # cancel-in-progress: false —— 每个 approve 通过的 prod 部署都要跑完,
-    # 不被新 push 中途 cancel(避免 docker pull 一半 / kamal-proxy 切流量
-    # 一半就被掐)。代价:多个 PR 连续 merge 时会堆出多个 waiting prod
-    # run,user 在 UI 手动 cancel 旧的 + approve 最新的。
+    # cancel-in-progress: true —— 老 prod run 被新的取代,不阻塞队列。
+    # 这条权衡之前选 false 是怕 kamal 中途部署被 cancel,但实测 99% 时间
+    # prod run 卡在 "Waiting for review"(没 approve),那段是 idle wait,
+    # cancel 完全无害。真正 in-deploy 窗口只 ~5 min,5 人团队这段同 push
+    # race 几率极小。代价值得换"老的不阻塞新的",尤其 PR 连续 merge 时。
+    # 真要保护 in-deploy:approve 后别再立刻 push 新 PR,等当前 deploy
+    # 完(每次 prod approval 已经是手动节奏,这是天然 spacing)。
     concurrency:
       group: deploy-production
-      cancel-in-progress: false
+      cancel-in-progress: true
     environment:
       # GH 配 production env 的 "Required reviewers" 后,这里会卡门等手动 approve
       name: production
