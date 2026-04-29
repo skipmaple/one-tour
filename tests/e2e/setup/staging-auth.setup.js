@@ -2,7 +2,7 @@
 // tests/e2e/.auth/staging-user.json,所有真测试共享 storageState 复用 cookie。
 // 这样 /login_test 整个 suite 只调 1 次,不会撞 PR #60 加的 5/min/IP rate limit。
 
-import { test as setup, expect } from '@playwright/test'
+import { test as setup } from '@playwright/test'
 import { existsSync, mkdirSync } from 'fs'
 import { dirname } from 'path'
 
