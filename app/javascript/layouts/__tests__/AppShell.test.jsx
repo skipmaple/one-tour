@@ -65,11 +65,11 @@ describe('AppShell', () => {
     expect(await screen.findByText('概览')).toBeInTheDocument()
   })
 
-  it('strips " · 路书" site-name suffix from document.title', () => {
-    document.title = '概览 · 路书'
+  it('strips " · OneTour" site-name suffix from document.title', () => {
+    document.title = '概览 · OneTour'
     renderShell()
     expect(screen.getByText('概览')).toBeInTheDocument()
-    expect(screen.queryByText('概览 · 路书')).not.toBeInTheDocument()
+    expect(screen.queryByText('概览 · OneTour')).not.toBeInTheDocument()
   })
 
   // Regression: Inertia replaces the <title> element wholesale (rather than

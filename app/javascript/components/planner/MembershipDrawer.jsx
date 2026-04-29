@@ -127,7 +127,7 @@ function InviteSection({ tour, isAuthor }) {
         setSubmitting(false)
       },
       onError: () => {
-        notifications.show({ message: '该邮箱还没注册路书账号，请让对方先注册', color: 'red' })
+        notifications.show({ message: '该邮箱还没注册 OneTour 账号，请让对方先注册', color: 'red' })
         setSubmitting(false)
       },
     })

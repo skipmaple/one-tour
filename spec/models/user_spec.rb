@@ -81,12 +81,12 @@ RSpec.describe User, type: :model do
     end
 
     it "accepts pure Chinese names" do
-      user = User.new(name: "路书", email: "a@example.com")
+      user = User.new(name: "张三", email: "a@example.com")
       expect(user).to be_valid
     end
 
     it "accepts mixed alphanumeric + Chinese names" do
-      user = User.new(name: "drew路书42", email: "a@example.com")
+      user = User.new(name: "drew张三42", email: "a@example.com")
       expect(user).to be_valid
     end
   end

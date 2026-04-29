@@ -10,7 +10,7 @@ RSpec.describe EmailVerificationMailer, type: :mailer do
 
     it "has a Chinese subject with the code" do
       expect(mail.subject).to include "123456"
-      expect(mail.subject).to include "路书"
+      expect(mail.subject).to include "OneTour"
     end
 
     it "includes the code in the HTML body" do

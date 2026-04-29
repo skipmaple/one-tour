@@ -10,7 +10,7 @@ import SidebarNav from './sidebar/SidebarNav'
 import { useSidebarCollapsed } from './sidebar/useSidebarCollapsed'
 import { HeaderSlotProvider, useHeaderRightSlot } from './HeaderSlot'
 
-const SITE_SUFFIX_RE = /\s*·\s*路书\s*$/
+const SITE_SUFFIX_RE = /\s*·\s*OneTour\s*$/
 
 function stripSuffix(t) {
   return t.replace(SITE_SUFFIX_RE, '')

@@ -102,3 +102,30 @@ jobs:
 
       - name: Run JS test suite
         run: npm test
+
+  # ServiceWorkersController#show 用 2 条 gsub 改 prod build 出的 sw.js
+  # 内部相对路径(scope=/ 提升后必须改),vite-plugin-pwa 升级如果改了
+  # bundle 输出格式 → gsub 静默不命中 → SW 注册成功但 cache 永远空,
+  # 没任何报错信号。这个 job 在 CI build 后 grep 2 个 pattern,任一
+  # 不命中就 fail。详见 scripts/verify-sw-rewrite-patterns.sh 头注释。
+  verify_pwa_sw_patterns:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Vite assets (generates public/vite/sw.js)
+        run: npx vite build
+
+      - name: Verify SW rewrite patterns intact
+        run: bash scripts/verify-sw-rewrite-patterns.sh

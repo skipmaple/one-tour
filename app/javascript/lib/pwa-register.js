@@ -1,0 +1,40 @@
+// app/javascript/lib/pwa-register.js
+//
+// Service Worker 注册胶水。直接 navigator.serviceWorker.register('/sw.js'),
+// 不用 vite-plugin-pwa 的 virtual:pwa-register —— 因为 vite-ruby 把 SW
+// 输出到 public/vite/sw.js,virtual register 会从 /vite/sw.js 注册导致
+// scope 锁 /vite/*,业务路径都被排除。我们通过 Rails ServiceWorkersController
+// 在 / 路径服务 SW 并加 Service-Worker-Allowed: / header,让 scope = /。
+//
+// vite-plugin-pwa 仍然负责生成 sw.js(workbox precache 清单 + runtimeCaching
+// 配置都在 vite.config.ts 的 VitePWA(...) 里)— 我们只是不让它管注册。
+//
+// autoUpdate 行为(skipWaiting + clientsClaim 在 vite.config 里)依然生效:
+// 浏览器周期检测 SW 字节变化 → install → 立即 activate → 接管 client。
+// 不弹 toast(spec § Q2 决策 C 静默升级)。
+//
+// 不支持 Service Worker 的环境(老 iOS、微信特殊版本)gracefully no-op。
+
+export function setupPWA() {
+  // dev/test 不注册 SW —— vite-plugin-pwa devOptions.enabled: false,
+  // public/vite/sw.js 在 dev build 不出来,Rails ServiceWorkersController
+  // 返回 404,register reject 后每次页面加载吐 console.warn,光开 dev 已经
+  // 噪音。prod build 才有真 sw.js,跑真注册。
+  if (!import.meta.env.PROD) return
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
+
+  navigator.serviceWorker
+    // updateViaCache: 'none' — 浏览器查 SW 字节变化时不走 HTTP cache,
+    // 否则 sw.js 自己被中间层 cache 住,新 SW 没法及时被发现安装。
+    .register('/sw.js', { scope: '/', updateViaCache: 'none' })
+    .then((reg) => {
+      if (import.meta.env.DEV) console.log('[PWA] SW registered:', reg.scope)
+    })
+    .catch((err) => {
+      // 注册失败通常是浏览器环境性问题(scope / HTTPS / 微信内嵌等),
+      // 不可 actionable per-user;console 留痕便于真机调试,不弹 UI、不上 Sentry
+      console.warn('[PWA] SW register failed:', err)
+    })
+}
+
+setupPWA()
