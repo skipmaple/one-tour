@@ -3,9 +3,11 @@
 // 用原生 IDB API,不引 idb 库 — schema 简单(单 store),依赖换库的成本不值。
 // API 是 Promise 化的封装(IDB 原生回调用起来痛苦)。
 //
-// 跨浏览器 quirk:Safari 在 transaction 完成后才能 await `.onsuccess`;
-// 我们用 `.complete` Promise 等到 transaction 整个 commit 才 resolve,
-// 避免 "transaction has finished" race。
+// 跨浏览器 quirk:Safari / iOS 在 page 失焦时会强制 abort 进行中的 IDB tx。
+// 写操作 resolve 必须挂在 `tx.oncomplete`(req.onsuccess 早于 commit,Safari
+// 上后续 read 可能看不到刚写的行)。tx.onabort / tx.onerror 也 reject,否则
+// abort 时 Promise 永远 pending,UI 死等。读操作只 resolve req.onsuccess
+// 即可(无 durability 担忧),但 abort/onerror 仍要 reject 防 hang。
 
 const DB_NAME = 'one-tour-outbox'
 const DB_VERSION = 1
