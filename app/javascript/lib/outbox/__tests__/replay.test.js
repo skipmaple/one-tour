@@ -138,6 +138,51 @@ describe('replay', () => {
     expect(row.attempts).toBe(1)
   })
 
+  it('409 → 算 retry 不算 permanent(Inertia version mismatch on deploy)', async () => {
+    // Copilot review item #3:409 是 Inertia version mismatch 的标准状态码,
+    // 部署期最常见。当 permanent 处理会让所有飞行 mutation 在部署后秒变失败 —
+    // 实际只需用户刷新页拿新 version,replay 即可成功。
+    const db = await openOutbox()
+    const id = await enqueue(db, { path: '/tours/1/expenses', method: 'POST', body: {}, headers: {}, resource_kind: 'expense' })
+    fetch.mockResolvedValue({ ok: false, status: 409, text: () => Promise.resolve('') })
+
+    await replay(db)
+
+    const row = await getRow(db, id)
+    expect(row.status).toBe('pending')
+    expect(row.attempts).toBe(1)
+    expect(Sentry.captureException).not.toHaveBeenCalled() // 409 不上报 capture
+  })
+
+  it('成功 + delete 失败 → 标 failed_permanent 防重复 replay(Copilot item #2)', async () => {
+    // 场景:replay 拿到 2xx 成功响应,但 deleteRow 失败(iOS 后台 IDB tx abort 常见)。
+    // 早先实现继续按"已处理"走,row 仍 pending → 下次 trigger 再发 → 后端重复写。
+    // 修后:delete 失败 → 标 failed_permanent + Sentry capture,不假装成功。
+    const db = await openOutbox()
+    const id = await enqueue(db, { path: '/tours/1/expenses', method: 'POST', body: { x: 1 }, headers: {}, resource_kind: 'expense' })
+    fetch.mockResolvedValue({ ok: true, status: 200 })
+
+    // 强制 deleteRow 抛(模拟 iOS 后台 tx abort)
+    const queueModule = await import('../queue')
+    const realDelete = queueModule.deleteRow
+    const spy = vi.spyOn(queueModule, 'deleteRow').mockRejectedValue(new Error('Transaction aborted'))
+
+    await replay(db)
+
+    const row = await getRow(db, id)
+    expect(row.status).toBe('failed_permanent')
+    expect(row.last_error).toContain('已发送但本地清理失败')
+    expect(row.last_error_raw).toContain('Delete after success failed')
+    // 关键:不应 dispatchSuccess(否则 UI 当真成功 + row 仍在抽屉里 → 矛盾)
+    expect(dispatchSuccess).not.toHaveBeenCalled()
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ tags: expect.objectContaining({ path: '/tours/1/expenses' }) }),
+    )
+
+    spy.mockRestore()
+  })
+
   it('photo kind → dispatchPhotoReplay (not fetch)', async () => {
     const db = await openOutbox()
     const blob = new File(['fake'], 'img.webp', { type: 'image/webp' })

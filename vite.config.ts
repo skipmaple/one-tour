@@ -150,10 +150,14 @@ export default defineConfig({
                 let parsedBody
                 try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
 
+                // 过滤 cookie/auth(敏感)+ X-Inertia* 系列(deploy 后 version
+                // 变化会让 replay 永久 409)。Copilot review item #4。
                 const headers = {}
                 request.headers.forEach((v, k) => {
-                  if (k.toLowerCase() === 'cookie' || k.toLowerCase() === 'authorization') return
-                  headers[k] = v
+                  const lk = k.toLowerCase()
+                  if (lk === 'cookie' || lk === 'authorization') return
+                  if (lk.startsWith('x-inertia')) return
+                  headers[lk] = v
                 })
 
                 const url = new URL(request.url)
@@ -196,6 +200,39 @@ export default defineConfig({
                   }
                   req.onerror = () => reject(req.error)
                 })
+
+                // === 响应分流(Copilot review item #1)===
+                // Inertia client 期望 X-Inertia: true header + 标准 component/props/url/version
+                // JSON shape。早先返 plain 202 JSON → Inertia 显示 "All Inertia requests must
+                // receive a valid Inertia response" 错误 modal,给用户看着像 app 坏了。
+                // 修法:Inertia 请求 → 从 inertia-pages cache 拿当前页(referrer)的响应,加
+                // X-Inertia header 返回。Inertia client 看到"同 component,同 url"当 no-op,
+                // form dialog onSuccess 正常触发(关掉表单),OutboxStatus 1s poll 自然显示
+                // "1 条待同步"反馈。无 cache 时 synthesize 最小 Inertia 响应避免错误 modal。
+                if (request.headers.get('X-Inertia') === 'true') {
+                  try {
+                    const referer = request.referrer || `${url.origin}/`
+                    const cache = await caches.open('inertia-pages')
+                    const cached = await cache.match(referer)
+                    if (cached) {
+                      const cachedHeaders = new Headers(cached.headers)
+                      cachedHeaders.set('X-Inertia', 'true')
+                      const cachedBody = await cached.text()
+                      return new Response(cachedBody, { status: 200, headers: cachedHeaders })
+                    }
+                    return new Response(JSON.stringify({
+                      component: 'unknown',
+                      props: { _outbox_queued: true, _outbox_id: id },
+                      url: new URL(referer).pathname,
+                      version: 'queued',
+                    }), {
+                      status: 200,
+                      headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true' },
+                    })
+                  } catch {
+                    // cache 异常 → fall through 到 plain 202(error modal 比挂掉好)
+                  }
+                }
 
                 return new Response(
                   JSON.stringify({ queued: true, id }),
@@ -225,10 +262,14 @@ export default defineConfig({
                 let parsedBody
                 try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
 
+                // 过滤 cookie/auth(敏感)+ X-Inertia* 系列(deploy 后 version
+                // 变化会让 replay 永久 409)。Copilot review item #4。
                 const headers = {}
                 request.headers.forEach((v, k) => {
-                  if (k.toLowerCase() === 'cookie' || k.toLowerCase() === 'authorization') return
-                  headers[k] = v
+                  const lk = k.toLowerCase()
+                  if (lk === 'cookie' || lk === 'authorization') return
+                  if (lk.startsWith('x-inertia')) return
+                  headers[lk] = v
                 })
 
                 const url = new URL(request.url)
@@ -271,6 +312,39 @@ export default defineConfig({
                   }
                   req.onerror = () => reject(req.error)
                 })
+
+                // === 响应分流(Copilot review item #1)===
+                // Inertia client 期望 X-Inertia: true header + 标准 component/props/url/version
+                // JSON shape。早先返 plain 202 JSON → Inertia 显示 "All Inertia requests must
+                // receive a valid Inertia response" 错误 modal,给用户看着像 app 坏了。
+                // 修法:Inertia 请求 → 从 inertia-pages cache 拿当前页(referrer)的响应,加
+                // X-Inertia header 返回。Inertia client 看到"同 component,同 url"当 no-op,
+                // form dialog onSuccess 正常触发(关掉表单),OutboxStatus 1s poll 自然显示
+                // "1 条待同步"反馈。无 cache 时 synthesize 最小 Inertia 响应避免错误 modal。
+                if (request.headers.get('X-Inertia') === 'true') {
+                  try {
+                    const referer = request.referrer || `${url.origin}/`
+                    const cache = await caches.open('inertia-pages')
+                    const cached = await cache.match(referer)
+                    if (cached) {
+                      const cachedHeaders = new Headers(cached.headers)
+                      cachedHeaders.set('X-Inertia', 'true')
+                      const cachedBody = await cached.text()
+                      return new Response(cachedBody, { status: 200, headers: cachedHeaders })
+                    }
+                    return new Response(JSON.stringify({
+                      component: 'unknown',
+                      props: { _outbox_queued: true, _outbox_id: id },
+                      url: new URL(referer).pathname,
+                      version: 'queued',
+                    }), {
+                      status: 200,
+                      headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true' },
+                    })
+                  } catch {
+                    // cache 异常 → fall through 到 plain 202(error modal 比挂掉好)
+                  }
+                }
 
                 return new Response(
                   JSON.stringify({ queued: true, id }),

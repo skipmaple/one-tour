@@ -6,12 +6,20 @@ vi.mock('../replay', () => ({
 vi.mock('../queue', () => ({
   openOutbox: vi.fn(() => Promise.resolve({ __fake: true })),
 }))
+vi.mock('@sentry/react', () => ({
+  captureException: vi.fn(),
+}))
 
 import { replay } from '../replay'
+import * as Sentry from '@sentry/react'
+import { openOutbox } from '../queue'
 import { bindTriggers, unbindTriggers } from '../triggers'
 
 beforeEach(() => {
   replay.mockClear()
+  Sentry.captureException.mockClear()
+  openOutbox.mockReset()
+  openOutbox.mockResolvedValue({ __fake: true })
 })
 afterEach(() => {
   unbindTriggers()
@@ -64,5 +72,24 @@ describe('triggers', () => {
     await new Promise(r => setImmediate(r))
     await Promise.resolve()
     expect(replay).toHaveBeenCalledTimes(1)
+  })
+
+  it('openOutbox 失败(Safari 私密模式 / IDB 禁用)→ catch 进 Sentry,不冒到 window(Copilot #5)', async () => {
+    // 早期实现 fire() 直挂 event,openOutbox reject 会 unhandledrejection。
+    // 修后 safeFire 包 catch,异常上报 Sentry 后悄悄吞。
+    const idbErr = new Error('IDB disabled (Safari private mode)')
+    openOutbox.mockReset()
+    openOutbox.mockRejectedValue(idbErr)
+    bindTriggers()
+    // 多 flush 几轮:bind → safeFire 同步触发 → fire async 走 await getDb → reject
+    // → catch 同步 setentry。这条链至少要过 ~3 个 microtask 周期。
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setImmediate(r))
+      await Promise.resolve()
+    }
+    expect(Sentry.captureException).toHaveBeenCalledWith(
+      idbErr,
+      expect.objectContaining({ tags: { context: 'outbox.trigger_failed' } }),
+    )
   })
 })

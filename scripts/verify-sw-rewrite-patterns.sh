@@ -93,5 +93,19 @@ else
   exit 1
 fi
 
+# Inertia 兼容响应分流必须 inline。Copilot review item #1 关键修复:SW 返
+# plain 202 时 Inertia router 会显错误 modal "All Inertia requests must receive
+# a valid Inertia response"。修后用 X-Inertia: true 加 cached 页响应分流。
+# 如果有人 refactor 把这部分抽 named helper,Workbox generateSW 序列化会丢,
+# error modal 又会回来 — 这条护栏防 regression。
+if grep -q "X-Inertia" "$SW_FILE"; then
+  echo "✓ outbox guard: Inertia-aware response branch present (X-Inertia 字面量出现)"
+else
+  echo "::error::SW does not contain 'X-Inertia' — Inertia-compatible response branch missing"
+  echo "::error::没这分支 SW 会返 plain 202,Inertia client 显错误 modal 给用户。"
+  echo "::error::检查 vite.config.ts outboxHandler 里 X-Inertia 分流逻辑还在 + cache.match(referrer) 还在"
+  exit 1
+fi
+
 echo ""
-echo "All SW rewrite patterns intact + outbox handler inlining verified."
+echo "All SW rewrite patterns intact + outbox handler inlining + Inertia branching verified."
