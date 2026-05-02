@@ -3,7 +3,7 @@ import { openOutbox, enqueue, getRow } from '../queue'
 
 beforeEach(async () => {
   // fake-indexeddb 用 jsdom 全局 indexedDB,每个测试新实例
-  indexedDB = new IDBFactory()
+  globalThis.indexedDB = new IDBFactory()
 })
 
 describe('outbox.queue', () => {
@@ -28,7 +28,7 @@ describe('outbox.queue', () => {
       path: '/expenses/42',
       method: 'PATCH',
       body: { amount: 9000 },
-      headers: {},
+      // headers omitted → tests default
       resource_kind: 'expense',
       display_label: '改 ¥90',
     })
@@ -42,5 +42,7 @@ describe('outbox.queue', () => {
     expect(row.status).toBe('pending')
     expect(row.enqueued_at).toBeGreaterThan(0)
     expect(row.resource_kind).toBe('expense')
+    expect(row.display_label).toBe('改 ¥90')
+    expect(row.headers).toEqual({})
   })
 })

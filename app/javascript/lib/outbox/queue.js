@@ -42,8 +42,12 @@ export function enqueue(db, partial) {
       display_label: partial.display_label || '',
     }
     const req = store.add(row)
-    req.onsuccess = () => resolve(req.result)
+    let newId
+    req.onsuccess = () => { newId = req.result }
     req.onerror = () => reject(req.error)
+    tx.oncomplete = () => resolve(newId)
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
   })
 }
 
@@ -53,5 +57,7 @@ export function getRow(db, id) {
     const req = tx.objectStore(STORE).get(id)
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
   })
 }
