@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { compressImage } from '../lib/image-compression'
-import { xhrRequest, mkForm, XhrRequestError } from '../lib/xhr-request'
+import { xhrRequest, mkForm, XhrRequestError, RETRYABLE_STATUSES } from '../lib/xhr-request'
 import { openOutbox, enqueue } from '../lib/outbox/queue'
 
 // Accepted MIME types match ActivityImage::ALLOWED_CONTENT_TYPES on the server.
@@ -98,10 +98,11 @@ export default function useGalleryUploader(activityId, { existingCount }) {
         } catch (err) {
           if (err.name === 'AbortError') return
 
-          // 网络 / 5xx 已用尽 retry → 入 outbox 让 outbox 系统接管
-          // status=null = 网络断开; >=500 / 408 / 429 = xhrRequest 认定可重试的状态码
+          // 网络 / xhrRequest 认定可重试的 status 已耗尽 retry → 入 outbox。
+          // 直接复用 xhr-request 的 RETRYABLE_STATUSES set,防 drift(早先写 >=500
+          // 把 501 / 505 / 507 等 xhrRequest 不重试的码也吞了 → 用户该立即看到错却被静默入队)。
           const isRetryable = err instanceof XhrRequestError &&
-            (err.status === null || err.status >= 500 || err.status === 408 || err.status === 429)
+            (err.status === null || RETRYABLE_STATUSES.has(err.status))
 
           if (isRetryable) {
             try {

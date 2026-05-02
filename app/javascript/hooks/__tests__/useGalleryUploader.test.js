@@ -27,9 +27,12 @@ vi.mock('../../lib/xhr-request', () => ({
       super(message || 'XHR fail')
       this.name = 'XhrRequestError'
       this.status = status
+      this.body = body
       this.attempts = attempts
     }
   },
+  // 跟生产 RETRYABLE_STATUSES 同步 — useGalleryUploader 用此 set 分流 outbox 入队
+  RETRYABLE_STATUSES: new Set([ 408, 429, 500, 502, 503, 504 ]),
 }))
 // compressImage: pass-through so tests don't need a real canvas.
 vi.mock('../../lib/image-compression', () => ({

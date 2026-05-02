@@ -4,7 +4,9 @@
 
 import * as Sentry from '@sentry/react'
 
-const RETRYABLE_STATUSES = new Set([ 408, 429, 500, 502, 503, 504 ])
+// Exported so consumers (useGalleryUploader)可以判断"xhrRequest 已耗尽 retry"
+// 用于决定是入 outbox 还是直接报错给用户。两处用同一份 set 防 drift。
+export const RETRYABLE_STATUSES = new Set([ 408, 429, 500, 502, 503, 504 ])
 
 export class XhrRequestError extends Error {
   constructor({ status, body, attempts, message }) {
