@@ -4,6 +4,7 @@ import { IconMessage2 } from '@tabler/icons-react'
 import useChat from '../../hooks/useChat'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import PanelShell from './PanelLayout/PanelShell'
+import LuluAvatar from '../Lulu/LuluAvatar'
 
 export default function ChatPanel({
   tour,
@@ -114,20 +115,31 @@ function MessageBubble({ message }) {
   }
 
   const isUser = message.role === 'user'
-  return (
+  const bubble = (
     <Paper
       p="xs"
       radius="sm"
       style={{
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
         maxWidth: '85%',
         background: isUser ? '#e7f2ff' : '#f5f5f5',
         whiteSpace: 'pre-wrap',
-        fontSize: 13
+        fontSize: 13,
       }}
     >
       {message.content}
     </Paper>
+  )
+  if (isUser) {
+    return <div style={{ alignSelf: 'flex-end' }}>{bubble}</div>
+  }
+  // AI: 路路 32px logomark + bubble. Brand brief §07③ — assistant identity anchor.
+  return (
+    <div style={{ alignSelf: 'flex-start', display: 'flex', gap: 8, alignItems: 'flex-start', maxWidth: '95%' }}>
+      <div style={{ flexShrink: 0, marginTop: 2 }}>
+        <LuluAvatar size={32} radius="6px" alt="路路" />
+      </div>
+      {bubble}
+    </div>
   )
 }
 

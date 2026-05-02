@@ -1,5 +1,6 @@
-import { Stack, Group, Title, Button, Table, Text, Badge } from '@mantine/core'
+import { Stack, Group, Title, Button, Table, Text, Badge, Center, Paper } from '@mantine/core'
 import { Link, Head, router } from '@inertiajs/react'
+import LuluFull from '../../components/Lulu/LuluFull'
 
 export default function Index({ tours }) {
   // Create with no title — onboarding step 1 requires 程名 before advancing,
@@ -56,7 +57,18 @@ export default function Index({ tours }) {
       </Table>
 
       {tours.length === 0 && (
-        <Text c="dimmed" ta="center" py="xl">还没有旅程。点"+ 新建旅程"开始。</Text>
+        <Paper withBorder p="xl" radius="md">
+          <Center>
+            <Stack align="center" gap="sm" maw={320}>
+              <LuluFull size={120} bg="blue" radius={16} alt="路路 mascot" />
+              <Text fw={700} size="lg">还没有旅程</Text>
+              <Text c="dimmed" size="sm" ta="center">
+                路路在等你建第一段路。从一次说走就走的周末开始？
+              </Text>
+              <Button mt="xs" onClick={createTour}>新建旅程</Button>
+            </Stack>
+          </Center>
+        </Paper>
       )}
     </Stack>
   )

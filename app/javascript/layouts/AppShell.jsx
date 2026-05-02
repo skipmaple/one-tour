@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AppShell as MantineAppShell, Group, ActionIcon, Text, Box } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { usePage } from '@inertiajs/react'
+import { Link, usePage } from '@inertiajs/react'
 import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand,
@@ -9,6 +9,7 @@ import {
 import SidebarNav from './sidebar/SidebarNav'
 import { useSidebarCollapsed } from './sidebar/useSidebarCollapsed'
 import { HeaderSlotProvider, useHeaderRightSlot } from './HeaderSlot'
+import LuluAvatar from '../components/Lulu/LuluAvatar'
 
 const SITE_SUFFIX_RE = /\s*·\s*OneTour\s*$/
 
@@ -83,6 +84,11 @@ function AppShellInner({ children }) {
               ? <IconLayoutSidebarLeftCollapse size={20} />
               : <IconLayoutSidebarLeftExpand size={20} />}
           </ActionIcon>
+          <Link href="/" aria-label="路书 OneTour" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}>
+            <LuluAvatar size={28} radius="6px" />
+            <Text fw={700} size="sm" visibleFrom="sm">路书</Text>
+          </Link>
+          <Box style={{ width: 1, height: 18, background: 'var(--mantine-color-gray-3)' }} visibleFrom="sm" />
           <Text fw={600} size="sm">{title}</Text>
           <Box style={{ flex: 1 }} />
           {rightSlot}
