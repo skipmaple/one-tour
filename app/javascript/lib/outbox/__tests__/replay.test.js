@@ -107,9 +107,11 @@ describe('replay', () => {
     const p1 = replay(db)
     const p2 = replay(db) // 应直接 return,不发第二次 fetch
 
-    // flush one event-loop tick so p1's IDB listByStatus resolves and fetch is called;
-    // p2 already returned (mutex) so no second fetch will ever be issued
-    await new Promise(r => setTimeout(r, 0))
+    // 让 p1 走过 listByStatus 的 await:fake-indexeddb 用 setImmediate 调度
+    // IDB 回调,用 setImmediate flush 比 setTimeout(0) 更精确(不含 4ms 最小延迟),
+    // 再追一个 microtask 让 Promise chain 传播完毕。
+    await new Promise(r => setImmediate(r))
+    await Promise.resolve()
     expect(fetch).toHaveBeenCalledTimes(1)
     resolveFetch({ ok: true, status: 200 })
     await Promise.all([p1, p2])

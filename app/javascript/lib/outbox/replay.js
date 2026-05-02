@@ -28,6 +28,15 @@ function isPermanent(status) {
   return status >= 400 && status < 500 && status !== 408 && status !== 429
 }
 
+// IDB 写操作包装:单次 IDB 失败不中断整个 for 循环,异常上报 Sentry 后继续
+async function safeWrite(fn, row, context) {
+  try {
+    await fn()
+  } catch (idbErr) {
+    Sentry.captureException(idbErr, { tags: { context, id: row.id, kind: row.resource_kind } })
+  }
+}
+
 export async function replay(db) {
   if (isReplaying) return
   isReplaying = true
@@ -56,7 +65,7 @@ export async function replay(db) {
         }
 
         if (res.ok) {
-          await deleteRow(db, row.id)
+          await safeWrite(() => deleteRow(db, row.id), row, 'outbox.delete_failed')
           dispatchSuccess(row)
           Sentry.addBreadcrumb({
             category: 'outbox.success',
@@ -65,7 +74,7 @@ export async function replay(db) {
         } else if (isPermanent(res.status)) {
           row.status = 'failed_permanent'
           row.last_error = `HTTP ${res.status}: ${(await res.text?.()) || ''}`.slice(0, 500)
-          await put(db, row)
+          await safeWrite(() => put(db, row), row, 'outbox.put_failed')
           Sentry.captureException(new Error(`Outbox failed_permanent ${res.status}`), {
             tags: {
               path: row.path,
@@ -83,12 +92,13 @@ export async function replay(db) {
             Sentry.captureException(new Error(`Outbox attempts cap`), {
               tags: { path: row.path, method: row.method, attempts: row.attempts, kind: row.resource_kind },
             })
+          } else {
+            Sentry.addBreadcrumb({
+              category: 'outbox.retry',
+              data: { id: row.id, attempts: row.attempts, status: res.status },
+            })
           }
-          await put(db, row)
-          Sentry.addBreadcrumb({
-            category: 'outbox.retry',
-            data: { id: row.id, attempts: row.attempts, status: res.status },
-          })
+          await safeWrite(() => put(db, row), row, 'outbox.put_failed')
         }
       } catch (networkErr) {
         // fetch 抛出(network down)。同 5xx 处理。
@@ -99,12 +109,13 @@ export async function replay(db) {
           Sentry.captureException(networkErr, {
             tags: { path: row.path, method: row.method, attempts: row.attempts, kind: row.resource_kind },
           })
+        } else {
+          Sentry.addBreadcrumb({
+            category: 'outbox.retry',
+            data: { id: row.id, attempts: row.attempts, error: row.last_error },
+          })
         }
-        await put(db, row)
-        Sentry.addBreadcrumb({
-          category: 'outbox.retry',
-          data: { id: row.id, attempts: row.attempts, error: row.last_error },
-        })
+        await safeWrite(() => put(db, row), row, 'outbox.put_failed')
       }
     }
   } finally {
