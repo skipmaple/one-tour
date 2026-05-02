@@ -5,91 +5,11 @@ import { defineConfig } from 'vite'
 import RubyPlugin from 'vite-plugin-ruby'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// === Outbox SW helpers — see lib/outbox/paths.js for the source-of-truth list ===
-// Workbox SW build can't import lib modules; these regex patterns and the
-// IDB write logic must stay schema-compatible with lib/outbox/queue.js
-// (DB name 'one-tour-outbox' v1, store 'mutations', same row shape).
-//
-// Length canary in lib/outbox/__tests__/paths.test.js asserts 5 patterns
-// in the lib whitelist. If you add/remove a pattern here, update both files.
-
-const outboxUrlPattern = ({ url }: { url: URL }) => {
-  const p = url.pathname
-  return /^\/tours\/\d+\/expenses$/.test(p) ||
-         /^\/expenses\/\d+$/.test(p) ||
-         /^\/activities\/\d+$/.test(p) ||
-         /^\/tours\/\d+\/settlements$/.test(p) ||
-         /^\/tours\/\d+\/days\/\d+$/.test(p)
-}
-
-// Open + write to IDB. Mirrors lib/outbox/queue.js openOutbox + enqueue,
-// but inline because SW context can't import the lib.
-async function enqueueFromRequest(request: Request): Promise<number> {
-  const body = await request.clone().text()
-  let parsedBody: unknown
-  try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
-
-  const headers: Record<string, string> = {}
-  request.headers.forEach((v, k) => {
-    if (k.toLowerCase() === 'cookie' || k.toLowerCase() === 'authorization') return
-    headers[k] = v
-  })
-
-  const url = new URL(request.url)
-  let kind = 'unknown'
-  if (/\/expenses(\/\d+)?$/.test(url.pathname)) kind = 'expense'
-  else if (/\/activities\/\d+$/.test(url.pathname)) kind = 'activity_edit'
-  else if (/\/settlements$/.test(url.pathname)) kind = 'settlement'
-  else if (/\/days\/\d+$/.test(url.pathname)) kind = 'note'
-
-  return new Promise<number>((resolve, reject) => {
-    const req = indexedDB.open('one-tour-outbox', 1)
-    req.onupgradeneeded = (e: IDBVersionChangeEvent) => {
-      const db = (e.target as IDBOpenDBRequest).result
-      const store = db.createObjectStore('mutations', { keyPath: 'id', autoIncrement: true })
-      store.createIndex('enqueued_at', 'enqueued_at')
-      store.createIndex('status', 'status')
-    }
-    req.onsuccess = () => {
-      const db = req.result
-      const tx = db.transaction('mutations', 'readwrite')
-      const store = tx.objectStore('mutations')
-      const addReq = store.add({
-        path: url.pathname,
-        method: request.method,
-        body: parsedBody,
-        headers,
-        enqueued_at: Date.now(),
-        attempts: 0,
-        last_error: '',
-        status: 'pending',
-        resource_kind: kind,
-        display_label: '',
-      })
-      let newId: number
-      addReq.onsuccess = () => { newId = addReq.result as number }
-      addReq.onerror = () => reject(addReq.error)
-      tx.oncomplete = () => resolve(newId!)
-      tx.onerror = () => reject(tx.error)
-      tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
-    }
-    req.onerror = () => reject(req.error)
-  })
-}
-
-const outboxHandler = async ({ request }: { event: ExtendableEvent; request: Request }) => {
-  try {
-    const res = await fetch(request.clone())
-    if (res.status >= 500) throw new Error(`5xx queue ${res.status}`)
-    return res
-  } catch {
-    const id = await enqueueFromRequest(request)
-    return new Response(
-      JSON.stringify({ queued: true, id }),
-      { status: 202, headers: { 'Content-Type': 'application/json' } }
-    )
-  }
-}
+// NOTE: No top-level SW helpers here intentionally.
+// Workbox generateSW serializes only the direct arrow-function body of each
+// runtimeCaching handler / urlPattern — named references to outer-scope
+// functions are NOT included in the generated sw.js and cause ReferenceError
+// at SW runtime. All outbox logic must be inlined into each entry below.
 
 export default defineConfig({
   build: {
@@ -201,11 +121,164 @@ export default defineConfig({
               cacheableResponse: { statuses: [ 200 ] },
             },
           },
-          // === Outbox:4 个 JSON mutation 失败入 IDB 队列(replay 由 lib/outbox 接管)===
-          // Workbox 每条 runtimeCaching 只支持单 method,所以 POST + PATCH 各注册一份。
-          // urlPattern 和 enqueueFromRequest 在 vite.config.ts 顶部定义。
-          { urlPattern: outboxUrlPattern, method: 'POST',  handler: outboxHandler },
-          { urlPattern: outboxUrlPattern, method: 'PATCH', handler: outboxHandler },
+          // === Outbox:4 个 JSON mutation 失败入 IDB 队列 ===
+          // 整个 handler body 必须 inline — Workbox generateSW 只 serialize
+          // 直接 inline 的 arrow function body,不跟 named reference。
+          // urlPattern 同理。Workbox 每条 runtimeCaching 只支持单 method,
+          // 所以 POST + PATCH 各注册一份(handler body 完整复制,无 DRY 捷径)。
+          // schema 必须与 app/javascript/lib/outbox/queue.js 同步:
+          //   DB 'one-tour-outbox' v1, store 'mutations'
+          //   indexes: 'enqueued_at', 'status'
+          {
+            urlPattern: ({ url }) => {
+              const p = url.pathname
+              return /^\/tours\/\d+\/expenses$/.test(p) ||
+                     /^\/expenses\/\d+$/.test(p) ||
+                     /^\/activities\/\d+$/.test(p) ||
+                     /^\/tours\/\d+\/settlements$/.test(p) ||
+                     /^\/tours\/\d+\/days\/\d+$/.test(p)
+            },
+            method: 'POST',
+            handler: async ({ request }) => {
+              try {
+                const res = await fetch(request.clone())
+                if (res.status >= 500) throw new Error(`5xx queue ${res.status}`)
+                return res
+              } catch {
+                // === Inline IDB enqueue — 不能 import lib,Workbox 不跟 reference ===
+                const body = await request.clone().text()
+                let parsedBody
+                try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
+
+                const headers = {}
+                request.headers.forEach((v, k) => {
+                  if (k.toLowerCase() === 'cookie' || k.toLowerCase() === 'authorization') return
+                  headers[k] = v
+                })
+
+                const url = new URL(request.url)
+                let kind = 'unknown'
+                if (/\/expenses(\/\d+)?$/.test(url.pathname)) kind = 'expense'
+                else if (/\/activities\/\d+$/.test(url.pathname)) kind = 'activity_edit'
+                else if (/\/settlements$/.test(url.pathname)) kind = 'settlement'
+                else if (/\/days\/\d+$/.test(url.pathname)) kind = 'note'
+
+                const id = await new Promise((resolve, reject) => {
+                  const req = indexedDB.open('one-tour-outbox', 1)
+                  req.onupgradeneeded = (e) => {
+                    const db = e.target.result
+                    const store = db.createObjectStore('mutations', { keyPath: 'id', autoIncrement: true })
+                    store.createIndex('enqueued_at', 'enqueued_at')
+                    store.createIndex('status', 'status')
+                  }
+                  req.onsuccess = () => {
+                    const db = req.result
+                    const tx = db.transaction('mutations', 'readwrite')
+                    const store = tx.objectStore('mutations')
+                    const addReq = store.add({
+                      path: url.pathname,
+                      method: request.method,
+                      body: parsedBody,
+                      headers,
+                      enqueued_at: Date.now(),
+                      attempts: 0,
+                      last_error: '',
+                      status: 'pending',
+                      resource_kind: kind,
+                      display_label: '',
+                    })
+                    let newId
+                    addReq.onsuccess = () => { newId = addReq.result }
+                    addReq.onerror = () => reject(addReq.error)
+                    tx.oncomplete = () => resolve(newId)
+                    tx.onerror = () => reject(tx.error)
+                    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
+                  }
+                  req.onerror = () => reject(req.error)
+                })
+
+                return new Response(
+                  JSON.stringify({ queued: true, id }),
+                  { status: 202, headers: { 'Content-Type': 'application/json' } }
+                )
+              }
+            },
+          },
+          {
+            urlPattern: ({ url }) => {
+              const p = url.pathname
+              return /^\/tours\/\d+\/expenses$/.test(p) ||
+                     /^\/expenses\/\d+$/.test(p) ||
+                     /^\/activities\/\d+$/.test(p) ||
+                     /^\/tours\/\d+\/settlements$/.test(p) ||
+                     /^\/tours\/\d+\/days\/\d+$/.test(p)
+            },
+            method: 'PATCH',
+            handler: async ({ request }) => {
+              try {
+                const res = await fetch(request.clone())
+                if (res.status >= 500) throw new Error(`5xx queue ${res.status}`)
+                return res
+              } catch {
+                // === Inline IDB enqueue — 不能 import lib,Workbox 不跟 reference ===
+                const body = await request.clone().text()
+                let parsedBody
+                try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
+
+                const headers = {}
+                request.headers.forEach((v, k) => {
+                  if (k.toLowerCase() === 'cookie' || k.toLowerCase() === 'authorization') return
+                  headers[k] = v
+                })
+
+                const url = new URL(request.url)
+                let kind = 'unknown'
+                if (/\/expenses(\/\d+)?$/.test(url.pathname)) kind = 'expense'
+                else if (/\/activities\/\d+$/.test(url.pathname)) kind = 'activity_edit'
+                else if (/\/settlements$/.test(url.pathname)) kind = 'settlement'
+                else if (/\/days\/\d+$/.test(url.pathname)) kind = 'note'
+
+                const id = await new Promise((resolve, reject) => {
+                  const req = indexedDB.open('one-tour-outbox', 1)
+                  req.onupgradeneeded = (e) => {
+                    const db = e.target.result
+                    const store = db.createObjectStore('mutations', { keyPath: 'id', autoIncrement: true })
+                    store.createIndex('enqueued_at', 'enqueued_at')
+                    store.createIndex('status', 'status')
+                  }
+                  req.onsuccess = () => {
+                    const db = req.result
+                    const tx = db.transaction('mutations', 'readwrite')
+                    const store = tx.objectStore('mutations')
+                    const addReq = store.add({
+                      path: url.pathname,
+                      method: request.method,
+                      body: parsedBody,
+                      headers,
+                      enqueued_at: Date.now(),
+                      attempts: 0,
+                      last_error: '',
+                      status: 'pending',
+                      resource_kind: kind,
+                      display_label: '',
+                    })
+                    let newId
+                    addReq.onsuccess = () => { newId = addReq.result }
+                    addReq.onerror = () => reject(addReq.error)
+                    tx.oncomplete = () => resolve(newId)
+                    tx.onerror = () => reject(tx.error)
+                    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
+                  }
+                  req.onerror = () => reject(req.error)
+                })
+
+                return new Response(
+                  JSON.stringify({ queued: true, id }),
+                  { status: 202, headers: { 'Content-Type': 'application/json' } }
+                )
+              }
+            },
+          },
         ],
       },
       // dev 不测 SW 行为,prod build 验证;开启可能与 Vite-Ruby HMR 路径相互拦截
