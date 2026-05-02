@@ -22,7 +22,8 @@ describe('triggers', () => {
     bindTriggers()
     window.dispatchEvent(new Event('online'))
     // replay 异步,等 microtask
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise(r => setImmediate(r))
+    await Promise.resolve()
     expect(replay).toHaveBeenCalledTimes(2) // 1 from initial bind + 1 from online event
   })
 
@@ -30,7 +31,8 @@ describe('triggers', () => {
     bindTriggers()
     Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true })
     document.dispatchEvent(new Event('visibilitychange'))
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise(r => setImmediate(r))
+    await Promise.resolve()
     expect(replay).toHaveBeenCalledTimes(2) // 1 initial + 1 visibility
   })
 
@@ -38,24 +40,29 @@ describe('triggers', () => {
     bindTriggers()
     Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true })
     document.dispatchEvent(new Event('visibilitychange'))
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise(r => setImmediate(r))
+    await Promise.resolve()
     expect(replay).toHaveBeenCalledTimes(1) // only initial bind, hidden visibility skipped
   })
 
   it('unbindTriggers stops further triggers', async () => {
     bindTriggers()
-    await new Promise(r => setTimeout(r, 10)) // let initial fire complete
+    // 等 initial fire 完成再 unbind
+    await new Promise(r => setImmediate(r))
+    await Promise.resolve()
     replay.mockClear()
     unbindTriggers()
     window.dispatchEvent(new Event('online'))
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise(r => setImmediate(r))
+    await Promise.resolve()
     expect(replay).not.toHaveBeenCalled()
   })
 
   it('triggerNow exposes manual replay', async () => {
     const { triggerNow } = await import('../triggers')
     triggerNow()
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise(r => setImmediate(r))
+    await Promise.resolve()
     expect(replay).toHaveBeenCalledTimes(1)
   })
 })

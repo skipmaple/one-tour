@@ -24,7 +24,7 @@ export function bindTriggers() {
   if (bound) return
   bound = true
 
-  onOnline = () => { fire() }
+  onOnline = fire
   onVisibility = () => {
     if (document.visibilityState === 'visible') fire()
   }
