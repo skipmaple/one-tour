@@ -1,23 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
 
-vi.mock('../../lib/outbox/triggers', () => ({
-  triggerNow: vi.fn(),
-}))
-
-import { triggerNow } from '../../lib/outbox/triggers'
 import OutboxBadge from '../OutboxBadge'
 
 const wrap = (ui) => <MantineProvider>{ui}</MantineProvider>
 
-beforeEach(() => triggerNow.mockClear())
-
 describe('OutboxBadge', () => {
   it('renders nothing when both counts 0', () => {
     render(wrap(<OutboxBadge pending={0} failed={0} onClick={() => {}} />))
-    expect(document.querySelector('button')).toBeNull()
+    // MantineProvider 注 <style> 进 container,不能用 toBeEmptyDOMElement;
+    // queryByRole('button') 是 null 即证明没渲 button(component 唯一的 DOM 输出)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('renders pending count when pending > 0', () => {

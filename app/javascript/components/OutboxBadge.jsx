@@ -13,7 +13,12 @@ export default function OutboxBadge({ pending, failed, onClick }) {
   const showFailed = failed > 0
   const Icon = showFailed ? IconAlertCircle : IconCloudUpload
   const label = showFailed ? `${failed} 条失败` : `${pending} 条待同步`
-  const color = showFailed ? 'red.7' : 'yellow.7'
+
+  // 颜色 contrast 必须过 WCAG AA(text 4.5:1, non-text UI 3.0:1)。
+  // pending 黄底 #fff9db:Mantine yellow.7 (#f59f00) 仅 2.01:1,失败。
+  // 用 #744210(深琥珀)≈ 7.84:1,视觉仍是 amber 警示。同 Week 3 a11y 教训。
+  // failed 红底 #fff5f5:#c92a2a ≈ 5.10:1,通过 AA。
+  const fg = showFailed ? '#c92a2a' : '#744210'
 
   return (
     <UnstyledButton
@@ -27,8 +32,8 @@ export default function OutboxBadge({ pending, failed, onClick }) {
       }}
     >
       <Group gap={6}>
-        <Icon size={14} color={showFailed ? '#c92a2a' : '#e67700'} />
-        <Text size="xs" fw={500} c={color}>{label}</Text>
+        <Icon size={14} color={fg} />
+        <Text size="xs" fw={500} style={{ color: fg }}>{label}</Text>
       </Group>
     </UnstyledButton>
   )
