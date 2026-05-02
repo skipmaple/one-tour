@@ -12,11 +12,11 @@ Week 3 的 PWA 基础设施(SW + manifest + 运行时缓存 + 离线 read)已上
 
 **5 个支持离线的 path:**
 
-1. 费用增加 — POST `/tours/:id/expenses`
-2. 活动图上传 — POST `/activities/:id/photos`(Active Storage 三步直传)
-3. 活动详情编辑 — PATCH `/activities/:id`
-4. 结算 — POST/PATCH `/tours/:id/settlements`
-5. 日程笔记 — PATCH `/days/:id/notes` 或类似
+1. 费用增加 / 编辑 — POST `/tours/:id/expenses` 和 PATCH `/expenses/:id`(`AddExpenseDialog.jsx`)
+2. 活动图上传 — POST `/activities/:id/images`(走现有 `xhrRequest` + `useGalleryUploader.js`,**应用层入队**而非 SW 拦截 — XHR 通过 SW 但响应处理与 fetch 不同,直接在 hook 里 catch 错误入队更可靠)
+3. 活动详情编辑 — PATCH `/activities/:id`(`ActivityDrawer.jsx`,不含 `/position` 重排)
+4. 结算 — POST `/tours/:id/settlements`(`ManualSettlementDialog.jsx`)
+5. 日程笔记 — PATCH `/tours/:id/days/:day_id`(`DayEditModal.jsx`)
 
 **Out of scope(本期):**
 
@@ -73,18 +73,19 @@ Week 3 的 PWA 基础设施(SW + manifest + 运行时缓存 + 离线 read)已上
 
 ```
 app/javascript/lib/outbox/
-├── paths.js              5 个 mutation 白名单 regex(SW + 前端共享)
+├── paths.js              4 个 JSON mutation 白名单 regex(SW + 前端共享;photo 不在内,走应用层)
 ├── queue.js              IDB wrapper: openDB / enqueue / list / get / put / delete
 ├── replay.js             replay 逻辑 + isReplaying mutex + exp backoff + Sentry
 ├── triggers.js           online / visibilitychange / load / manual click 绑定
-├── photo-compress.js     Canvas decode → WebP encode + JPEG fallback
 ├── dispatch.js           dispatch 真实 res 给 Inertia(刷 page props 或 router.reload)
 └── __tests__/
     ├── queue.test.js
     ├── replay.test.js
     ├── triggers.test.js
-    ├── photo-compress.test.js
     └── dispatch.test.js
+
+# 复用 Week 2 已有(不重写):
+app/javascript/lib/image-compression.js   已实现 WebP / HEIC / fallback,直接用
 
 app/javascript/components/
 ├── OutboxBadge.jsx       头部徽标(三态)
@@ -97,13 +98,16 @@ tests/e2e/
 **修改**
 
 ```
-vite.config.ts                          加 Workbox handler:5 path 白名单 → fail → enqueue
-app/javascript/entrypoints/inertia.jsx  全局挂 OutboxBadge + 注册 triggers
-app/javascript/components/Expense*      费用表单挂入队 hook
-app/javascript/components/Photo*        拍照流挂 photo-compress + 入队
-app/javascript/components/Activity*     活动详情编辑挂入队
-app/javascript/components/Settlement*   结算表单挂入队
-app/javascript/components/Note*         笔记编辑挂入队
+vite.config.ts                                            加 Workbox handler:4 JSON path 白名单 → fail → enqueue
+app/javascript/entrypoints/inertia.jsx                    全局挂 OutboxBadge + 注册 triggers
+app/javascript/hooks/useGalleryUploader.js                photo flow:catch xhrRequest 失败 → outbox.enqueue(blob, kind: 'photo')
+package.json                                              devDep 加 fake-indexeddb(Vitest 用)
+
+# 4 个 JSON form 经 SW intercept,本身代码不需改(Inertia router 自动走 SW):
+app/javascript/components/planner/AddExpenseDialog.jsx    confirm 走 router(已用)
+app/javascript/components/planner/ManualSettlementDialog.jsx 同上
+app/javascript/components/planner/DayEditModal.jsx        同上
+app/javascript/components/activity-editor/ActivityDrawer.jsx 同上
 ```
 
 ### IndexedDB Schema
@@ -272,33 +276,46 @@ runtimeCaching: [
 
 ## 照片上传特例
 
-Active Storage 三步直传:
+**现状(Week 2 已实施)**:
 
-1. POST `/rails/active_storage/direct_uploads` → signed URL + signed_id
-2. PUT signed URL with file blob
-3. POST `/activities/:id/photos` with `signed_id`(关联到 parent)
+- `lib/image-compression.js` 已用 `browser-image-compression` 库,目标 `image/webp` q=0.82,maxSize 1.5MB,maxWidthOrHeight 2048。HEIC iPhone 自动 canvas decode。失败 fallback 原图。
+- `lib/xhr-request.js` 已用 XHR + 自动 retry / 进度条。
+- `hooks/useGalleryUploader.js` 已编排:文件选 → 压缩 → 串行上传 `POST /activities/:id/images`。
+
+**Week 4 增量** — **应用层入队,不走 SW intercept**:
+
+XHR 经 SW 但 Workbox 处理 XHR response 与 fetch 略有差异;现有 `xhrRequest` 自带 retry 在 SW 介入下行为复杂。更简单可靠是直接在 hook 里 catch 错误后写 outbox。
 
 **离线流程:**
 
-1. 拍照 / 选图 → File 对象
-2. Canvas decode → 检测 WebP 支持(`canvas.toBlob('image/webp', 0.82)` 是否成功)
-   - WebP 主图(2048px max edge, q=0.82, ~500KB)
-   - WebP thumbnail(256px, q=0.7, ~50KB)
-   - WebP encode 失败 fallback JPEG(主图 q=0.85, thumbnail q=0.7)
-3. 两个 blob + parent id 写 outbox:
+1. 拍照 / 选图 → File 对象(`useGalleryUploader#handleFilesSelected`)
+2. `compressImage(file)` 返回 WebP File(已实现)
+3. 调 `uploadOne(file)` → `xhrRequest(...)` 抛错(network / 5xx 用尽 retry)
+4. catch 块判定 `navigator.onLine === false` 或错误类别为可重试 → 写 outbox:
    ```
    {
      resource_kind: 'photo',
-     body: { primary_blob: Blob, thumb_blob: Blob, activity_id: X },
+     body: {
+       file_blob: <压缩后的 File 对象,IDB 直存>,
+       activity_id: X,
+       file_name: 'IMG_xxx.webp',
+     },
+     path: '/activities/X/images',
+     method: 'POST',
      ...
    }
    ```
-4. UI 立即用 thumbnail 显示(`URL.createObjectURL`)
+5. 通知用户 "已加入队列,联网后自动上传" + Badge++
+6. UI 用 `URL.createObjectURL(file_blob)` 在活动详情页面立即显示占位图
 
 **Replay 流程:**
 
-- 三步连贯执行,任一步失败 → 整个 row retry from step 1(signed URL 短时效,不能复用)
-- 三步成功 → 删 outbox row + dispatch Inertia 触发 photo grid refresh
+- `dispatch.js` 检查 `resource_kind === 'photo'` → 走专用 photo replay:
+  1. 从 IDB row 取出 `file_blob`
+  2. 重建 FormData → `xhrRequest('/activities/X/images', formData, ...)`
+  3. 2xx → 删 row + `router.reload({ only: ['activity'] })` 刷 photo grid
+  4. 4xx 永久失败 / 5xx 失败 → 走通用 replay 状态机(同 JSON path)
+- 不走 Active Storage direct_upload 三步:现有 endpoint 是后端代理上传(POST `/activities/X/images` 直接 form file),已稳定不动。
 
 **Quota guard:**
 
@@ -306,7 +323,7 @@ Active Storage 三步直传:
 
 - `usage / quota > 0.8` → 阻止新照片入队
 - UI 提示:"存储吃紧,请联网上传现有照片再拍新的"
-- 删 row 时一并清 blob 引用
+- 删 row 时 IDB GC blob
 
 ## 重试策略
 
@@ -350,11 +367,10 @@ PII filter 与 Week 3 一致:**body 内容不入 Sentry**,只发 path / kind / m
 
 ### Vitest 单测
 
-- **queue.test.js**:openDB / enqueue 写入 / list FIFO / delete / status 筛选 / migration onupgradeneeded
+- **queue.test.js**:openDB / enqueue 写入 / list FIFO / delete / status 筛选 / migration onupgradeneeded(用 `fake-indexeddb`)
 - **replay.test.js**:mutex(并发 replay 只一个跑)/ backoff 数列 / 4xx → failed_permanent / 5xx → retry / 5xx 5 次 → failed_permanent / 2xx → delete + dispatch / network err → retry
 - **triggers.test.js**:online / visibilitychange / load / manual click 都触发 replay
-- **photo-compress.test.js**:WebP 主图 + thumb / WebP 失败 fallback JPEG / 尺寸限制 / 类型断言
-- **dispatch.test.js**:每个 resource_kind 都正确 dispatch(刷对应 Inertia prop / 触发 reload)
+- **dispatch.test.js**:每个 resource_kind 都正确 dispatch(JSON 走 `router.reload`,photo 走 FormData + `xhrRequest` 重传)
 
 ### Playwright E2E(在 staging dogfood 前必过)
 
@@ -408,6 +424,7 @@ PII filter 与 Week 3 一致:**body 内容不入 Sentry**,只发 path / kind / m
 
 ## 文件影响范围
 
-新增 11 个 JS 文件(6 个核心 lib + 5 个 test)+ 2 个 component(Badge / Drawer)+ 1 个 E2E 文件 = 14 个新文件,~1100 行核心代码。
-修改 ~7 个表单 component(挂入队 hook)+ vite.config.ts + inertia.jsx。
-后端 0 改动(纯前端 + SW 工作)。
+新增 9 个 JS 文件(5 个核心 lib + 4 个 test)+ 2 个 component(Badge / Drawer)+ 1 个 E2E 文件 = 12 个新文件,~1000 行核心代码。
+修改:`vite.config.ts`(SW handler)、`inertia.jsx`(全局 mount)、`useGalleryUploader.js`(catch + 入队)、`package.json`(devDep `fake-indexeddb`)。
+4 个 JSON form component 不改动(Inertia router 走 SW,自动透明)。
+后端 0 改动。
