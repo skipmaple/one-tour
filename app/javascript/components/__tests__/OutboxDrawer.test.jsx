@@ -77,4 +77,30 @@ describe('OutboxDrawer', () => {
     await userEvent.click(await screen.findByRole('button', { name: '放弃' }))
     expect(deleteRow).toHaveBeenCalledWith(expect.anything(), 7)
   })
+
+  it('clicking [用最新数据重做] calls router.visit with tour URL', async () => {
+    const { router } = await import('@inertiajs/react')
+    router.visit.mockClear()
+    listByStatus.mockImplementation((db, status) => {
+      if (status === 'failed_permanent') return Promise.resolve([
+        { id: 7, resource_kind: 'expense', display_label: '¥10', path: '/tours/42/expenses', status: 'failed_permanent', attempts: 5, last_error: 'X' },
+      ])
+      return Promise.resolve([])
+    })
+    render(wrap(<OutboxDrawer opened onClose={vi.fn()} />))
+
+    await userEvent.click(await screen.findByRole('button', { name: '用最新数据重做' }))
+    expect(router.visit).toHaveBeenCalledWith('/tours/42', expect.objectContaining({ onSuccess: expect.any(Function) }))
+  })
+
+  it('pending row shows retry count when attempts > 0', async () => {
+    listByStatus.mockImplementation((db, status) => {
+      if (status === 'pending') return Promise.resolve([
+        { id: 9, resource_kind: 'expense', display_label: '¥30', status: 'pending', attempts: 3 },
+      ])
+      return Promise.resolve([])
+    })
+    render(wrap(<OutboxDrawer opened onClose={() => {}} />))
+    expect(await screen.findByText(/重试 3\/5/)).toBeInTheDocument()
+  })
 })

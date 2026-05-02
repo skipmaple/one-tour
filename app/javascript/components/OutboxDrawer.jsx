@@ -52,6 +52,9 @@ export default function OutboxDrawer({ opened, onClose }) {
         refresh()
       }})
     }
+    // 注:targetUrl 为 null 时(path 缺失或不匹配 /tours/N),drawer 也关。
+    // 当前数据 path 都来自 SW 拦截或 useGalleryUploader,二者都给完整 path,
+    // 不会触发 null 分支。如果未来有 kind 不带 tour scoped path,要重新设计 redo。
     onClose()
   }
 
