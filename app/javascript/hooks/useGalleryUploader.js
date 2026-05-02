@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { compressImage } from '../lib/image-compression'
-import { xhrRequest, mkForm } from '../lib/xhr-request'
+import { xhrRequest, mkForm, XhrRequestError } from '../lib/xhr-request'
+import { openOutbox, enqueue } from '../lib/outbox/queue'
 
 // Accepted MIME types match ActivityImage::ALLOWED_CONTENT_TYPES on the server.
 const ACCEPT_TYPES = 'image/jpeg,image/jpg,image/png,image/webp,image/gif'
@@ -96,6 +97,36 @@ export default function useGalleryUploader(activityId, { existingCount }) {
           )
         } catch (err) {
           if (err.name === 'AbortError') return
+
+          // 网络 / 5xx 已用尽 retry → 入 outbox 让 outbox 系统接管
+          // status=null = 网络断开; >=500 / 408 / 429 = xhrRequest 认定可重试的状态码
+          const isRetryable = err instanceof XhrRequestError &&
+            (err.status === null || err.status >= 500 || err.status === 408 || err.status === 429)
+
+          if (isRetryable) {
+            try {
+              const db = await openOutbox()
+              await enqueue(db, {
+                path: `/activities/${activityId}/images`,
+                method: 'POST',
+                body: { file_blob: file, activity_id: activityId, file_name: file.name },
+                headers: {},
+                resource_kind: 'photo',
+                display_label: file.name,
+              })
+              notifications.show({
+                title: '已加入队列',
+                message: `${file.name} 联网后自动上传`,
+                color: 'blue',
+              })
+              continue // 跳过本文件,继续下一个
+            } catch (outboxErr) {
+              // outbox 入队也失败(IDB 满 / 异常)— 才弹真错给用户
+              console.warn('[outbox] enqueue failed:', outboxErr)
+            }
+          }
+
+          // 不可重试(4xx)或入队也失败:原 notification 流程
           notifications.show({
             title: file.name,
             message: err.body?.errors?.join('；') || err.message || '上传失败',
