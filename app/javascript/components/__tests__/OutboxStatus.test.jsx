@@ -30,9 +30,11 @@ afterEach(() => {
 describe('OutboxStatus', () => {
   it('renders nothing when both counts 0', async () => {
     listByStatus.mockResolvedValue([])
-    render(wrap(<OutboxStatus />))
-    // initial refresh完成后,badge 仍隐藏
-    await vi.advanceTimersByTimeAsync(50)
+    await act(async () => {
+      render(wrap(<OutboxStatus />))
+      // 让 initial refresh + setState 在 act 内 flush
+      await vi.advanceTimersByTimeAsync(50)
+    })
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
@@ -51,8 +53,10 @@ describe('OutboxStatus', () => {
 
   it('falls back gracefully when IDB throws (老浏览器)', async () => {
     listByStatus.mockRejectedValue(new Error('IDB unavailable'))
-    render(wrap(<OutboxStatus />))
-    await vi.advanceTimersByTimeAsync(50)
+    await act(async () => {
+      render(wrap(<OutboxStatus />))
+      await vi.advanceTimersByTimeAsync(50)
+    })
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 })
