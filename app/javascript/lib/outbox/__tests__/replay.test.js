@@ -41,17 +41,24 @@ describe('replay', () => {
     expect(dispatchSuccess).toHaveBeenCalledWith(expect.objectContaining({ id }))
   })
 
-  it('4xx (non-408/429) → failed_permanent + Sentry capture', async () => {
+  it('4xx (non-408/429) → failed_permanent + 友好 last_error + raw 留给 dev', async () => {
     const db = await openOutbox()
     const id = await enqueue(db, { path: '/tours/1/expenses', method: 'POST', body: {}, headers: {}, resource_kind: 'expense' })
-    fetch.mockResolvedValue({ ok: false, status: 404, text: () => Promise.resolve('Not Found') })
+    fetch.mockResolvedValue({ ok: false, status: 404, text: () => Promise.resolve('<!DOCTYPE html>...Not Found...') })
 
     await replay(db)
 
     const row = await getRow(db, id)
     expect(row.status).toBe('failed_permanent')
-    expect(row.last_error).toContain('404')
+    // 用户看的是友好句子(无 HTTP code / 无 HTML)
+    expect(row.last_error).toBe('这条已被同伴删除,无法同步')
+    expect(row.last_error).not.toMatch(/HTTP|<!DOCTYPE/)
+    // raw 留给 dev / Sentry
+    expect(row.last_error_raw).toContain('HTTP 404')
+    expect(row.last_error_raw).toContain('<!DOCTYPE')
     expect(Sentry.captureException).toHaveBeenCalledTimes(1)
+    // Sentry extra 应带 raw 用于调试
+    expect(Sentry.captureException.mock.calls[0][1].extra.last_error_raw).toContain('HTTP 404')
   })
 
   it('5xx → attempts++ stays pending under cap', async () => {
@@ -94,7 +101,9 @@ describe('replay', () => {
     const row = await getRow(db, id)
     expect(row.status).toBe('pending')
     expect(row.attempts).toBe(1)
-    expect(row.last_error).toContain('Network failure')
+    // 用户看友好文案,raw 保留 message 给 dev
+    expect(row.last_error).toBe('网络一直没好,改动还在排队')
+    expect(row.last_error_raw).toContain('Network failure')
   })
 
   it('mutex blocks concurrent replay', async () => {

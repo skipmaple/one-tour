@@ -14,6 +14,7 @@
 import * as Sentry from '@sentry/react'
 import { listByStatus, put, deleteRow } from './queue'
 import { dispatchSuccess, dispatchPhotoReplay } from './dispatch'
+import { friendlyError } from './errors'
 
 const MAX_ATTEMPTS = 5
 
@@ -72,8 +73,11 @@ export async function replay(db) {
             data: { id: row.id, attempts: row.attempts, kind: row.resource_kind },
           })
         } else if (isPermanent(res.status)) {
+          // 错误信息分两份:用户看的友好句子 + dev 看的 raw body(Sentry capture 也带 raw)
+          const rawBody = ((await res.text?.()) || '').slice(0, 500)
           row.status = 'failed_permanent'
-          row.last_error = `HTTP ${res.status}: ${(await res.text?.()) || ''}`.slice(0, 500)
+          row.last_error = friendlyError(res.status, rawBody)
+          row.last_error_raw = `HTTP ${res.status}: ${rawBody}`
           await safeWrite(() => put(db, row), row, 'outbox.put_failed')
           Sentry.captureException(new Error(`Outbox failed_permanent ${res.status}`), {
             tags: {
@@ -82,17 +86,22 @@ export async function replay(db) {
               attempts: row.attempts,
               kind: row.resource_kind,
             },
+            extra: { last_error_raw: row.last_error_raw },
           })
         } else {
           // 5xx / 408 / 429 / status=0 网络错
           row.attempts += 1
-          row.last_error = `HTTP ${res.status}`
           if (row.attempts >= MAX_ATTEMPTS) {
             row.status = 'failed_permanent'
+            row.last_error = friendlyError(res.status, '')
+            row.last_error_raw = `HTTP ${res.status} (cap reached, attempts=${row.attempts})`
             Sentry.captureException(new Error(`Outbox attempts cap`), {
               tags: { path: row.path, method: row.method, attempts: row.attempts, kind: row.resource_kind },
+              extra: { last_error_raw: row.last_error_raw },
             })
           } else {
+            row.last_error = friendlyError(res.status, '')
+            row.last_error_raw = `HTTP ${res.status}`
             Sentry.addBreadcrumb({
               category: 'outbox.retry',
               data: { id: row.id, attempts: row.attempts, status: res.status },
@@ -101,18 +110,23 @@ export async function replay(db) {
           await safeWrite(() => put(db, row), row, 'outbox.put_failed')
         }
       } catch (networkErr) {
-        // fetch 抛出(network down)。同 5xx 处理。
+        // fetch 抛出(network down)。当作 status=null 走友好文案。
         row.attempts += 1
-        row.last_error = networkErr.message || 'Network failure'
+        const rawMsg = networkErr.message || 'Network failure'
         if (row.attempts >= MAX_ATTEMPTS) {
           row.status = 'failed_permanent'
+          row.last_error = friendlyError(null, '')
+          row.last_error_raw = `Network: ${rawMsg} (cap reached, attempts=${row.attempts})`
           Sentry.captureException(networkErr, {
             tags: { path: row.path, method: row.method, attempts: row.attempts, kind: row.resource_kind },
+            extra: { last_error_raw: row.last_error_raw },
           })
         } else {
+          row.last_error = friendlyError(null, '')
+          row.last_error_raw = `Network: ${rawMsg}`
           Sentry.addBreadcrumb({
             category: 'outbox.retry',
-            data: { id: row.id, attempts: row.attempts, error: row.last_error },
+            data: { id: row.id, attempts: row.attempts, error: rawMsg },
           })
         }
         await safeWrite(() => put(db, row), row, 'outbox.put_failed')

@@ -8,6 +8,7 @@
 // 以后真要省可以改。
 
 import { useEffect, useState } from 'react'
+import { Transition } from '@mantine/core'
 import { openOutbox, listByStatus } from '../lib/outbox/queue'
 import { triggerNow } from '../lib/outbox/triggers'
 import OutboxBadge from './OutboxBadge'
@@ -45,9 +46,23 @@ export default function OutboxStatus() {
     triggerNow() // 同时强制 replay
   }
 
+  // 弱网下 badge 一秒一闪太突兀。Mantine Transition 包一层 180ms fade,
+  // 入场退场都柔化(用户视角:状态平滑变化,不是 app 在跳)。
+  // duration<200ms 是 Material / iOS HIG 推荐的"快但可感知"区间。
+  const shouldShow = pending > 0 || failed > 0
+
   return (
     <>
-      <OutboxBadge pending={pending} failed={failed} onClick={handleClick} />
+      <Transition mounted={shouldShow} transition="fade" duration={180} timingFunction="ease-out">
+        {(transitionStyle) => (
+          <OutboxBadge
+            pending={pending}
+            failed={failed}
+            onClick={handleClick}
+            style={transitionStyle}
+          />
+        )}
+      </Transition>
       <OutboxDrawer opened={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>
   )

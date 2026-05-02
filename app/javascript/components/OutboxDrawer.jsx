@@ -77,7 +77,7 @@ export default function OutboxDrawer({ opened, onClose }) {
             {pending.map(row => (
               <RowCard key={row.id} row={row}>
                 <Text size="xs" c="dimmed">
-                  {row.attempts > 0 ? `重试 ${row.attempts}/5` : '等待'}
+                  {row.attempts > 0 ? `正在重试 ${row.attempts}/5` : '等待联网'}
                 </Text>
               </RowCard>
             ))}
@@ -88,14 +88,16 @@ export default function OutboxDrawer({ opened, onClose }) {
       {failed.length > 0 && (
         <>
           <Divider my="md" />
-          <Text size="sm" c="red.7" mt="sm" mb="xs">失败({failed.length})</Text>
+          {/* 文案:不再叫"失败",改"没传上去"— 失败带责备感,实际原因可能是同伴改了
+              资源,用户行为本身没问题。下方 last_error 是 friendlyError 输出的友好句子。 */}
+          <Text size="sm" c="red.7" mt="sm" mb="xs">没传上去({failed.length})</Text>
           <Stack gap="xs">
             {failed.map(row => (
               <RowCard key={row.id} row={row}>
                 <Text size="xs" c="red.7">{row.last_error}</Text>
                 <Group gap="xs" mt="xs">
-                  <Button size="xs" variant="default" onClick={() => handleAbandon(row)}>放弃</Button>
-                  <Button size="xs" onClick={() => handleRedo(row)}>用最新数据重做</Button>
+                  <Button size="xs" variant="default" onClick={() => handleAbandon(row)}>不传了</Button>
+                  <Button size="xs" onClick={() => handleRedo(row)}>用服务端最新数据再来</Button>
                 </Group>
               </RowCard>
             ))}
