@@ -10,11 +10,14 @@
 import { router } from '@inertiajs/react'
 import { xhrRequest, mkForm } from '../xhr-request'
 
+// prop 名称必须与 TourController 实际序列化的字段名一致。
+// 不存在的 prop 在 Inertia partial reload 里会被静默忽略,导致 UI 看起来
+// reload 成功但数据不刷新。
 const RELOAD_ONLY_BY_KIND = {
-  expense: ['tour', 'expenses', 'memberBalances'],
-  activity_edit: ['tour', 'days'],
-  settlement: ['tour', 'memberBalances', 'settlements'],
-  note: ['tour', 'days'],
+  expense:        ['tour', 'expenses', 'expenses_summary'],
+  activity_edit:  ['tour', 'activities', 'violations'],
+  settlement:     ['tour', 'expenses_summary', 'settlements'],
+  note:           ['tour', 'days'],  // 仅日程笔记 — activity desc edit 走 activity_edit
 }
 
 export function dispatchSuccess(row) {
