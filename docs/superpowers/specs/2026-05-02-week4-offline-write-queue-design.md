@@ -199,7 +199,8 @@ async function replay() {
           row.last_error = `HTTP ${res.status}`;
           if (row.attempts >= 5) row.status = 'failed_permanent';
           await queue.put(row);
-          await sleep(backoff(row.attempts)); // 1s / 2s / 4s / 8s / 16s
+          // 注:NO sleep / backoff inside loop — 见下方 "重试策略" 一节,
+          // page-bound model 用 trigger 间隔代替显式 sleep。
         }
       } catch (networkErr) {
         // 网络中断 → 同 5xx
@@ -217,10 +218,6 @@ async function replay() {
 
 function isPermanent(status) {
   return status >= 400 && status < 500 && status !== 408 && status !== 429;
-}
-
-function backoff(n) {
-  return Math.min(1000 * Math.pow(2, n - 1), 16000);
 }
 ```
 
@@ -330,7 +327,7 @@ XHR 经 SW 但 Workbox 处理 XHR response 与 fetch 略有差异;现有 `xhrReq
 | 状态 | 行为 |
 |------|------|
 | network error / timeout | retry(算 5xx) |
-| 5xx | retry, exp backoff `1s / 2s / 4s / 8s / 16s`, 5 次 cap |
+| 5xx | retry,5 次 cap;**不在 loop 里 sleep**,靠 trigger 间隔自然 spacing(page-bound 模型,sleep 占 mutex 反而拖慢其他 trigger)|
 | 408 / 429 | retry(treat as transient) |
 | 4xx 其他(400/401/403/404/409/422 等) | 立即 failed_permanent |
 | 5 attempts cap 后 | 转 failed_permanent + Sentry capture |
