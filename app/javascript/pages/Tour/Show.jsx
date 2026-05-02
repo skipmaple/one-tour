@@ -20,6 +20,7 @@ import ExpenseDrawer from '../../components/planner/ExpenseDrawer'
 import AddExpenseDialog from '../../components/planner/AddExpenseDialog'
 import ActivityDetailDrawer from '../../components/planner/ActivityDetailDrawer'
 import PlannerHeaderRight from '../../components/planner/PlannerHeaderRight'
+import OutboxStatus from '../../components/OutboxStatus'
 import ConstitutionDrawer from '../../components/planner/ConstitutionDrawer'
 import TimelineOverlay from '../../components/planner/TimelineOverlay'
 import ActivityFilterBar from '../../components/planner/ActivityFilterBar'
@@ -313,6 +314,7 @@ export default function Show({
         onOpenMembers={() => setMembersDrawerOpen(true)}
         onOpenSettings={canEdit ? () => setSettingsOpen(true) : undefined}
       />
+      <OutboxStatus />
     </Group>
   ), [filter, setQ, setKind, setUids, reset, filterActive, activeCount, totalCount, members, author, tour.author_id, violations, openConst, openTimeline, canEdit])
   useInjectHeaderRight(headerRight)

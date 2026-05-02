@@ -53,6 +53,8 @@ vi.mock('../../../components/planner/TimelineOverlay', () => ({
   default: () => <div data-testid="timeline-overlay-stub" />,
 }))
 
+vi.mock('../../../components/OutboxStatus', () => ({ default: () => null }))
+
 vi.mock('@mantine/notifications', () => ({
   notifications: { show: vi.fn() },
 }))

@@ -9,6 +9,7 @@ import 'dayjs/locale/zh-cn'
 import '@mantine/core/styles.css'
 import '../styles/mantine-overrides.css'  // 必须在 mantine core 后,覆盖 dimmed 等 var
 import '../lib/pwa-register'  // 注册 SW(SW per-origin 全局生效,只调一次)
+import { bindTriggers } from '../lib/outbox/triggers'
 import '@mantine/notifications/styles.css'
 import '@mantine/dates/styles.css'
 import '@mantine/charts/styles.css'
@@ -39,6 +40,10 @@ const theme = createTheme({
   primaryColor: 'blue',
   fontFamily: '"LXGW WenKai", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif',
 })
+
+if (typeof window !== 'undefined' && 'indexedDB' in window) {
+  bindTriggers()
+}
 
 createInertiaApp({
   resolve: name => {

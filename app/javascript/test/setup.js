@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto'
 import '@testing-library/jest-dom'
 
 // jsdom lacks window.matchMedia; Mantine's color-scheme provider calls it.

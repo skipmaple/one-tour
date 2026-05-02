@@ -55,5 +55,57 @@ if [[ $failed -eq 1 ]]; then
   exit 1
 fi
 
+# === Outbox SW handler 内联护栏 ===
+#
+# Workbox generateSW 只 serialize handler arrow function body,**不跟 named
+# reference**。如果谁在 vite.config.ts 里再把 outbox 逻辑抽成 top-level helper
+# (如 enqueueFromRequest / outboxHandler / outboxUrlPattern),Workbox 把 handler
+# body serialize 出来时这些 name 变成 SW 上下文里 undefined 的 free variable —
+# 第一次 offline mutation 触发就 ReferenceError。**症状无 Sentry / 无 console
+# 错误**(SW 静默 swallow handler exception),用户看到的是请求挂死。
+#
+# 这里负向锚:三个 helper 名字一旦在 sw.js 里出现就 fail CI。正向锚 'one-tour-outbox'
+# 确保 IDB enqueue 逻辑确实进了 build(若整个 outbox 路径误删,正向锚也会爆)。
+
+declare -a OUTBOX_FORBIDDEN=(
+  'enqueueFromRequest'
+  'outboxHandler'
+  'outboxUrlPattern'
+)
+
+for sym in "${OUTBOX_FORBIDDEN[@]}"; do
+  if grep -q "$sym" "$SW_FILE"; then
+    echo "::error::SW contains forbidden named reference: $sym"
+    echo "::error::Workbox generateSW does not follow named references — they become ReferenceError at SW runtime."
+    echo "::error::Inline the helper body directly inside the runtimeCaching handler arrow function."
+    echo "::error::See vite.config.ts comment block above the outbox runtimeCaching entries."
+    exit 1
+  fi
+done
+echo "✓ outbox guard: no forbidden named refs in sw.js"
+
+if grep -q "one-tour-outbox" "$SW_FILE"; then
+  echo "✓ outbox guard: IDB enqueue logic present (one-tour-outbox 字面量出现在 sw.js)"
+else
+  echo "::error::SW does not contain 'one-tour-outbox' — IDB enqueue handler missing from build"
+  echo "::error::Either the outbox runtimeCaching entries got removed, or generateSW 跳过了它们"
+  echo "::error::检查 vite.config.ts 里 POST + PATCH 两条 outbox runtimeCaching 还在,且 handler body 完整 inline"
+  exit 1
+fi
+
+# Inertia 兼容响应分流必须 inline。Copilot review item #1 关键修复:SW 返
+# plain 202 时 Inertia router 会显错误 modal "All Inertia requests must receive
+# a valid Inertia response"。修后用 X-Inertia: true 加 cached 页响应分流。
+# 如果有人 refactor 把这部分抽 named helper,Workbox generateSW 序列化会丢,
+# error modal 又会回来 — 这条护栏防 regression。
+if grep -q "X-Inertia" "$SW_FILE"; then
+  echo "✓ outbox guard: Inertia-aware response branch present (X-Inertia 字面量出现)"
+else
+  echo "::error::SW does not contain 'X-Inertia' — Inertia-compatible response branch missing"
+  echo "::error::没这分支 SW 会返 plain 202,Inertia client 显错误 modal 给用户。"
+  echo "::error::检查 vite.config.ts outboxHandler 里 X-Inertia 分流逻辑还在 + cache.match(referrer) 还在"
+  exit 1
+fi
+
 echo ""
-echo "All SW rewrite patterns intact."
+echo "All SW rewrite patterns intact + outbox handler inlining + Inertia branching verified."

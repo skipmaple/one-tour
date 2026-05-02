@@ -5,6 +5,12 @@ import { defineConfig } from 'vite'
 import RubyPlugin from 'vite-plugin-ruby'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// NOTE: No top-level SW helpers here intentionally.
+// Workbox generateSW serializes only the direct arrow-function body of each
+// runtimeCaching handler / urlPattern — named references to outer-scope
+// functions are NOT included in the generated sw.js and cause ReferenceError
+// at SW runtime. All outbox logic must be inlined into each entry below.
+
 export default defineConfig({
   build: {
     sourcemap: true,
@@ -113,6 +119,238 @@ export default defineConfig({
               // 409,如果被缓存,后续离线访问拿到的是错误页而不是 stale
               // 内容,"离线读"目标失效。架构师 review SC-3 列的 Week 4 前必修。
               cacheableResponse: { statuses: [ 200 ] },
+            },
+          },
+          // === Outbox:4 个 JSON mutation 失败入 IDB 队列 ===
+          // 整个 handler body 必须 inline — Workbox generateSW 只 serialize
+          // 直接 inline 的 arrow function body,不跟 named reference。
+          // urlPattern 同理。Workbox 每条 runtimeCaching 只支持单 method,
+          // 所以 POST + PATCH 各注册一份(handler body 完整复制,无 DRY 捷径)。
+          // schema 必须与 app/javascript/lib/outbox/queue.js 同步:
+          //   DB 'one-tour-outbox' v1, store 'mutations'
+          //   indexes: 'enqueued_at', 'status'
+          {
+            urlPattern: ({ url }) => {
+              const p = url.pathname
+              return /^\/tours\/\d+\/expenses$/.test(p) ||
+                     /^\/expenses\/\d+$/.test(p) ||
+                     /^\/activities\/\d+$/.test(p) ||
+                     /^\/tours\/\d+\/settlements$/.test(p) ||
+                     /^\/tours\/\d+\/days\/\d+$/.test(p)
+            },
+            method: 'POST',
+            handler: async ({ request }) => {
+              try {
+                const res = await fetch(request.clone())
+                if (res.status >= 500) throw new Error(`5xx queue ${res.status}`)
+                return res
+              } catch {
+                // === Inline IDB enqueue — 不能 import lib,Workbox 不跟 reference ===
+                const body = await request.clone().text()
+                let parsedBody
+                try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
+
+                // 过滤 cookie/auth(敏感)+ X-Inertia* 系列(deploy 后 version
+                // 变化会让 replay 永久 409)。Copilot review item #4。
+                const headers = {}
+                request.headers.forEach((v, k) => {
+                  const lk = k.toLowerCase()
+                  if (lk === 'cookie' || lk === 'authorization') return
+                  if (lk.startsWith('x-inertia')) return
+                  headers[lk] = v
+                })
+
+                const url = new URL(request.url)
+                let kind = 'unknown'
+                if (/\/expenses(\/\d+)?$/.test(url.pathname)) kind = 'expense'
+                else if (/\/activities\/\d+$/.test(url.pathname)) kind = 'activity_edit'
+                else if (/\/settlements$/.test(url.pathname)) kind = 'settlement'
+                else if (/\/days\/\d+$/.test(url.pathname)) kind = 'note'
+
+                const id = await new Promise((resolve, reject) => {
+                  const req = indexedDB.open('one-tour-outbox', 1)
+                  req.onupgradeneeded = (e) => {
+                    const db = e.target.result
+                    const store = db.createObjectStore('mutations', { keyPath: 'id', autoIncrement: true })
+                    store.createIndex('enqueued_at', 'enqueued_at')
+                    store.createIndex('status', 'status')
+                  }
+                  req.onsuccess = () => {
+                    const db = req.result
+                    const tx = db.transaction('mutations', 'readwrite')
+                    const store = tx.objectStore('mutations')
+                    const addReq = store.add({
+                      path: url.pathname,
+                      method: request.method,
+                      body: parsedBody,
+                      headers,
+                      enqueued_at: Date.now(),
+                      attempts: 0,
+                      last_error: '',
+                      status: 'pending',
+                      resource_kind: kind,
+                      display_label: '',
+                    })
+                    let newId
+                    addReq.onsuccess = () => { newId = addReq.result }
+                    addReq.onerror = () => reject(addReq.error)
+                    tx.oncomplete = () => resolve(newId)
+                    tx.onerror = () => reject(tx.error)
+                    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
+                  }
+                  req.onerror = () => reject(req.error)
+                })
+
+                // === 响应分流(Copilot review item #1)===
+                // Inertia client 期望 X-Inertia: true header + 标准 component/props/url/version
+                // JSON shape。早先返 plain 202 JSON → Inertia 显示 "All Inertia requests must
+                // receive a valid Inertia response" 错误 modal,给用户看着像 app 坏了。
+                // 修法:Inertia 请求 → 从 inertia-pages cache 拿当前页(referrer)的响应,加
+                // X-Inertia header 返回。Inertia client 看到"同 component,同 url"当 no-op,
+                // form dialog onSuccess 正常触发(关掉表单),OutboxStatus 1s poll 自然显示
+                // "1 条待同步"反馈。无 cache 时 synthesize 最小 Inertia 响应避免错误 modal。
+                if (request.headers.get('X-Inertia') === 'true') {
+                  try {
+                    const referer = request.referrer || `${url.origin}/`
+                    const cache = await caches.open('inertia-pages')
+                    const cached = await cache.match(referer)
+                    if (cached) {
+                      const cachedHeaders = new Headers(cached.headers)
+                      cachedHeaders.set('X-Inertia', 'true')
+                      const cachedBody = await cached.text()
+                      return new Response(cachedBody, { status: 200, headers: cachedHeaders })
+                    }
+                    return new Response(JSON.stringify({
+                      component: 'unknown',
+                      props: { _outbox_queued: true, _outbox_id: id },
+                      url: new URL(referer).pathname,
+                      version: 'queued',
+                    }), {
+                      status: 200,
+                      headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true' },
+                    })
+                  } catch {
+                    // cache 异常 → fall through 到 plain 202(error modal 比挂掉好)
+                  }
+                }
+
+                return new Response(
+                  JSON.stringify({ queued: true, id }),
+                  { status: 202, headers: { 'Content-Type': 'application/json' } }
+                )
+              }
+            },
+          },
+          {
+            urlPattern: ({ url }) => {
+              const p = url.pathname
+              return /^\/tours\/\d+\/expenses$/.test(p) ||
+                     /^\/expenses\/\d+$/.test(p) ||
+                     /^\/activities\/\d+$/.test(p) ||
+                     /^\/tours\/\d+\/settlements$/.test(p) ||
+                     /^\/tours\/\d+\/days\/\d+$/.test(p)
+            },
+            method: 'PATCH',
+            handler: async ({ request }) => {
+              try {
+                const res = await fetch(request.clone())
+                if (res.status >= 500) throw new Error(`5xx queue ${res.status}`)
+                return res
+              } catch {
+                // === Inline IDB enqueue — 不能 import lib,Workbox 不跟 reference ===
+                const body = await request.clone().text()
+                let parsedBody
+                try { parsedBody = JSON.parse(body) } catch { parsedBody = body }
+
+                // 过滤 cookie/auth(敏感)+ X-Inertia* 系列(deploy 后 version
+                // 变化会让 replay 永久 409)。Copilot review item #4。
+                const headers = {}
+                request.headers.forEach((v, k) => {
+                  const lk = k.toLowerCase()
+                  if (lk === 'cookie' || lk === 'authorization') return
+                  if (lk.startsWith('x-inertia')) return
+                  headers[lk] = v
+                })
+
+                const url = new URL(request.url)
+                let kind = 'unknown'
+                if (/\/expenses(\/\d+)?$/.test(url.pathname)) kind = 'expense'
+                else if (/\/activities\/\d+$/.test(url.pathname)) kind = 'activity_edit'
+                else if (/\/settlements$/.test(url.pathname)) kind = 'settlement'
+                else if (/\/days\/\d+$/.test(url.pathname)) kind = 'note'
+
+                const id = await new Promise((resolve, reject) => {
+                  const req = indexedDB.open('one-tour-outbox', 1)
+                  req.onupgradeneeded = (e) => {
+                    const db = e.target.result
+                    const store = db.createObjectStore('mutations', { keyPath: 'id', autoIncrement: true })
+                    store.createIndex('enqueued_at', 'enqueued_at')
+                    store.createIndex('status', 'status')
+                  }
+                  req.onsuccess = () => {
+                    const db = req.result
+                    const tx = db.transaction('mutations', 'readwrite')
+                    const store = tx.objectStore('mutations')
+                    const addReq = store.add({
+                      path: url.pathname,
+                      method: request.method,
+                      body: parsedBody,
+                      headers,
+                      enqueued_at: Date.now(),
+                      attempts: 0,
+                      last_error: '',
+                      status: 'pending',
+                      resource_kind: kind,
+                      display_label: '',
+                    })
+                    let newId
+                    addReq.onsuccess = () => { newId = addReq.result }
+                    addReq.onerror = () => reject(addReq.error)
+                    tx.oncomplete = () => resolve(newId)
+                    tx.onerror = () => reject(tx.error)
+                    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
+                  }
+                  req.onerror = () => reject(req.error)
+                })
+
+                // === 响应分流(Copilot review item #1)===
+                // Inertia client 期望 X-Inertia: true header + 标准 component/props/url/version
+                // JSON shape。早先返 plain 202 JSON → Inertia 显示 "All Inertia requests must
+                // receive a valid Inertia response" 错误 modal,给用户看着像 app 坏了。
+                // 修法:Inertia 请求 → 从 inertia-pages cache 拿当前页(referrer)的响应,加
+                // X-Inertia header 返回。Inertia client 看到"同 component,同 url"当 no-op,
+                // form dialog onSuccess 正常触发(关掉表单),OutboxStatus 1s poll 自然显示
+                // "1 条待同步"反馈。无 cache 时 synthesize 最小 Inertia 响应避免错误 modal。
+                if (request.headers.get('X-Inertia') === 'true') {
+                  try {
+                    const referer = request.referrer || `${url.origin}/`
+                    const cache = await caches.open('inertia-pages')
+                    const cached = await cache.match(referer)
+                    if (cached) {
+                      const cachedHeaders = new Headers(cached.headers)
+                      cachedHeaders.set('X-Inertia', 'true')
+                      const cachedBody = await cached.text()
+                      return new Response(cachedBody, { status: 200, headers: cachedHeaders })
+                    }
+                    return new Response(JSON.stringify({
+                      component: 'unknown',
+                      props: { _outbox_queued: true, _outbox_id: id },
+                      url: new URL(referer).pathname,
+                      version: 'queued',
+                    }), {
+                      status: 200,
+                      headers: { 'Content-Type': 'application/json', 'X-Inertia': 'true' },
+                    })
+                  } catch {
+                    // cache 异常 → fall through 到 plain 202(error modal 比挂掉好)
+                  }
+                }
+
+                return new Response(
+                  JSON.stringify({ queued: true, id }),
+                  { status: 202, headers: { 'Content-Type': 'application/json' } }
+                )
+              }
             },
           },
         ],

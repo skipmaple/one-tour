@@ -6,6 +6,8 @@ import { renderHook, act } from '@testing-library/react'
 const reloadMock = vi.fn()
 const xhrRequestMock = vi.fn()
 const notificationsShowMock = vi.fn()
+const enqueueMock = vi.fn(() => Promise.resolve(123))
+const openOutboxMock = vi.fn(() => Promise.resolve({ __fake: true }))
 
 vi.mock('@inertiajs/react', () => ({
   router: { reload: (...args) => reloadMock(...args) },
@@ -20,10 +22,25 @@ vi.mock('../../lib/xhr-request', () => ({
     fd.append(field, value)
     return fd
   },
+  XhrRequestError: class XhrRequestError extends Error {
+    constructor({ status, body, attempts, message }) {
+      super(message || 'XHR fail')
+      this.name = 'XhrRequestError'
+      this.status = status
+      this.body = body
+      this.attempts = attempts
+    }
+  },
+  // 跟生产 RETRYABLE_STATUSES 同步 — useGalleryUploader 用此 set 分流 outbox 入队
+  RETRYABLE_STATUSES: new Set([ 408, 429, 500, 502, 503, 504 ]),
 }))
 // compressImage: pass-through so tests don't need a real canvas.
 vi.mock('../../lib/image-compression', () => ({
   compressImage: (file) => Promise.resolve(file),
+}))
+vi.mock('../../lib/outbox/queue', () => ({
+  openOutbox: (...args) => openOutboxMock(...args),
+  enqueue: (...args) => enqueueMock(...args),
 }))
 
 import useGalleryUploader from '../useGalleryUploader'
@@ -32,6 +49,10 @@ beforeEach(() => {
   reloadMock.mockReset()
   xhrRequestMock.mockReset()
   notificationsShowMock.mockReset()
+  enqueueMock.mockReset()
+  enqueueMock.mockResolvedValue(123)
+  openOutboxMock.mockReset()
+  openOutboxMock.mockResolvedValue({ __fake: true })
 })
 
 function makeFile(name = 'a.jpg', size = 1024) {
@@ -133,5 +154,67 @@ describe('useGalleryUploader · unmount safety (Issue #3)', () => {
     await act(async () => { await uploadPromise })
 
     expect(reloadMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('useGalleryUploader offline enqueue', () => {
+  it('当 xhrRequest 抛 status=null(network)时,入 outbox', async () => {
+    const { XhrRequestError } = await import('../../lib/xhr-request')
+    xhrRequestMock.mockRejectedValue(new XhrRequestError({ status: null, attempts: 3, message: 'Network error' }))
+
+    const { result } = renderHook(() => useGalleryUploader(99, { existingCount: 0 }))
+    const file = new File([ 'fake' ], 'a.jpg', { type: 'image/jpeg' })
+
+    await act(async () => {
+      await result.current.handleFilesSelected({ target: { files: [ file ], value: '' } })
+    })
+
+    expect(enqueueMock).toHaveBeenCalledTimes(1)
+    const call = enqueueMock.mock.calls[0][1]
+    expect(call.resource_kind).toBe('photo')
+    expect(call.path).toBe('/activities/99/images')
+    expect(call.body.activity_id).toBe(99)
+    expect(call.body.file_blob).toBeDefined()
+  })
+
+  it('xhrRequest 5xx 用尽 retry → 入 outbox', async () => {
+    const { XhrRequestError } = await import('../../lib/xhr-request')
+    xhrRequestMock.mockRejectedValue(new XhrRequestError({ status: 503, attempts: 3, message: 'Server error' }))
+
+    const { result } = renderHook(() => useGalleryUploader(99, { existingCount: 0 }))
+    const file = new File([ 'fake' ], 'a.jpg', { type: 'image/jpeg' })
+
+    await act(async () => {
+      await result.current.handleFilesSelected({ target: { files: [ file ], value: '' } })
+    })
+
+    expect(enqueueMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('xhrRequest 4xx(非 retryable)→ 不入 outbox(用户输入错,重试无意义)', async () => {
+    const { XhrRequestError } = await import('../../lib/xhr-request')
+    xhrRequestMock.mockRejectedValue(new XhrRequestError({ status: 422, attempts: 1, message: 'Invalid' }))
+
+    const { result } = renderHook(() => useGalleryUploader(99, { existingCount: 0 }))
+    const file = new File([ 'fake' ], 'a.jpg', { type: 'image/jpeg' })
+
+    await act(async () => {
+      await result.current.handleFilesSelected({ target: { files: [ file ], value: '' } })
+    })
+
+    expect(enqueueMock).not.toHaveBeenCalled()
+  })
+
+  it('成功上传不入 outbox', async () => {
+    xhrRequestMock.mockResolvedValue({ ok: true })
+
+    const { result } = renderHook(() => useGalleryUploader(99, { existingCount: 0 }))
+    const file = new File([ 'fake' ], 'a.jpg', { type: 'image/jpeg' })
+
+    await act(async () => {
+      await result.current.handleFilesSelected({ target: { files: [ file ], value: '' } })
+    })
+
+    expect(enqueueMock).not.toHaveBeenCalled()
   })
 })
