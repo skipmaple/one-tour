@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button, Stack, Title, Paper, Center, Text, Alert, Divider, TextInput, PasswordInput } from '@mantine/core'
 import { Head, usePage } from '@inertiajs/react'
 import EmailLoginForm from '../../components/EmailLoginForm'
+import LuluAvatar from '../../components/Lulu/LuluAvatar'
 
 // All icons from Simple Icons (https://simpleicons.org) — MIT license, fill-based monochrome
 const ICONS = {
@@ -120,6 +121,7 @@ export default function Login() {
       <Center component="main" mih="80vh">
         <Paper shadow="sm" p="xl" radius="md" w={400}>
         <Stack align="center" gap="lg">
+          <LuluAvatar size={72} radius="14px" />
           <Title order={2}>登录</Title>
           <Text size="sm" c="dimmed">选择登录方式</Text>
 
