@@ -63,3 +63,43 @@ export function getRow(db, id) {
     tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
   })
 }
+
+export function listByStatus(db, status) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readonly')
+    const idx = tx.objectStore(STORE).index('status')
+    const req = idx.getAll(status)
+    req.onsuccess = () => {
+      // 按 enqueued_at asc(FIFO replay)
+      const sorted = req.result.sort((a, b) => a.enqueued_at - b.enqueued_at)
+      resolve(sorted)
+    }
+    req.onerror = () => reject(req.error)
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
+  })
+}
+
+export function put(db, row) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite')
+    const req = tx.objectStore(STORE).put(row)
+    let newId
+    req.onsuccess = () => { newId = req.result }
+    req.onerror = () => reject(req.error)
+    tx.oncomplete = () => resolve(newId)
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
+  })
+}
+
+export function deleteRow(db, id) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite')
+    const req = tx.objectStore(STORE).delete(id)
+    req.onerror = () => reject(req.error)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
+  })
+}
