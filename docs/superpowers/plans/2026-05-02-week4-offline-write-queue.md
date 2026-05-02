@@ -243,6 +243,9 @@ export function openOutbox() {
   })
 }
 
+// 写操作 resolve on tx.oncomplete(不是 req.onsuccess)— Safari / iOS 可能
+// 在 tx commit 前 abort,提前 resolve 会让后续 read 拿不到行。
+// 读 / 写都要 reject on tx.onerror + tx.onabort,否则 abort 静默 hang。
 export function enqueue(db, partial) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite')
@@ -260,8 +263,12 @@ export function enqueue(db, partial) {
       display_label: partial.display_label || '',
     }
     const req = store.add(row)
-    req.onsuccess = () => resolve(req.result)
+    let newId
+    req.onsuccess = () => { newId = req.result }
     req.onerror = () => reject(req.error)
+    tx.oncomplete = () => resolve(newId)
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
   })
 }
 
@@ -271,6 +278,8 @@ export function getRow(db, id) {
     const req = tx.objectStore(STORE).get(id)
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
   })
 }
 ```
@@ -358,6 +367,11 @@ Expected: FAIL — listByStatus / put / deleteRow undefined
 Append to `app/javascript/lib/outbox/queue.js`:
 
 ```js
+// 写操作必须 resolve on tx.oncomplete(不是 req.onsuccess),否则 Safari/iOS
+// 在 tx 提交前 abort,后续 read 可能拿不到刚写的行(durability 风险)。
+// 读 / 写都要 reject on tx.onerror + tx.onabort,否则 abort 时 Promise
+// 永远 pending(silent hang)。
+
 export function listByStatus(db, status) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readonly')
@@ -369,6 +383,8 @@ export function listByStatus(db, status) {
       resolve(sorted)
     }
     req.onerror = () => reject(req.error)
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
   })
 }
 
@@ -376,8 +392,12 @@ export function put(db, row) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite')
     const req = tx.objectStore(STORE).put(row)
-    req.onsuccess = () => resolve(req.result)
+    let newId
+    req.onsuccess = () => { newId = req.result }
     req.onerror = () => reject(req.error)
+    tx.oncomplete = () => resolve(newId)
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
   })
 }
 
@@ -385,8 +405,10 @@ export function deleteRow(db, id) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite')
     const req = tx.objectStore(STORE).delete(id)
-    req.onsuccess = () => resolve()
     req.onerror = () => reject(req.error)
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
   })
 }
 ```
@@ -1143,8 +1165,13 @@ async function enqueueFromRequest(request) {
         resource_kind: kind,
         display_label: '',
       })
-      addReq.onsuccess = () => resolve(addReq.result)
+      // 必须 resolve on tx.oncomplete(durability)+ reject 全 abort/error 路径
+      let newId
+      addReq.onsuccess = () => { newId = addReq.result }
       addReq.onerror = () => reject(addReq.error)
+      tx.oncomplete = () => resolve(newId)
+      tx.onerror = () => reject(tx.error)
+      tx.onabort = () => reject(tx.error || new DOMException('Transaction aborted', 'AbortError'))
     }
     req.onerror = () => reject(req.error)
   })
