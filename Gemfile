@@ -39,7 +39,7 @@ gem "aws-sdk-s3", require: false
 gem "inertia_rails"
 
 # Vite
-gem "vite_rails", "~> 3.10"
+gem "vite_rails", "~> 3.11"
 
 # Auth
 gem "omniauth", "~> 2.1"
