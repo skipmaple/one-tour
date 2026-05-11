@@ -37,8 +37,14 @@ test('P1: /manifest 返回 OneTour 配置 + standalone display + Mantine 蓝主�
     lang: 'zh-CN',
   })
   expect(Array.isArray(json.icons)).toBe(true)
-  expect(json.icons.length).toBeGreaterThanOrEqual(1)
-  expect(json.icons[0]).toMatchObject({ src: '/icon.png', sizes: '512x512' })
+  // Manifest 含三档 PNG:192 / 512 / 512 maskable。PR #68 之后才拆开三档,
+  // 之前只有 /icon-lulu.png 一档既当 maskable 又当非 maskable。
+  expect(json.icons.length).toBeGreaterThanOrEqual(3)
+  expect(json.icons).toEqual(expect.arrayContaining([
+    expect.objectContaining({ src: '/icon-192.png', sizes: '192x192' }),
+    expect.objectContaining({ src: '/icon-512.png', sizes: '512x512' }),
+    expect.objectContaining({ src: '/icon-512-maskable.png', sizes: '512x512', purpose: 'maskable' }),
+  ]))
 })
 
 test('P2: SW 注册到 / scope,active 状态(prod only)', async ({ page }) => {
@@ -56,7 +62,7 @@ test('P2: SW 注册到 / scope,active 状态(prod only)', async ({ page }) => {
   expect(result.active).toBe('activated')
 })
 
-test('P3: /icon.png CacheFirst — offline 仍可加载(prod only)', async ({ context, page }) => {
+test('P3: /icon-lulu.png CacheFirst — offline 仍可加载(prod only)', async ({ context, page }) => {
   const swExists = await swServed(page)
   test.skip(!swExists, 'SW only in prod build')
 
@@ -64,7 +70,7 @@ test('P3: /icon.png CacheFirst — offline 仍可加载(prod only)', async ({ co
   // (page.request.* 是 Playwright Node HTTP client,不走 SW)
   await page.goto('/')
   const iconRes1 = await page.evaluate(() =>
-    fetch('/icon.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
+    fetch('/icon-lulu.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
   )
   expect(iconRes1.ok).toBe(true)
 
@@ -72,7 +78,7 @@ test('P3: /icon.png CacheFirst — offline 仍可加载(prod only)', async ({ co
   await expect.poll(
     async () => page.evaluate(async () => {
       const cache = await caches.open('pwa-icons')
-      const match = await cache.match('/icon.png')
+      const match = await cache.match('/icon-lulu.png')
       return Boolean(match)
     }),
     { timeout: 5_000 },
@@ -81,7 +87,7 @@ test('P3: /icon.png CacheFirst — offline 仍可加载(prod only)', async ({ co
   // offline 后浏览器 fetch — CacheFirst 命中 cache
   await context.setOffline(true)
   const iconRes2 = await page.evaluate(() =>
-    fetch('/icon.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
+    fetch('/icon-lulu.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
   )
   expect(iconRes2.ok).toBe(true)
   expect(iconRes2.ct).toContain('image')
