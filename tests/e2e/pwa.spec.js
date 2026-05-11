@@ -37,8 +37,8 @@ test('P1: /manifest 返回 OneTour 配置 + standalone display + Mantine 蓝主�
     lang: 'zh-CN',
   })
   expect(Array.isArray(json.icons)).toBe(true)
-  // Manifest 含三档 PNG:192 / 512 / 512 maskable。PR #68 之后才拆开三档,
-  // 之前只有 /icon-lulu.png 一档既当 maskable 又当非 maskable。
+  // Manifest 三档 PNG:192px (规范最低 + favicon@2x) / 512px (规范最大档) /
+  // 512px maskable (Android Material You 圆形 mask 80% 安全区)。
   expect(json.icons.length).toBeGreaterThanOrEqual(3)
   expect(json.icons).toEqual(expect.arrayContaining([
     expect.objectContaining({ src: '/icon-192.png', sizes: '192x192' }),
