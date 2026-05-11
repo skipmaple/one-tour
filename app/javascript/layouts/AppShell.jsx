@@ -86,7 +86,7 @@ function AppShellInner({ children }) {
           </ActionIcon>
           <Link href="/" aria-label="路书 OneTour" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'inherit' }}>
             <LuluAvatar size={28} radius="6px" />
-            <Text fw={700} size="sm" visibleFrom="sm">路书</Text>
+            {/* <Text fw={700} size="sm" visibleFrom="sm">路书</Text> */}
           </Link>
           <Box style={{ width: 1, height: 18, background: 'var(--mantine-color-gray-3)' }} visibleFrom="sm" />
           <Text fw={600} size="sm">{title}</Text>

@@ -73,12 +73,17 @@ export default defineConfig({
           // RegExp urlPattern 在 Workbox 里是 test `request.url` 整个,不是
           // pathname。`^/icon...$` 永远不命中(URL 首字符是 `h`)。函数式
           // 显式拿 url.pathname 才对。
+          //
+          // Pattern 故意宽松,匹配 /icon.{svg,png}、/icon-lulu.png、
+          // /icon-192.png、/icon-512.png、/icon-512-maskable.png 全套。
+          // 内容变更时务必 bump 文件名 (例如 icon-lulu-v2.png),否则
+          // CacheFirst 不会失效 —— 这是 v0 红圆 vs v1 路路 长期相持的根因。
           {
-            urlPattern: ({ url }) => /^\/icon\.(svg|png)$/.test(url.pathname),
+            urlPattern: ({ url }) => /^\/icon(-[\w-]+)?\.(svg|png)$/.test(url.pathname),
             handler: 'CacheFirst',
             options: {
               cacheName: 'pwa-icons',
-              expiration: { maxEntries: 5, maxAgeSeconds: 90 * 24 * 60 * 60 },
+              expiration: { maxEntries: 8, maxAgeSeconds: 90 * 24 * 60 * 60 },
               // 只缓存 200。Workbox 默认所有响应都缓存(包括 4xx/5xx),
               // 错误响应被缓存会一直返错给离线用户,加 statuses filter 防御。
               cacheableResponse: { statuses: [ 200 ] },

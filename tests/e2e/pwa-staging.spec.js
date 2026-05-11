@@ -6,7 +6,7 @@
 //
 //   P1 manifest 可达
 //   P2 SW 注册到 / scope active
-//   P3 /icon.png CacheFirst —— online 写入 + offline 命中
+//   P3 /icon-lulu.png CacheFirst —— online 写入 + offline 命中
 //   P4 Inertia GET NetworkFirst —— XHR online 写 inertia-pages + offline 命中
 //   P5 /login NetworkOnly —— 不写 cache,offline fetch 失败
 //
@@ -59,7 +59,7 @@ test('P2: SW 注册到 / scope, active', async ({ page }) => {
   expect(result.active).toBe('activated')
 })
 
-test('P3: /icon.png CacheFirst —— online 写 cache(+ offline 命中,Chromium only)', async ({ context, page, browserName }) => {
+test('P3: /icon-lulu.png CacheFirst —— online 写 cache(+ offline 命中,Chromium only)', async ({ context, page, browserName }) => {
   await page.goto('/')
 
   // 等 SW 真正 activated + 接管这个 client。WebKit 上 <link rel="icon">
@@ -75,7 +75,7 @@ test('P3: /icon.png CacheFirst —— online 写 cache(+ offline 命中,Chromium
 
   // 浏览器内 fetch 让请求经过 SW(page.request.* 不走 SW)
   const r1 = await page.evaluate(() =>
-    fetch('/icon.png').then((r) => ({ ok: r.ok })),
+    fetch('/icon-lulu.png').then((r) => ({ ok: r.ok })),
   )
   expect(r1.ok).toBe(true)
 
@@ -84,7 +84,7 @@ test('P3: /icon.png CacheFirst —— online 写 cache(+ offline 命中,Chromium
   for (let i = 0; i < 30; i++) {
     cacheHit = await page.evaluate(async () => {
       const cache = await caches.open('pwa-icons')
-      return Boolean(await cache.match('/icon.png'))
+      return Boolean(await cache.match('/icon-lulu.png'))
     })
     if (cacheHit) break
     await new Promise(r => setTimeout(r, 500))
@@ -107,7 +107,7 @@ test('P3: /icon.png CacheFirst —— online 写 cache(+ offline 命中,Chromium
     // eslint-disable-next-line no-console
     console.log('P3 cache miss dump:', JSON.stringify(dump, null, 2))
   }
-  expect(cacheHit, 'pwa-icons 内没 /icon.png(看上面 cache miss dump)').toBe(true)
+  expect(cacheHit, 'pwa-icons 内没 /icon-lulu.png(看上面 cache miss dump)').toBe(true)
 
   // offline 兜底验证:WebKit Playwright emulation 的 context.setOffline(true)
   // 会让所有 fetch(包括 SW cache 回填的)直接 throw "Load failed",这是
@@ -116,7 +116,7 @@ test('P3: /icon.png CacheFirst —— online 写 cache(+ offline 命中,Chromium
   if (browserName !== 'webkit') {
     await context.setOffline(true)
     const r2 = await page.evaluate(() =>
-      fetch('/icon.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
+      fetch('/icon-lulu.png').then((r) => ({ ok: r.ok, ct: r.headers.get('content-type') })),
     )
     expect(r2.ok).toBe(true)
     expect(r2.ct).toContain('image')
