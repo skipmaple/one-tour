@@ -17,9 +17,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.7.0/style.css" />
     <style>body { font-family: 'LXGW WenKai', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }</style>
-    <%# /icon.png 在 v0 时是个红圆 placeholder，被浏览器 1y max-age + SW pwa-icons CacheFirst 90 天双重缓存。 %>
-    <%# PR #68 换内容但 URL 没变，老用户拿到的还是缓存里的红圆。改文件名 = 强制破缓存。 %>
-    <%# 后续更新 logo 时同样要 bump 文件名（icon-lulu-v2.png 等）。 %>
     <link rel="icon" href="/icon-lulu.png" type="image/png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
