@@ -24,6 +24,7 @@ export default function DayPanel({
   flexStyle,
   onAddActivity,
   onEditActivity,
+  onCardContextMenu,
   onEditDay,
   readOnly,
   dragWarning,
@@ -90,6 +91,7 @@ export default function DayPanel({
             constitution={tour.constitution}
             onAddActivity={onAddActivity}
             onEditActivity={onEditActivity}
+            onCardContextMenu={onCardContextMenu}
             onEditDay={onEditDay}
             readOnly={readOnly}
             dragWarning={dragWarning?.dayId === d.id ? dragWarning : null}
