@@ -43,4 +43,17 @@ describe('useLongPress', () => {
     vi.advanceTimersByTime(500)
     expect(cb).not.toHaveBeenCalled()
   })
+
+  test('a second pointer down cancels the first in-flight timer (no double fire)', () => {
+    const cb = vi.fn()
+    const { result } = renderHook(() => useLongPress(cb, { delay: 500 }))
+    result.current.onPointerDown(touch(10, 10))
+    vi.advanceTimersByTime(200) // first timer mid-flight
+    result.current.onPointerDown(touch(50, 60)) // restarts; first must be cleared
+    vi.advanceTimersByTime(300) // 200+300=500 total — first would fire here if it leaked
+    expect(cb).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(200) // second reaches its own 500ms
+    expect(cb).toHaveBeenCalledTimes(1)
+    expect(cb).toHaveBeenCalledWith(50, 60)
+  })
 })

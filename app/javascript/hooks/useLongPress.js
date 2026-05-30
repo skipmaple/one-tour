@@ -7,6 +7,10 @@ export default function useLongPress(onLongPress, { delay = 500, moveTolerance =
   const timer = useRef(null)
   const startPos = useRef(null)
   const firedRef = useRef(false)
+  // latest-ref：计时器在 delay 后才触发，期间父组件若重渲染并传入新的
+  // onLongPress，运行中的计时器要调到最新版本，而非启动时的旧闭包。
+  const onLongPressRef = useRef(onLongPress)
+  onLongPressRef.current = onLongPress
 
   const clear = () => {
     if (timer.current) {
@@ -18,6 +22,7 @@ export default function useLongPress(onLongPress, { delay = 500, moveTolerance =
 
   const onPointerDown = (e) => {
     if (e.pointerType !== 'touch') return
+    clear() // 取消任何在途计时器，避免重复 pointerdown 泄漏 + 双触发
     firedRef.current = false
     const x = e.clientX
     const y = e.clientY
@@ -25,7 +30,7 @@ export default function useLongPress(onLongPress, { delay = 500, moveTolerance =
     timer.current = setTimeout(() => {
       firedRef.current = true
       timer.current = null
-      onLongPress(x, y)
+      onLongPressRef.current(x, y)
     }, delay)
   }
 
