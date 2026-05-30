@@ -322,4 +322,28 @@ describe('ActivityCard context menu', () => {
     card.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     expect(onClick).toHaveBeenCalledWith(1)
   })
+
+  test('a click right after a touch long-press is swallowed (detail does not open)', () => {
+    vi.useFakeTimers()
+    try {
+      const onCardContextMenu = vi.fn()
+      const onClick = vi.fn()
+      // draggable=false attaches ONLY the long-press pointer handlers (dnd-kit's
+      // onPointerDown is gated on draggable), so the long-press path runs cleanly
+      // in jsdom without invoking dnd-kit's sensor.
+      const { container } = renderCard({ draggable: false, onCardContextMenu, onClick })
+      const card = container.querySelector('.ac-card')
+
+      fireEvent.pointerDown(card, { pointerType: 'touch', clientX: 30, clientY: 40 })
+      vi.advanceTimersByTime(500)
+      // long-press fired → menu callback invoked at the press coords + firedRef set
+      expect(onCardContextMenu).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), 30, 40)
+
+      // the click that follows the long-press must be swallowed (no detail open)
+      fireEvent.click(card)
+      expect(onClick).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
