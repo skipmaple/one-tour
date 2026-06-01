@@ -8,15 +8,16 @@ Guidance for Claude Code working on this repo. Human-facing setup and command re
 
 ## Before claiming done
 
-CI runs **only** `bin/rubocop`, `bin/brakeman`, and `npm audit` — no tests. If you did not run these locally, the change is unverified:
+CI (`.github/workflows/ci.yml`) runs these on every PR — green CI is the merge gate, so run the local equivalents before claiming done:
 
-- `bundle exec rspec` — Ruby tests (RSpec; see the PATH gotcha below if this hits system Ruby 2.6)
-- `npm test` — JS tests (Vitest)
-- `bin/rubocop -f github` — Ruby lint (CI-matching format)
-- `bin/brakeman --no-pager` — Ruby security scan
-- `npm audit` — JS dependency audit
+- `bundle exec rspec` — Ruby tests (CI job `test_ruby`, on a real Postgres; see the PATH gotcha below if this hits system Ruby 2.6)
+- `npm test` — JS tests (Vitest; CI job `test_js`)
+- `bin/rubocop -f github` — Ruby lint (CI job `lint_scan`, CI-matching format)
+- `bin/brakeman --no-pager` — Ruby security scan (CI job `lint_scan`)
+- `npm audit --audit-level=high` — JS dependency audit (CI job `test_js`)
+- `npx vite build && bash scripts/verify-sw-rewrite-patterns.sh` — PWA service-worker pattern check (CI job `verify_pwa_sw_patterns`)
 
-Failing to run tests locally and claiming "CI will catch it" is a lie — CI won't.
+CI **does** run the tests (`rspec` + Vitest), so a failure blocks the PR — but catch it locally first instead of burning a CI round-trip.
 
 ## When to stop and ask
 
