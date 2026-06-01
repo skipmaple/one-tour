@@ -38,6 +38,15 @@ describe('Tour Index', () => {
     const link = screen.getByRole('link', { name: /打开/ })
     expect(link).toHaveAttribute('href', '/tours/8')
   })
+
+  it('renders a card (not a table) on mobile', () => {
+    window.matchMedia = (q) => ({ matches: true, media: q, onchange: null, addListener(){}, removeListener(){}, addEventListener(){}, removeEventListener(){}, dispatchEvent(){return true} })
+    renderWithMantine(<Index tours={[{ id: 9, title: '柴达木', date_range: '2026-08-01 → 08-05', team_size: 4, days_count: 3, activities_count: 12, my_role: 'author', health: { hard: 0, soft: 0 } }]} />)
+    expect(screen.queryByRole('table')).toBeNull()
+    expect(screen.getByText('柴达木')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /打开/ })).toHaveAttribute('href', '/tours/9')
+    window.matchMedia = (q) => ({ matches: false, media: q, onchange: null, addListener(){}, removeListener(){}, addEventListener(){}, removeEventListener(){}, dispatchEvent(){return true} })
+  })
 })
 
 describe('openHref', () => {
