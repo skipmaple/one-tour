@@ -70,6 +70,7 @@ export default function DayPanel({
       onToggle={onToggle}
       canToggle={canToggle}
       hideToggle={mobile}
+      bare={mobile}
       flexStyle={flexStyle}
       headerExtra={autoFitButton}
     >

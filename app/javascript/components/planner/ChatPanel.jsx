@@ -31,6 +31,7 @@ export default function ChatPanel({
       onToggle={onToggle}
       canToggle={canToggle}
       hideToggle={mobile}
+      bare={mobile}
       flexStyle={flexStyle}
     >
       <ChatBody tour={tour} pendingPrompt={pendingPrompt} onPromptConsumed={onPromptConsumed} />

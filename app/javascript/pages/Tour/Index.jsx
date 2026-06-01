@@ -1,5 +1,6 @@
 import { Stack, Group, Title, Button, Table, Text, Badge, Center, Paper } from '@mantine/core'
 import { Link, Head, router } from '@inertiajs/react'
+import { IconChevronRight } from '@tabler/icons-react'
 import LuluFull from '../../components/Lulu/LuluFull'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -14,7 +15,7 @@ export default function Index({ tours }) {
     <Stack gap="lg" p="md">
       <Head title="我的旅程" />
       <Group justify="space-between">
-        <Title order={2}>我的旅程</Title>
+        <Title order={2} fz={isMobile ? 'h3' : undefined}>我的旅程</Title>
         <Button onClick={createTour}>+ 新建旅程</Button>
       </Group>
 
@@ -114,15 +115,23 @@ function TourCards({ tours }) {
   return (
     <Stack gap="sm">
       {tours.map(t => (
-        <Paper key={t.id} withBorder p="md" radius="md" style={{ opacity: t.archived ? 0.55 : 1 }}>
-          <Group justify="space-between" wrap="nowrap" align="flex-start">
+        <Paper
+          key={t.id}
+          component={Link}
+          href={openHref(t)}
+          withBorder
+          p="md"
+          radius="md"
+          style={{ opacity: t.archived ? 0.55 : 1, display: 'block', textDecoration: 'none', color: 'inherit' }}
+        >
+          <Group justify="space-between" wrap="nowrap" align="center">
             <Stack gap={4} style={{ minWidth: 0 }}>
               <Text fw={600}>{t.title || '未命名旅程'}</Text>
-              <Text size="sm" c="dimmed">{t.date_range || '—'}{t.team_size ? ` · ${t.team_size} 人` : ''}</Text>
-              <Text size="sm">{(t.days_count ?? 0)} 天 · {(t.activities_count ?? 0)} 行 · {roleLabel(t.my_role)}</Text>
+              <Text size="sm" c="dimmed">{t.date_range || '—'}</Text>
+              <Text size="sm">{(t.days_count ?? 0)} 天 · {(t.activities_count ?? 0)} 行{t.team_size ? ` · ${t.team_size} 人` : ''} · {roleLabel(t.my_role)}</Text>
               <Group gap="xs">{formatHealth(t.health)}<Text size="xs" c="dimmed">{formatRelative(t.last_activity_at)}</Text></Group>
             </Stack>
-            <Button component={Link} href={openHref(t)} size="xs" variant="light" style={{ flexShrink: 0 }}>打开 →</Button>
+            <IconChevronRight size={18} stroke={1.5} color="var(--mantine-color-gray-5)" style={{ flexShrink: 0 }} />
           </Group>
         </Paper>
       ))}

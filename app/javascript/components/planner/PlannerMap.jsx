@@ -655,6 +655,7 @@ export default function PlannerMap({
       onToggle={onToggle}
       canToggle={canToggle}
       hideToggle={mobile}
+      bare={mobile}
       flexStyle={flexStyle}
     >
       <PlannerMapInner

@@ -54,6 +54,7 @@ export default function BacklogList({
       onToggle={onToggle}
       canToggle={canToggle}
       hideToggle={mobile}
+      bare={mobile}
       flexStyle={flexStyle}
     >
       <style>{footerStyleRules}</style>

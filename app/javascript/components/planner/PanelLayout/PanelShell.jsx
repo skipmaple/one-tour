@@ -26,6 +26,7 @@ export default function PanelShell({
   flexStyle,
   headerExtra,
   hideToggle = false,
+  bare = false,
   children,
 }) {
   if (!open) {
@@ -55,6 +56,18 @@ export default function PanelShell({
           {title}
         </Text>
       </UnstyledButton>
+    )
+  }
+
+  // Mobile single-panel mode: drop the bordered card + header chrome; the bottom
+  // tab bar already labels the active panel, so the panel content goes full-bleed.
+  if (bare) {
+    return (
+      <div style={{ ...flexStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {children}
+        </div>
+      </div>
     )
   }
 
