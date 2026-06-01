@@ -21,6 +21,7 @@ import ExpenseDrawer from '../../components/planner/ExpenseDrawer'
 import AddExpenseDialog from '../../components/planner/AddExpenseDialog'
 import ActivityDetailDrawer from '../../components/planner/ActivityDetailDrawer'
 import ActivityContextMenu from '../../components/planner/ActivityContextMenu'
+import MoveToDayDialog from '../../components/planner/MoveToDayDialog'
 import PlannerHeaderRight from '../../components/planner/PlannerHeaderRight'
 import OutboxStatus from '../../components/OutboxStatus'
 import ConstitutionDrawer from '../../components/planner/ConstitutionDrawer'
@@ -160,6 +161,9 @@ export default function Show({
   // 卡片右键 / 长按快捷菜单：{ activity, x, y } | null
   const [cardMenu, setCardMenu] = useState(null)
   const openCardMenu = (activity, x, y) => setCardMenu({ activity, x, y })
+
+  // 移到某天弹窗：存放目标 activityId，null = 关闭
+  const [movingActivityId, setMovingActivityId] = useState(null)
 
   // Activity detail drawer state
   const [detailViewer, setDetailViewer] = useState({ open: false, activityId: null })
@@ -610,6 +614,14 @@ export default function Show({
         </DragOverlay>
       </DndContext>
 
+      <MoveToDayDialog
+        opened={movingActivityId != null}
+        onClose={() => setMovingActivityId(null)}
+        days={days}
+        byDay={byDay}
+        onPick={(dayId, position) => performMove(movingActivityId, dayId, position)}
+      />
+
       <ActivityDrawer
         tourId={tour.id}
         opened={editor.open}
@@ -666,6 +678,7 @@ export default function Show({
         onEdit={openEdit}
         onAddExpense={openAddExpenseForActivity}
         onClone={handleCloneActivity}
+        onMoveToDay={(id) => setMovingActivityId(id)}
         onMoveToBacklog={(id) => performMove(id, null, 1)}
         onDelete={handleDeleteActivity}
       />

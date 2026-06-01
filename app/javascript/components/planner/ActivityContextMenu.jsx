@@ -3,6 +3,7 @@ import {
   IconPencil,
   IconCoin,
   IconCopy,
+  IconCalendarPlus,
   IconInbox,
   IconTrash,
 } from '@tabler/icons-react'
@@ -16,6 +17,7 @@ export default function ActivityContextMenu({
   onEdit,
   onAddExpense,
   onClone,
+  onMoveToDay,
   onMoveToBacklog,
   onDelete,
 }) {
@@ -60,6 +62,9 @@ export default function ActivityContextMenu({
         )}
         <Menu.Item leftSection={<IconCopy size={15} />} onClick={run(onClone)}>
           克隆
+        </Menu.Item>
+        <Menu.Item leftSection={<IconCalendarPlus size={15} />} onClick={run(onMoveToDay)}>
+          {inDay ? '移到其他天' : '加入日程'}
         </Menu.Item>
         <Menu.Divider />
         {inDay && (
