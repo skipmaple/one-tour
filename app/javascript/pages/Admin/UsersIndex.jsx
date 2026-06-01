@@ -4,7 +4,7 @@ import {
   Container, Title, Stack, Table, TextInput, Group, Pagination,
   Text, Anchor, Badge, Paper,
 } from '@mantine/core'
-import { IconSearch } from '@tabler/icons-react'
+import { IconSearch, IconChevronRight } from '@tabler/icons-react'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -112,17 +112,26 @@ function UserCards({ users }) {
   return (
     <Stack gap="sm">
       {users.map((u) => (
-        <Paper key={u.id} withBorder p="sm" radius="md">
-          <Stack gap={4}>
-            <Group justify="space-between" wrap="nowrap" align="flex-start">
-              <Anchor component={Link} href={`/admin/users/${u.id}`} fw={700} style={{ minWidth: 0, wordBreak: 'break-all' }}>
-                {u.name || '—'}
-              </Anchor>
-              <RoleBadge role={u.role} />
-            </Group>
-            <Text size="xs" c="dimmed" style={{ wordBreak: 'break-all' }}>{u.email}</Text>
-            <Text size="xs" c="dimmed">注册 {fmtDate(u.created_at)} · {u.tours_count} 个旅程</Text>
-          </Stack>
+        <Paper
+          key={u.id}
+          component={Link}
+          href={`/admin/users/${u.id}`}
+          withBorder
+          p="sm"
+          radius="md"
+          style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+        >
+          <Group justify="space-between" wrap="nowrap" align="center">
+            <Stack gap={4} style={{ minWidth: 0, flex: 1 }}>
+              <Group justify="space-between" wrap="nowrap" align="center">
+                <Text fw={700} style={{ minWidth: 0, wordBreak: 'break-all' }}>{u.name || '—'}</Text>
+                <RoleBadge role={u.role} />
+              </Group>
+              <Text size="xs" c="dimmed" style={{ wordBreak: 'break-all' }}>{u.email}</Text>
+              <Text size="xs" c="dimmed">注册 {fmtDate(u.created_at)} · {u.tours_count} 个旅程</Text>
+            </Stack>
+            <IconChevronRight size={18} stroke={1.5} color="var(--mantine-color-gray-5)" style={{ flexShrink: 0 }} />
+          </Group>
         </Paper>
       ))}
     </Stack>

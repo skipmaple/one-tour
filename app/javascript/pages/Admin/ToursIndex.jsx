@@ -4,7 +4,7 @@ import {
   Container, Title, Stack, Table, TextInput, Group, Pagination,
   Text, Anchor, Paper,
 } from '@mantine/core'
-import { IconSearch } from '@tabler/icons-react'
+import { IconSearch, IconChevronRight } from '@tabler/icons-react'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -97,21 +97,27 @@ function TourCards({ tours }) {
   return (
     <Stack gap="sm">
       {tours.map((t) => (
-        <Paper key={t.id} withBorder p="sm" radius="md">
-          <Stack gap={4}>
-            <Anchor component={Link} href={`/admin/tours/${t.id}`} fw={700} style={{ wordBreak: 'break-all' }}>
-              {t.title || '未命名旅程'}
-            </Anchor>
-            <Group gap={4} wrap="nowrap">
-              <Anchor component={Link} href={`/admin/users/${t.author_id}`} size="sm">
-                {t.author_name}
-              </Anchor>
-              <Text size="xs" c="dimmed" style={{ minWidth: 0, wordBreak: 'break-all' }}>{t.author_email}</Text>
-            </Group>
-            <Text size="xs" c="dimmed">
-              成员 {t.members_count} · {t.day_count} 天 · {t.activity_count} 行 · 创建 {fmtDate(t.created_at)}
-            </Text>
-          </Stack>
+        <Paper
+          key={t.id}
+          component={Link}
+          href={`/admin/tours/${t.id}`}
+          withBorder
+          p="sm"
+          radius="md"
+          style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+        >
+          <Group justify="space-between" wrap="nowrap" align="center">
+            <Stack gap={4} style={{ minWidth: 0, flex: 1 }}>
+              <Text fw={700} style={{ wordBreak: 'break-all' }}>{t.title || '未命名旅程'}</Text>
+              <Text size="sm" style={{ minWidth: 0, wordBreak: 'break-all' }}>
+                {t.author_name} <Text span size="xs" c="dimmed">{t.author_email}</Text>
+              </Text>
+              <Text size="xs" c="dimmed">
+                成员 {t.members_count} · {t.day_count} 天 · {t.activity_count} 行 · 创建 {fmtDate(t.created_at)}
+              </Text>
+            </Stack>
+            <IconChevronRight size={18} stroke={1.5} color="var(--mantine-color-gray-5)" style={{ flexShrink: 0 }} />
+          </Group>
         </Paper>
       ))}
     </Stack>
