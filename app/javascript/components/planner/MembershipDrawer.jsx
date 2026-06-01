@@ -61,55 +61,64 @@ function CurrentMembers({ tour, members, author, isAuthor, days, isMobile }) {
         <Badge color="gray" variant="light" style={{ flexShrink: 0 }}>作者</Badge>
       </Group>
 
-      {members.map(m => (
-        <Stack key={m.id} gap={6} p="xs" style={{ borderBottom: '1px solid #eee' }}>
-          <Group justify="space-between" wrap="nowrap">
-            <div style={{ flex: 1, minWidth: 0 }} title={m.email}>
-              <UserLabel user={m} size={22} fz="sm" />
-              {m.name && <Text size="xs" c="dimmed" truncate>{m.email}</Text>}
-            </div>
-            <Group gap="xs">
-              <Select
-                data={ROLE_OPTIONS}
-                value={m.role}
-                onChange={newRole => {
-                  router.patch(`/tours/${tour.id}/members/${m.id}`, { role: newRole }, {
-                    preserveScroll: true,
-                    only: ['members'],
+      {members.map(m => {
+        const info = (
+          <div style={{ flex: isMobile ? undefined : 1, minWidth: 0 }} title={m.email}>
+            <UserLabel user={m} size={22} fz="sm" />
+            {m.name && <Text size="xs" c="dimmed" truncate>{m.email}</Text>}
+          </div>
+        )
+        const controls = (
+          <Group gap="xs" wrap="nowrap" justify="flex-end">
+            <Select
+              data={ROLE_OPTIONS}
+              value={m.role}
+              onChange={newRole => {
+                router.patch(`/tours/${tour.id}/members/${m.id}`, { role: newRole }, {
+                  preserveScroll: true,
+                  only: ['members'],
+                })
+              }}
+              w={isMobile ? undefined : 100}
+              style={isMobile ? { flex: 1 } : undefined}
+              size="xs"
+              allowDeselect={false}
+              disabled={!isAuthor}
+            />
+            {isAuthor && (
+              <Button
+                size="compact-xs"
+                variant="subtle"
+                color="red"
+                onClick={() => {
+                  modals.openConfirmModal({
+                    title: `将 ${m.name || m.email} 移出本程？`,
+                    labels: { confirm: '移除', cancel: '取消' },
+                    confirmProps: { color: 'red' },
+                    onConfirm: () => {
+                      router.delete(`/tours/${tour.id}/members/${m.id}`, {
+                        preserveScroll: true,
+                        only: ['members'],
+                      })
+                    },
                   })
                 }}
-                w={isMobile ? undefined : 100}
-                size="xs"
-                allowDeselect={false}
-                disabled={!isAuthor}
-              />
-              {isAuthor && (
-                <Button
-                  size="compact-xs"
-                  variant="subtle"
-                  color="red"
-                  onClick={() => {
-                    modals.openConfirmModal({
-                      title: `将 ${m.name || m.email} 移出本程？`,
-                      labels: { confirm: '移除', cancel: '取消' },
-                      confirmProps: { color: 'red' },
-                      onConfirm: () => {
-                        router.delete(`/tours/${tour.id}/members/${m.id}`, {
-                          preserveScroll: true,
-                          only: ['members'],
-                        })
-                      },
-                    })
-                  }}
-                >
-                  移除
-                </Button>
-              )}
-            </Group>
+              >
+                移除
+              </Button>
+            )}
           </Group>
-
-        </Stack>
-      ))}
+        )
+        return (
+          <Stack key={m.id} gap={6} p="xs" style={{ borderBottom: '1px solid #eee' }}>
+            {isMobile ? (
+              <>{info}{controls}</>
+            ) : (
+              <Group justify="space-between" wrap="nowrap">{info}{controls}</Group>
+            )}
+          </Stack>
+        )
+      })}
     </Stack>
   )
 }
