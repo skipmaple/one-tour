@@ -25,6 +25,8 @@ export default function PanelShell({
   canToggle = true,
   flexStyle,
   headerExtra,
+  hideToggle = false,
+  bare = false,
   children,
 }) {
   if (!open) {
@@ -57,6 +59,18 @@ export default function PanelShell({
     )
   }
 
+  // Mobile single-panel mode: drop the bordered card + header chrome; the bottom
+  // tab bar already labels the active panel, so the panel content goes full-bleed.
+  if (bare) {
+    return (
+      <div style={{ ...flexStyle, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          {children}
+        </div>
+      </div>
+    )
+  }
+
   const collapseButton = (
     <UnstyledButton
       onClick={canToggle ? onToggle : undefined}
@@ -83,11 +97,11 @@ export default function PanelShell({
         </Group>
         <Group gap={6}>
           {headerExtra}
-          {canToggle ? collapseButton : (
+          {!hideToggle && (canToggle ? collapseButton : (
             <Tooltip label="至少保留一个面板打开" withArrow>
               <span>{collapseButton}</span>
             </Tooltip>
-          )}
+          ))}
         </Group>
       </Group>
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Modal, TextInput, NumberInput, Select, Button, Group, Stack, Text } from '@mantine/core'
 import { router } from '@inertiajs/react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const CURRENCY_OPTIONS = [
   { value: 'CNY', label: 'CNY 人民币' },
@@ -18,6 +19,7 @@ const TIMEZONE_OPTIONS = [
 ]
 
 export default function TourSettingsModal({ tour, opened, onClose }) {
+  const isMobile = useIsMobile()
   const [title, setTitle] = useState('')
   const [dateRange, setDateRange] = useState('')
   const [teamSize, setTeamSize] = useState('')
@@ -58,7 +60,7 @@ export default function TourSettingsModal({ tour, opened, onClose }) {
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="程设置" size="md">
+    <Modal opened={opened} onClose={onClose} title="程设置" size="md" fullScreen={isMobile}>
       <Stack gap="md">
         <TextInput
           label="程名"

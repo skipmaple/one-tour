@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Group, TextInput, ActionIcon, Popover, Stack, Chip, Checkbox, Badge, Button, Indicator, Avatar, Divider, Tooltip } from '@mantine/core'
 import { IconSearch, IconFilter, IconX } from '@tabler/icons-react'
 import { KIND_OPTIONS as CANONICAL_KIND_OPTIONS, KIND_ICONS } from '../activity-editor/detailsSchema'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const KIND_OPTIONS = CANONICAL_KIND_OPTIONS.map(o => ({ ...o, Icon: KIND_ICONS[o.value] }))
 
@@ -11,6 +12,7 @@ export default function ActivityFilterBar({
   members, author,
 }) {
   const [opened, setOpened] = useState(false)
+  const isMobile = useIsMobile()
 
   const allPeople = [
     { user_id: author.user_id, name: author.name, avatar_url: author.avatar_url, isAuthor: true },
@@ -51,7 +53,7 @@ export default function ActivityFilterBar({
         </Indicator>
       </Popover.Target>
 
-      <Popover.Dropdown>
+      <Popover.Dropdown style={isMobile ? { width: 'min(92vw, 360px)', maxWidth: '92vw' } : undefined}>
         <Stack gap="sm">
           <TextInput
             size="xs"

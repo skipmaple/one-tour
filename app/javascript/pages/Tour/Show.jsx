@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
-import { Text, Group } from '@mantine/core'
+import { Text, Group, Drawer } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { DndContext, DragOverlay, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
@@ -11,6 +11,7 @@ import PlannerMap from '../../components/planner/PlannerMap'
 import ChatPanel from '../../components/planner/ChatPanel'
 import DayPanel from '../../components/planner/DayPanel'
 import ResizeHandle from '../../components/planner/PanelLayout/ResizeHandle'
+import MobilePlannerTabs from '../../components/planner/MobilePlannerTabs'
 import ActivityDrawer from '../../components/activity-editor/ActivityDrawer'
 import AcknowledgeModal from '../../components/planner/AcknowledgeModal'
 import MembershipDrawer from '../../components/planner/MembershipDrawer'
@@ -20,12 +21,14 @@ import ExpenseDrawer from '../../components/planner/ExpenseDrawer'
 import AddExpenseDialog from '../../components/planner/AddExpenseDialog'
 import ActivityDetailDrawer from '../../components/planner/ActivityDetailDrawer'
 import ActivityContextMenu from '../../components/planner/ActivityContextMenu'
+import MoveToDayDialog from '../../components/planner/MoveToDayDialog'
 import PlannerHeaderRight from '../../components/planner/PlannerHeaderRight'
 import OutboxStatus from '../../components/OutboxStatus'
 import ConstitutionDrawer from '../../components/planner/ConstitutionDrawer'
 import TimelineOverlay from '../../components/planner/TimelineOverlay'
 import ActivityFilterBar from '../../components/planner/ActivityFilterBar'
 import { useInjectHeaderRight } from '../../layouts/HeaderSlot'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { useActivityFilter } from '../../hooks/useActivityFilter'
 import { ONBOARDING_SENTINEL } from '../../lib/onboarding'
 import { useUndoStack } from '../../hooks/useUndoStack'
@@ -53,6 +56,8 @@ export default function Show({
 }) {
   const { current_user } = usePage().props
   const canEdit = tour.editable_by_current_user
+  const isMobile = useIsMobile()
+  const [activePanel, setActivePanel] = useState('days')
   const layout = usePlannerLayout(tour.id)
   const containerRef = useRef(null)
   const handleResize = useCallback((leftId, rightId) => (deltaPx) => {
@@ -156,6 +161,9 @@ export default function Show({
   // 卡片右键 / 长按快捷菜单：{ activity, x, y } | null
   const [cardMenu, setCardMenu] = useState(null)
   const openCardMenu = (activity, x, y) => setCardMenu({ activity, x, y })
+
+  // 移到某天弹窗：存放目标 activityId，null = 关闭
+  const [movingActivityId, setMovingActivityId] = useState(null)
 
   // Activity detail drawer state
   const [detailViewer, setDetailViewer] = useState({ open: false, activityId: null })
@@ -394,6 +402,106 @@ export default function Show({
         onDragCancel={() => { setActiveId(null); setDragWarning(null) }}
         autoScroll={{ acceleration: 10, threshold: { x: 0.15, y: 0.15 } }}
       >
+        {isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 56px)' }}>
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', padding: activePanel === 'map' ? 0 : 8 }}>
+              {activePanel === 'candidates' && (
+                <BacklogList
+                  activities={backlog}
+                  onAddActivity={canEdit ? openCreate : undefined}
+                  onEditActivity={openDetail}
+                  onCardContextMenu={canEdit ? openCardMenu : undefined}
+                  onAskAI={canEdit ? () => setPendingChatPrompt(ASK_AI_BACKLOG_PROMPT) : undefined}
+                  readOnly={!canEdit}
+                  open
+                  canToggle={false}
+                  mobile
+                  flexStyle={MOBILE_PANEL}
+                  hoveredActivityIds={hoveredActivityIds}
+                  onHoverActivity={onHoverActivity}
+                  onClearHover={onClearHover}
+                  author={author}
+                  members={members}
+                  filterActive={filterActive}
+                />
+              )}
+              {activePanel === 'days' && (
+                <DayPanel
+                  days={days}
+                  byDay={byDay}
+                  tour={tour}
+                  nextDayIndex={nextDayIndex}
+                  onAddActivity={canEdit ? openCreate : undefined}
+                  onEditActivity={openDetail}
+                  onCardContextMenu={canEdit ? openCardMenu : undefined}
+                  onEditDay={canEdit ? setEditingDayId : undefined}
+                  readOnly={!canEdit}
+                  dragWarning={dragWarning}
+                  open
+                  canToggle={false}
+                  mobile
+                  vertical
+                  autoFit={false}
+                  flexStyle={MOBILE_PANEL}
+                  routeLegs={route_legs || []}
+                  hoveredActivityIds={hoveredActivityIds}
+                  onHoverActivity={onHoverActivity}
+                  onHoverConnector={onHoverConnector}
+                  onClearHover={onClearHover}
+                  author={author}
+                  members={members}
+                  filterActive={filterActive}
+                />
+              )}
+              {activePanel === 'map' && (
+                <PlannerMap
+                  activities={displayActivities}
+                  days={days}
+                  routeLegs={route_legs || []}
+                  tourId={tour.id}
+                  canEdit={canEdit}
+                  open
+                  canToggle={false}
+                  mobile
+                  flexStyle={MOBILE_PANEL}
+                  hoveredActivityIds={hoveredActivityIds}
+                  onMarkerHover={onMarkerHover}
+                  onMarkerLeave={onMarkerLeave}
+                  matches={matches}
+                />
+              )}
+              {activePanel === 'ai' && (
+                <ChatPanel
+                  tour={tour}
+                  pendingPrompt={pendingChatPrompt}
+                  onPromptConsumed={() => setPendingChatPrompt(null)}
+                  open
+                  canToggle={false}
+                  mobile
+                  flexStyle={MOBILE_PANEL}
+                />
+              )}
+            </div>
+            {constOpen && (
+              <Drawer opened onClose={closeConst} size="100%" position="left" withCloseButton={!inOnboarding} closeOnEscape={!inOnboarding} closeOnClickOutside={!inOnboarding} title={inOnboarding ? '设置这次旅程' : '出行宪法'} padding="md">
+                <ConstitutionDrawer
+                  mobile
+                  tour={tour}
+                  violations={violations}
+                  defaults={defaults}
+                  overrides={overrides}
+                  initialDaysCount={days.length || 1}
+                  canEdit={canEdit}
+                  width="100%"
+                  onClose={closeConst}
+                  onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
+                  onAcknowledge={(v) => setAcknowledgingViolation(v)}
+                />
+              </Drawer>
+            )}
+            <MobilePlannerTabs active={activePanel} onChange={setActivePanel} />
+          </div>
+        ) : (
         <div ref={containerRef} style={{
           display: 'flex',
           alignItems: 'stretch',
@@ -517,10 +625,19 @@ export default function Show({
             flexStyle={layout.flexStyle('ai')}
           />
         </div>
+        )}
         <DragOverlay>
           {activeActivity && <ActivityCardOverlay activity={activeActivity} author={author} members={members} />}
         </DragOverlay>
       </DndContext>
+
+      <MoveToDayDialog
+        opened={movingActivityId != null}
+        onClose={() => setMovingActivityId(null)}
+        days={days}
+        byDay={byDay}
+        onPick={(dayId, position) => performMove(movingActivityId, dayId, position)}
+      />
 
       <ActivityDrawer
         tourId={tour.id}
@@ -578,6 +695,7 @@ export default function Show({
         onEdit={openEdit}
         onAddExpense={openAddExpenseForActivity}
         onClone={handleCloneActivity}
+        onMoveToDay={isMobile ? (id) => setMovingActivityId(id) : undefined}
         onMoveToBacklog={(id) => performMove(id, null, 1)}
         onDelete={handleDeleteActivity}
       />
@@ -750,6 +868,8 @@ export default function Show({
 }
 
 const ASK_AI_BACKLOG_PROMPT = '请帮我再列一些候选 activity 到 backlog'
+
+const MOBILE_PANEL = { flex: 1, minWidth: 0, width: '100%', height: '100%' }
 
 function fixPromptFor(v) {
   return `请分析 ${v.message} 的硬违反，给我 3 个修正方案，每个说明原因、对其他日的影响，以及整程天数/体验是否变化。`

@@ -79,14 +79,14 @@ export default function EmailLoginForm() {
           <TextInput
             type="email"
             placeholder="邮箱地址"
-            size="md"
+            size="lg"
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}
             autoFocus
             required
           />
           {error && <Alert color="red" variant="light" py="xs">{error}</Alert>}
-          <Button type="submit" size="md" fullWidth loading={sending} disabled={!email.trim()}>
+          <Button type="submit" size="lg" fullWidth loading={sending} disabled={!email.trim()}>
             发送验证码
           </Button>
         </Stack>
@@ -113,14 +113,14 @@ export default function EmailLoginForm() {
             length={6}
             type="number"
             oneTimeCode
-            size="md"
+            size="lg"
             value={code}
             onChange={setCode}
             autoFocus
           />
         </Group>
         {error && <Alert color="red" variant="light" py="xs">{error}</Alert>}
-        <Button type="submit" size="md" fullWidth loading={verifying} disabled={code.length !== 6}>
+        <Button type="submit" size="lg" fullWidth loading={verifying} disabled={code.length !== 6}>
           登录
         </Button>
         <Button

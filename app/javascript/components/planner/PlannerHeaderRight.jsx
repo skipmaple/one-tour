@@ -1,11 +1,13 @@
-import { Group, ActionIcon, Tooltip, Indicator } from '@mantine/core'
+import { Group, ActionIcon, Tooltip, Indicator, Menu } from '@mantine/core'
 import {
   IconBook2,
   IconListDetails,
   IconCoin,
   IconUsers,
   IconSettings,
+  IconDotsVertical,
 } from '@tabler/icons-react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 function severityColor(violations) {
   if (!violations || violations.length === 0) return null
@@ -21,6 +23,26 @@ export default function PlannerHeaderRight({
   onOpenSettings,
 }) {
   const color = severityColor(violations)
+  const isMobile = useIsMobile()
+
+  if (isMobile) {
+    return (
+      <Menu position="bottom-end" withinPortal shadow="md" width={180}>
+        <Menu.Target>
+          <Indicator color={color || 'gray'} label={violations.length} size={16} offset={4} disabled={!color}>
+            <ActionIcon variant="subtle" size="lg" aria-label="更多"><IconDotsVertical size={20} /></ActionIcon>
+          </Indicator>
+        </Menu.Target>
+        <Menu.Dropdown>
+          <Menu.Item leftSection={<IconBook2 size={16} />} onClick={onOpenConst}>宪法{color ? ` · ${violations.length}` : ''}</Menu.Item>
+          <Menu.Item leftSection={<IconListDetails size={16} />} onClick={onOpenTimeline}>总览</Menu.Item>
+          <Menu.Item leftSection={<IconCoin size={16} />} onClick={onOpenExpense}>账单</Menu.Item>
+          <Menu.Item leftSection={<IconUsers size={16} />} onClick={onOpenMembers}>成员</Menu.Item>
+          {onOpenSettings && <Menu.Item leftSection={<IconSettings size={16} />} onClick={onOpenSettings}>旅程设置</Menu.Item>}
+        </Menu.Dropdown>
+      </Menu>
+    )
+  }
 
   return (
     <Group gap="xs" wrap="nowrap">

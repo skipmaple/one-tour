@@ -13,6 +13,7 @@ export default function ChatPanel({
   pendingPrompt,
   onPromptConsumed,
   canToggle = true,
+  mobile = false,
   flexStyle,
 }) {
   // Auto-expand and send when a pending prompt arrives (e.g. from ConstitutionChip "帮我修正")
@@ -29,6 +30,8 @@ export default function ChatPanel({
       open={open}
       onToggle={onToggle}
       canToggle={canToggle}
+      hideToggle={mobile}
+      bare={mobile}
       flexStyle={flexStyle}
     >
       <ChatBody tour={tour} pendingPrompt={pendingPrompt} onPromptConsumed={onPromptConsumed} />

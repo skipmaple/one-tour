@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react'
 import { usePage, router, Link, Head } from '@inertiajs/react'
 import {
   Container, Title, Stack, Table, TextInput, Group, Pagination,
-  Text, Anchor,
+  Text, Anchor, Paper,
 } from '@mantine/core'
-import { IconSearch } from '@tabler/icons-react'
+import { IconSearch, IconChevronRight } from '@tabler/icons-react'
 import { useDebouncedValue } from '@mantine/hooks'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 function fmtDate(iso) { return new Date(iso).toLocaleDateString('zh-CN') }
 
 export default function ToursIndex() {
   const { props } = usePage()
   const { tours, total, page, per_page, q, sort } = props
+  const isMobile = useIsMobile()
 
   const [search, setSearch] = useState(q)
   const [debounced] = useDebouncedValue(search, 300)
@@ -37,48 +39,50 @@ export default function ToursIndex() {
       <Head title="旅程" />
       <Container fluid px="md">
         <Stack gap="md">
-          <Title order={2}>旅程</Title>
+          <Title order={2} fz={isMobile ? 'xl' : undefined}>旅程</Title>
           <TextInput
             leftSection={<IconSearch size={16} />}
             placeholder="搜索标题"
             value={search}
             onChange={(e) => setSearch(e.currentTarget.value)}
           />
-          <Table highlightOnHover stickyHeader>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>编号</Table.Th>
-                <Table.Th>标题</Table.Th>
-                <Table.Th>作者</Table.Th>
-                <Table.Th>成员数</Table.Th>
-                <Table.Th>天数</Table.Th>
-                <Table.Th>行数</Table.Th>
-                <Table.Th>创建时间</Table.Th>
-                <Table.Th>最近更新</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {tours.map((t) => (
-                <Table.Tr key={t.id}>
-                  <Table.Td>{t.id}</Table.Td>
-                  <Table.Td>
-                    <Anchor component={Link} href={`/admin/tours/${t.id}`}>{t.title || '未命名旅程'}</Anchor>
-                  </Table.Td>
-                  <Table.Td>
-                    <Anchor component={Link} href={`/admin/users/${t.author_id}`}>
-                      {t.author_name}
-                    </Anchor>
-                    <Text size="xs" c="dimmed">{t.author_email}</Text>
-                  </Table.Td>
-                  <Table.Td>{t.members_count}</Table.Td>
-                  <Table.Td>{t.day_count}</Table.Td>
-                  <Table.Td>{t.activity_count}</Table.Td>
-                  <Table.Td>{fmtDate(t.created_at)}</Table.Td>
-                  <Table.Td>{fmtDate(t.updated_at)}</Table.Td>
+          {isMobile ? <TourCards tours={tours} /> : (
+            <Table highlightOnHover stickyHeader>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>编号</Table.Th>
+                  <Table.Th>标题</Table.Th>
+                  <Table.Th>作者</Table.Th>
+                  <Table.Th>成员数</Table.Th>
+                  <Table.Th>天数</Table.Th>
+                  <Table.Th>行数</Table.Th>
+                  <Table.Th>创建时间</Table.Th>
+                  <Table.Th>最近更新</Table.Th>
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {tours.map((t) => (
+                  <Table.Tr key={t.id}>
+                    <Table.Td>{t.id}</Table.Td>
+                    <Table.Td>
+                      <Anchor component={Link} href={`/admin/tours/${t.id}`}>{t.title || '未命名旅程'}</Anchor>
+                    </Table.Td>
+                    <Table.Td>
+                      <Anchor component={Link} href={`/admin/users/${t.author_id}`}>
+                        {t.author_name}
+                      </Anchor>
+                      <Text size="xs" c="dimmed">{t.author_email}</Text>
+                    </Table.Td>
+                    <Table.Td>{t.members_count}</Table.Td>
+                    <Table.Td>{t.day_count}</Table.Td>
+                    <Table.Td>{t.activity_count}</Table.Td>
+                    <Table.Td>{fmtDate(t.created_at)}</Table.Td>
+                    <Table.Td>{fmtDate(t.updated_at)}</Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          )}
           <Group justify="space-between">
             <Text size="sm" c="dimmed">共 {total} 条</Text>
             <Pagination value={page} onChange={setPage} total={totalPages} />
@@ -86,5 +90,36 @@ export default function ToursIndex() {
         </Stack>
       </Container>
     </>
+  )
+}
+
+function TourCards({ tours }) {
+  return (
+    <Stack gap="sm">
+      {tours.map((t) => (
+        <Paper
+          key={t.id}
+          component={Link}
+          href={`/admin/tours/${t.id}`}
+          withBorder
+          p="sm"
+          radius="md"
+          style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+        >
+          <Group justify="space-between" wrap="nowrap" align="center">
+            <Stack gap={4} style={{ minWidth: 0, flex: 1 }}>
+              <Text fw={700} style={{ wordBreak: 'break-all' }}>{t.title || '未命名旅程'}</Text>
+              <Text size="sm" style={{ minWidth: 0, wordBreak: 'break-all' }}>
+                {t.author_name} <Text span size="xs" c="dimmed">{t.author_email}</Text>
+              </Text>
+              <Text size="xs" c="dimmed">
+                成员 {t.members_count} · {t.day_count} 天 · {t.activity_count} 行 · 创建 {fmtDate(t.created_at)}
+              </Text>
+            </Stack>
+            <IconChevronRight size={18} stroke={1.5} color="var(--mantine-color-gray-5)" style={{ flexShrink: 0 }} />
+          </Group>
+        </Paper>
+      ))}
+    </Stack>
   )
 }

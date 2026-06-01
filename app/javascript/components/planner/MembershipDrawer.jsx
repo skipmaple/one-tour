@@ -5,6 +5,7 @@ import { notifications } from '@mantine/notifications'
 import { router, usePage } from '@inertiajs/react'
 import { IconCheck, IconMinus } from '@tabler/icons-react'
 import UserLabel from './UserLabel'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 // Tiny pass/deny markers for the permission-matrix table. Reuses two Tabler
 // icons at a fixed size so table cells stay narrow and centered.
@@ -19,6 +20,7 @@ const ROLE_OPTIONS = [
 export default function MembershipDrawer({ opened, onClose, tour, members, author, days }) {
   const { current_user } = usePage().props
   const isAuthor = current_user?.id === author.user_id
+  const isMobile = useIsMobile()
 
   return (
     <Drawer
@@ -26,7 +28,7 @@ export default function MembershipDrawer({ opened, onClose, tour, members, autho
       onClose={onClose}
       title="本程成员"
       position="right"
-      size={460}
+      size={isMobile ? '100%' : 460}
       padding="md"
     >
       <Stack gap="md">
@@ -36,15 +38,16 @@ export default function MembershipDrawer({ opened, onClose, tour, members, autho
           author={author}
           isAuthor={isAuthor}
           days={days || []}
+          isMobile={isMobile}
         />
-        <InviteSection tour={tour} isAuthor={isAuthor} />
+        <InviteSection tour={tour} isAuthor={isAuthor} isMobile={isMobile} />
         <PermissionMatrix />
       </Stack>
     </Drawer>
   )
 }
 
-function CurrentMembers({ tour, members, author, isAuthor, days }) {
+function CurrentMembers({ tour, members, author, isAuthor, days, isMobile }) {
   return (
     <Stack gap="xs">
       <Text fw={600} size="sm">当前成员</Text>
@@ -75,7 +78,7 @@ function CurrentMembers({ tour, members, author, isAuthor, days }) {
                     only: ['members'],
                   })
                 }}
-                w={100}
+                w={isMobile ? undefined : 100}
                 size="xs"
                 allowDeselect={false}
                 disabled={!isAuthor}
@@ -111,7 +114,7 @@ function CurrentMembers({ tour, members, author, isAuthor, days }) {
   )
 }
 
-function InviteSection({ tour, isAuthor }) {
+function InviteSection({ tour, isAuthor, isMobile }) {
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('reader')
   const [submitting, setSubmitting] = useState(false)
@@ -151,7 +154,7 @@ function InviteSection({ tour, isAuthor }) {
           data={ROLE_OPTIONS}
           value={role}
           onChange={setRole}
-          w={100}
+          w={isMobile ? undefined : 100}
           size="sm"
           allowDeselect={false}
           disabled={!isAuthor}

@@ -34,6 +34,7 @@ export default function DayColumn({
   author,
   members,
   filterActive = false,
+  vertical = false,
 }) {
   const maxH = Math.round((constitution?.max_daily_driving_minutes || 420) / 60)
   const maxTier1 = constitution?.max_tier_one_per_day || 3
@@ -160,7 +161,7 @@ export default function DayColumn({
 
   return (
     <>
-    <Paper withBorder style={{ flex: '0 0 200px', display: 'flex', flexDirection: 'column' }}>
+    <Paper withBorder style={{ flex: vertical ? '0 0 auto' : '0 0 200px', width: vertical ? '100%' : undefined, display: 'flex', flexDirection: 'column' }}>
       <div
         data-testid="day-header"
         onClick={handleHeaderClick}
@@ -209,7 +210,7 @@ export default function DayColumn({
         </div>
       )}
       <Stack gap={4} p="xs" ref={setNodeRef} style={{
-        flex: 1, minHeight: 0, overflowY: 'auto',
+        flex: 1, minHeight: 0, overflowY: vertical ? 'visible' : 'auto',
         background: isOver ? '#f0f7ff' : undefined,
         border: dragWarning ? '1px solid var(--mantine-color-red-6)' : undefined
       }}>

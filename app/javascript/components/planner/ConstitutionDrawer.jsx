@@ -37,6 +37,7 @@ function isOnboarded(tour) {
 export default function ConstitutionDrawer({
   tour, violations, defaults, overrides = [], initialDaysCount = 1,
   canEdit = true,
+  mobile = false,
   width, onWidthChange, onClose, onFix, onAcknowledge,
 }) {
   const onboarded = isOnboarded(tour)
@@ -458,13 +459,20 @@ export default function ConstitutionDrawer({
   } else if (setupStep === 1) {
     footerCta = (
       <Group justify="flex-end">
-        <Button onClick={saveStep1} loading={isSaving} disabled={isSaving}>
+        <Button onClick={saveStep1} loading={isSaving} disabled={isSaving} fullWidth={mobile} size={mobile ? 'md' : undefined}>
           {isSaving ? '保存中…' : '下一步 →'}
         </Button>
       </Group>
     )
   } else {
-    footerCta = (
+    footerCta = mobile ? (
+      <Stack gap="xs">
+        <Button color="red" fullWidth size="md" onClick={acceptConstitution} loading={isAccepting} disabled={isAccepting}>
+          同意并开始规划 →
+        </Button>
+        <Button variant="subtle" fullWidth onClick={() => setSetupStep(1)}>← 返回修改</Button>
+      </Stack>
+    ) : (
       <Group justify="center">
         <Button variant="default" onClick={() => setSetupStep(1)}>← 返回修改</Button>
         <Button color="red" onClick={acceptConstitution} loading={isAccepting} disabled={isAccepting}>
@@ -486,7 +494,18 @@ export default function ConstitutionDrawer({
     </div>
   )
 
-  // Mobile: render as floating Mantine Drawer (push would squash planner).
+  // mobile=true: rendered inside Show.jsx's full-screen Mantine Drawer — skip
+  // the internal MantineDrawer wrapper and fill the container directly.
+  if (mobile) {
+    return (
+      <div ref={drawerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <ScrollArea style={{ flex: 1 }}>{scrollableBody}</ScrollArea>
+        {stickyFooter}
+      </div>
+    )
+  }
+
+  // Mobile (internal detection): render as floating Mantine Drawer (push would squash planner).
   if (isMobile) {
     return (
       <MantineDrawer

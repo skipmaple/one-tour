@@ -2,8 +2,8 @@ import { useEffect, useState, useMemo } from 'react'
 import {
   Modal, Stack, Group, Button, Select, NumberInput, TextInput, Alert,
 } from '@mantine/core'
-import { useMediaQuery } from '@mantine/hooks'
 import { router } from '@inertiajs/react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { notifications } from '@mantine/notifications'
 import UserLabel from './UserLabel'
 
@@ -16,7 +16,7 @@ import UserLabel from './UserLabel'
 // must be a party OR tour editor. The last check lives in the model; here
 // we surface errors via the onError handler.
 export default function ManualSettlementDialog({ opened, onClose, tour, members, author, currentUserId }) {
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isMobile = useIsMobile()
 
   const allUsers = useMemo(() => {
     const list = [ { user_id: author.user_id, email: author.email, name: author.name, avatar_url: author.avatar_url, isAuthor: true } ]

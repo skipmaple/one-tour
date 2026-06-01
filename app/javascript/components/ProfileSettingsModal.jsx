@@ -2,10 +2,12 @@ import { Modal, Stack, TextInput, FileButton, Button, Group, Avatar, Anchor, Tex
 import { useForm, usePage, router } from '@inertiajs/react'
 import { useEffect, useState } from 'react'
 import { compressImage } from '../lib/image-compression'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const NAME_RE = /^[A-Za-z0-9\u4e00-\u9fff]+$/
 
 export default function ProfileSettingsModal({ opened, onClose }) {
+  const isMobile = useIsMobile()
   const { current_user } = usePage().props
   const form = useForm({ name: current_user.name, avatar: null })
 
@@ -46,7 +48,7 @@ export default function ProfileSettingsModal({ opened, onClose }) {
   const showRemoveAvatar = current_user.has_custom_avatar && !form.data.avatar
 
   return (
-    <Modal opened={opened} onClose={onClose} title="个人设置" centered>
+    <Modal opened={opened} onClose={onClose} title="个人设置" centered fullScreen={isMobile}>
       <form onSubmit={submit}>
         <Stack>
           <Stack align="center" gap={6}>
