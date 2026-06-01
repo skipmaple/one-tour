@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Head, router, usePage } from '@inertiajs/react'
-import { Text, Group } from '@mantine/core'
+import { Text, Group, Drawer } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { DndContext, DragOverlay, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import { notifications } from '@mantine/notifications'
@@ -482,6 +482,23 @@ export default function Show({
                 />
               )}
             </div>
+            {constOpen && (
+              <Drawer opened onClose={closeConst} size="100%" position="left" withCloseButton title="出行宪法" padding="md">
+                <ConstitutionDrawer
+                  mobile
+                  tour={tour}
+                  violations={violations}
+                  defaults={defaults}
+                  overrides={overrides}
+                  initialDaysCount={days.length || 1}
+                  canEdit={canEdit}
+                  width="100%"
+                  onClose={closeConst}
+                  onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
+                  onAcknowledge={(v) => setAcknowledgingViolation(v)}
+                />
+              </Drawer>
+            )}
             <MobilePlannerTabs active={activePanel} onChange={setActivePanel} />
           </div>
         ) : (

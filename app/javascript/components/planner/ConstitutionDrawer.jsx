@@ -37,6 +37,7 @@ function isOnboarded(tour) {
 export default function ConstitutionDrawer({
   tour, violations, defaults, overrides = [], initialDaysCount = 1,
   canEdit = true,
+  mobile = false,
   width, onWidthChange, onClose, onFix, onAcknowledge,
 }) {
   const onboarded = isOnboarded(tour)
@@ -486,7 +487,18 @@ export default function ConstitutionDrawer({
     </div>
   )
 
-  // Mobile: render as floating Mantine Drawer (push would squash planner).
+  // mobile=true: rendered inside Show.jsx's full-screen Mantine Drawer — skip
+  // the internal MantineDrawer wrapper and fill the container directly.
+  if (mobile) {
+    return (
+      <div ref={drawerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <ScrollArea style={{ flex: 1 }}>{scrollableBody}</ScrollArea>
+        {stickyFooter}
+      </div>
+    )
+  }
+
+  // Mobile (internal detection): render as floating Mantine Drawer (push would squash planner).
   if (isMobile) {
     return (
       <MantineDrawer
