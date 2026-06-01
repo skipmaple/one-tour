@@ -22,6 +22,7 @@ export default function BacklogList({
   activities,
   onAddActivity,
   onEditActivity,
+  onCardContextMenu,
   onAskAI,
   readOnly,
   open = true,
@@ -132,6 +133,7 @@ export default function BacklogList({
                   key={a.id}
                   activity={a}
                   onClick={onEditActivity}
+                  onCardContextMenu={onCardContextMenu}
                   readOnly={readOnly}
                   draggable={!filterActive}
                   isHighlighted={hoveredActivityIds != null && hoveredActivityIds.includes(a.id)}

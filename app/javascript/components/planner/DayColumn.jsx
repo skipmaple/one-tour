@@ -22,6 +22,7 @@ export default function DayColumn({
   constitution,
   onAddActivity,
   onEditActivity,
+  onCardContextMenu,
   onEditDay,
   readOnly,
   dragWarning,
@@ -143,6 +144,7 @@ export default function DayColumn({
         key={a.id}
         activity={a}
         onClick={onEditActivity}
+        onCardContextMenu={onCardContextMenu}
         readOnly={readOnly}
         isHighlighted={isHighlightedById(a.id)}
         onHoverActivity={onHoverActivity}

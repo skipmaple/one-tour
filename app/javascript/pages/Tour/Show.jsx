@@ -19,6 +19,7 @@ import TourSettingsModal from '../../components/planner/TourSettingsModal'
 import ExpenseDrawer from '../../components/planner/ExpenseDrawer'
 import AddExpenseDialog from '../../components/planner/AddExpenseDialog'
 import ActivityDetailDrawer from '../../components/planner/ActivityDetailDrawer'
+import ActivityContextMenu from '../../components/planner/ActivityContextMenu'
 import PlannerHeaderRight from '../../components/planner/PlannerHeaderRight'
 import OutboxStatus from '../../components/OutboxStatus'
 import ConstitutionDrawer from '../../components/planner/ConstitutionDrawer'
@@ -152,6 +153,10 @@ export default function Show({
   // Activity editor state
   const [editor, setEditor] = useState({ open: false, mode: 'create', activityId: null, targetDayId: null })
 
+  // 卡片右键 / 长按快捷菜单：{ activity, x, y } | null
+  const [cardMenu, setCardMenu] = useState(null)
+  const openCardMenu = (activity, x, y) => setCardMenu({ activity, x, y })
+
   // Activity detail drawer state
   const [detailViewer, setDetailViewer] = useState({ open: false, activityId: null })
   const [quickExpenseActivityId, setQuickExpenseActivityId] = useState(null)
@@ -237,6 +242,59 @@ export default function Show({
     } finally {
       cloningRef.current = false
     }
+  }
+
+  // 镜像 ActivityDrawer.handleDelete：确认弹窗 → DELETE → undo 用 recreate 还原。
+  // 与抽屉内删除唯一差异：这里没有抽屉要关，故省去 onClose。
+  const handleDeleteActivity = (activityId) => {
+    // 用 activities（服务端权威态）而非 displayActivities：undo 要按服务端确认的
+    // day/position 重建，不要被在途乐观拖拽覆盖（localOverrides）影响。
+    const activity = activities.find((a) => a.id === activityId)
+    if (!activity) return
+    modals.openConfirmModal({
+      title: '确认删除此行？',
+      labels: { confirm: '删除', cancel: '取消' },
+      confirmProps: { color: 'red' },
+      onConfirm: () => {
+        const savedAttrs = { ...activity }
+        const wasInDay = activity.day_id
+        router.delete(`/activities/${activity.id}`, {
+          preserveScroll: true,
+          only: ['activities', 'violations'],
+          onSuccess: () => {
+            undoStack.push({
+              label: `删除 ${activity.name}`,
+              undoFn: async () => {
+                const url = wasInDay
+                  ? `/tours/${tour.id}/days/${wasInDay}/activities`
+                  : `/tours/${tour.id}/backlog_activities`
+                const payload = {
+                  activity: {
+                    name: savedAttrs.name,
+                    kind: savedAttrs.kind,
+                    citizen_level: savedAttrs.citizen_level,
+                    lat: savedAttrs.lat,
+                    lng: savedAttrs.lng,
+                    address: savedAttrs.address,
+                    planned_start_at: savedAttrs.planned_start_at,
+                    planned_duration_min: savedAttrs.planned_duration_min,
+                    desc: savedAttrs.desc,
+                    details: savedAttrs.details || {},
+                  },
+                }
+                const res = await fetch(url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
+                  body: JSON.stringify(payload),
+                })
+                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                router.reload({ only: ['activities', 'violations'] })
+              },
+            })
+          },
+        })
+      },
+    })
   }
 
   const editingActivity = editor.activityId ? activities.find(a => a.id === editor.activityId) : null
@@ -379,6 +437,7 @@ export default function Show({
             activities={backlog}
             onAddActivity={canEdit ? openCreate : undefined}
             onEditActivity={openDetail}
+            onCardContextMenu={canEdit ? openCardMenu : undefined}
             onAskAI={canEdit ? () => setPendingChatPrompt(ASK_AI_BACKLOG_PROMPT) : undefined}
             readOnly={!canEdit}
             open={layout.panels.candidates.open}
@@ -404,6 +463,7 @@ export default function Show({
             nextDayIndex={nextDayIndex}
             onAddActivity={canEdit ? openCreate : undefined}
             onEditActivity={openDetail}
+            onCardContextMenu={canEdit ? openCardMenu : undefined}
             onEditDay={canEdit ? setEditingDayId : undefined}
             readOnly={!canEdit}
             dragWarning={dragWarning}
@@ -508,6 +568,18 @@ export default function Show({
         onAddExpense={openAddExpenseForActivity}
         onClone={handleCloneActivity}
         onFocusExpense={openExpenseById}
+      />
+
+      {/* onEdit 刻意直达编辑表单(openEdit),不走只读详情抽屉:右键菜单是熟手快捷
+          入口。左键点卡片仍走 openDetail。见设计文档已评审决策。 */}
+      <ActivityContextMenu
+        state={cardMenu}
+        onClose={() => setCardMenu(null)}
+        onEdit={openEdit}
+        onAddExpense={openAddExpenseForActivity}
+        onClone={handleCloneActivity}
+        onMoveToBacklog={(id) => performMove(id, null, 1)}
+        onDelete={handleDeleteActivity}
       />
 
       <AddExpenseDialog

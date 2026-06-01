@@ -8,6 +8,7 @@ import {
 import { Avatar, Tooltip } from '@mantine/core'
 import { isFullRoster } from '../../lib/effectiveParticipants'
 import { KIND_ICONS } from '../activity-editor/detailsSchema'
+import useLongPress from '../../hooks/useLongPress'
 import '../../styles/activity-card.css'
 
 const KIND_CLASS = {
@@ -120,6 +121,18 @@ function cardClasses(activity, extra = '') {
     .replace(/\s+/g, ' ')
 }
 
+// 合并两组事件 handler：同名 key 时先调 a 再调 b（dnd-kit 的 onPointerDown 先
+// 注册拖拽意图，再启动长按计时器；二者互不吞事件）。
+function mergeListeners(a, b) {
+  const out = { ...a }
+  for (const key of Object.keys(b)) {
+    const fa = a[key]
+    const fb = b[key]
+    out[key] = fa ? (e) => { fa(e); fb(e) } : fb
+  }
+  return out
+}
+
 function ThumbAndBadge({ activity }) {
   return (
     <>
@@ -150,6 +163,7 @@ export default function ActivityCard({
   author,
   members,
   draggable = true,
+  onCardContextMenu,
 }) {
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } =
     useDraggable({ id: `activity-${activity.id}`, disabled: !draggable })
@@ -164,13 +178,41 @@ export default function ActivityCard({
   const dragAttributes = readOnly ? {} : attributes
   const dragListeners = readOnly ? {} : listeners
 
+  const longPress = useLongPress((x, y) => {
+    if (onCardContextMenu) onCardContextMenu(activity, x, y)
+  })
+
+  const handleContextMenu = (e) => {
+    if (!onCardContextMenu) return
+    e.preventDefault()
+    onCardContextMenu(activity, e.clientX, e.clientY)
+  }
+
+  const pointerMenuListeners = onCardContextMenu
+    ? {
+        onPointerDown: longPress.onPointerDown,
+        onPointerMove: longPress.onPointerMove,
+        onPointerUp: longPress.onPointerUp,
+        onPointerLeave: longPress.onPointerLeave,
+        onPointerCancel: longPress.onPointerCancel,
+      }
+    : {}
+
+  const finalListeners = mergeListeners(draggable ? dragListeners : {}, pointerMenuListeners)
+
   const handleBodyClick = () => {
+    if (longPress.firedRef.current) {
+      longPress.firedRef.current = false
+      return
+    }
     if (onClick) onClick(activity.id)
   }
 
   const handleKeyDown = (e) => {
     if (onClick && (e.key === 'Enter' || e.key === ' ')) {
       e.preventDefault()
+      // 键盘激活是显式意图：清掉可能残留的长按标记，避免它卡住后吞掉后续 click
+      longPress.firedRef.current = false
       onClick(activity.id)
     }
   }
@@ -202,7 +244,8 @@ export default function ActivityCard({
       tabIndex={onClick ? 0 : undefined}
       aria-label={onClick ? activity.name : undefined}
       {...(draggable ? dragAttributes : {})}
-      {...(draggable ? dragListeners : {})}
+      {...finalListeners}
+      onContextMenu={handleContextMenu}
     >
       {isOver && <div data-testid="drop-indicator" className="ac-drop-indicator" />}
       <ThumbAndBadge activity={activity} />

@@ -1,7 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { DndContext } from '@dnd-kit/core'
 import { MantineProvider } from '@mantine/core'
-import { vi, afterEach } from 'vitest'
+import { describe, test, expect, vi, afterEach } from 'vitest'
 import ActivityCard, { ActivityCardOverlay } from '../ActivityCard'
 
 // Allow tests to override useDroppable return (used by insert-indicator test)
@@ -276,4 +276,74 @@ test('draggable=false → data-draggable="false" on .ac-card root', () => {
     <ActivityCard activity={baseActivity} draggable={false} />
   )
   expect(container.querySelector('.ac-card').getAttribute('data-draggable')).toBe('false')
+})
+
+function renderCard(props = {}) {
+  const activity = {
+    id: 1, name: '赛里木湖', kind: 'scenic', citizen_level: 'tier_one',
+    day_id: 10, position: 1, details: {},
+  }
+  return render(
+    <MantineProvider>
+      <DndContext>
+        <ActivityCard activity={activity} {...props} />
+      </DndContext>
+    </MantineProvider>
+  )
+}
+
+describe('ActivityCard context menu', () => {
+  test('right-click calls onCardContextMenu with activity + coords and prevents default', () => {
+    const onCardContextMenu = vi.fn()
+    const { container } = renderCard({ onCardContextMenu })
+    const card = container.querySelector('.ac-card')
+    const evt = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 120, clientY: 200 })
+    card.dispatchEvent(evt)
+    expect(onCardContextMenu).toHaveBeenCalledTimes(1)
+    const [act, x, y] = onCardContextMenu.mock.calls[0]
+    expect(act.id).toBe(1)
+    expect(x).toBe(120)
+    expect(y).toBe(200)
+    expect(evt.defaultPrevented).toBe(true)
+  })
+
+  test('does not prevent default / call back when onCardContextMenu is absent (no callback)', () => {
+    const { container } = renderCard({}) // no callback
+    const card = container.querySelector('.ac-card')
+    const evt = new MouseEvent('contextmenu', { bubbles: true, cancelable: true })
+    card.dispatchEvent(evt)
+    expect(evt.defaultPrevented).toBe(false)
+  })
+
+  test('a normal left-click still triggers onClick', () => {
+    const onClick = vi.fn()
+    const { container } = renderCard({ onClick })
+    const card = container.querySelector('.ac-card')
+    card.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(onClick).toHaveBeenCalledWith(1)
+  })
+
+  test('a click right after a touch long-press is swallowed (detail does not open)', () => {
+    vi.useFakeTimers()
+    try {
+      const onCardContextMenu = vi.fn()
+      const onClick = vi.fn()
+      // draggable=false attaches ONLY the long-press pointer handlers (dnd-kit's
+      // onPointerDown is gated on draggable), so the long-press path runs cleanly
+      // in jsdom without invoking dnd-kit's sensor.
+      const { container } = renderCard({ draggable: false, onCardContextMenu, onClick })
+      const card = container.querySelector('.ac-card')
+
+      fireEvent.pointerDown(card, { pointerType: 'touch', clientX: 30, clientY: 40 })
+      vi.advanceTimersByTime(500)
+      // long-press fired → menu callback invoked at the press coords + firedRef set
+      expect(onCardContextMenu).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), 30, 40)
+
+      // the click that follows the long-press must be swallowed (no detail open)
+      fireEvent.click(card)
+      expect(onClick).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
