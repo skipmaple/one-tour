@@ -7,8 +7,8 @@ import { router } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
 import { IconPlus, IconX, IconReceipt2 } from '@tabler/icons-react'
-import { useMediaQuery } from '@mantine/hooks'
 import { effectiveParticipants } from '../../lib/effectiveParticipants'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { compressImage } from '../../lib/image-compression'
 import { xhrRequest, mkForm } from '../../lib/xhr-request'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
@@ -49,7 +49,7 @@ const STRATEGY_OPTIONS = [
 
 export default function AddExpenseDialog({ opened, onClose, tour, days, activities, members, author, expense, readOnly = false, initialActivityId = null }) {
   const isEdit = Boolean(expense)
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isMobile = useIsMobile()
   const [scope, setScope] = useState('activity')
   const [activityId, setActivityId] = useState('')
   const [dayId, setDayId] = useState('')

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Drawer, Stack, Group, Text, Button, Divider, Tooltip } from '@mantine/core'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { IconPlus, IconPencil, IconMapPin, IconCopy } from '@tabler/icons-react'
 import ActivityMiniMap from './ActivityMiniMap'
 import ActivityGalleryLightbox from '../activity-editor/ActivityGalleryLightbox'
@@ -338,12 +339,14 @@ export default function ActivityDetailDrawer({
   canEdit,
   onEdit, onAddExpense, onClone, onFocusExpense,
 }) {
+  const isMobile = useIsMobile()
+
   return (
     <Drawer
       opened={opened}
       onClose={onClose}
       position="right"
-      size={480}
+      size={isMobile ? '100%' : 480}
       padding="md"
       withCloseButton
       closeButtonProps={{ 'aria-label': 'Close' }}

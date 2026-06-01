@@ -4,7 +4,7 @@ import {
   SegmentedControl, Accordion, Progress, ActionIcon, TextInput, NumberInput,
   Popover, Chip, Indicator, Select,
 } from '@mantine/core'
-import { useMediaQuery } from '@mantine/hooks'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { router, usePage } from '@inertiajs/react'
 import { notifications } from '@mantine/notifications'
 import { modals } from '@mantine/modals'
@@ -73,7 +73,7 @@ export default function ExpenseDrawer({
   const [rowLightbox, setRowLightbox] = useState({ receipts: [], index: null })
   const [budgetModalOpen, setBudgetModalOpen] = useState(false)
   const [manualSettlementOpen, setManualSettlementOpen] = useState(false)
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isMobile = useIsMobile()
 
   // Derive the editing expense from fresh props so receipt uploads/deletes
   // (which trigger router.reload) surface without closing the dialog.

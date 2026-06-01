@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Drawer, Button, Group, Stack, Tabs, Text } from '@mantine/core'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { useForm } from '@mantine/form'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
@@ -25,6 +26,7 @@ const EMPTY_FORM_VALUES = {
 
 export default function ActivityDrawer({ tourId, opened, onClose, mode, activity, targetDayId, images, allActivities, days, routeLegs, canEdit, author, members }) {
   const isEdit = mode === 'edit'
+  const isMobile = useIsMobile()
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('basic')
   const undoStack = useUndoStack()
@@ -402,7 +404,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       onClose={handleClose}
       title={isEdit ? '编辑行' : '新建行'}
       position="right"
-      size={520}
+      size={isMobile ? '100%' : 520}
       overlayProps={{ opacity: 0.4 }}
       padding="md"
     >

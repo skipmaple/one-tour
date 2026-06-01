@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Drawer, Stack, Text, Group, Button, Box, Divider, Title } from '@mantine/core'
+import { useIsMobile } from '../hooks/useIsMobile'
 import { modals } from '@mantine/modals'
 import { notifications } from '@mantine/notifications'
 import { IconCash, IconCamera, IconEdit, IconScale, IconNotebook, IconAlertCircle } from '@tabler/icons-react'
@@ -44,6 +45,7 @@ function redoTargetUrl(row) {
 }
 
 export default function OutboxDrawer({ opened, onClose }) {
+  const isMobile = useIsMobile()
   const [pending, setPending] = useState([])
   const [failed, setFailed] = useState([])
 
@@ -143,7 +145,7 @@ export default function OutboxDrawer({ opened, onClose }) {
       onClose={onClose}
       title={<Title order={3}>同步队列</Title>}
       position="right"
-      size="md"
+      size={isMobile ? '100%' : 'md'}
     >
       {pending.length === 0 && failed.length === 0 && (
         <Stack align="center" gap="xs" mt="xl">

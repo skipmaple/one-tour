@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Modal, Stack, Group, Button, NumberInput, Text, Divider, Alert,
 } from '@mantine/core'
-import { useMediaQuery } from '@mantine/hooks'
 import { router } from '@inertiajs/react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 import { notifications } from '@mantine/notifications'
 
 function csrfToken() {
@@ -13,7 +13,7 @@ function csrfToken() {
 // Budgets are per-user. The server already filters `budgets` prop to only
 // current_user's rows, so anything in this list is "mine".
 export default function BudgetModal({ opened, onClose, tour, days, budgets }) {
-  const isMobile = useMediaQuery('(max-width: 640px)')
+  const isMobile = useIsMobile()
 
   const existing = useMemo(() => {
     const tourB = budgets.find((b) => !b.day_id && !b.activity_id)
