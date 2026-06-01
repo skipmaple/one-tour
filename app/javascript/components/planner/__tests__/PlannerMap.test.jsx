@@ -163,11 +163,12 @@ describe('buildMarkerHTML', () => {
     }
   }
 
-  test('day-assigned activity returns HTML with day color and Dn label', () => {
+  test('day-assigned activity returns an SVG pin with day color and Dn label', () => {
     const html = buildMarkerHTML({ day_id: 10 }, { 10: 2 }, theme)
     expect(html).toContain('#e64980') // pink (day 2)
     expect(html).toContain('D2')
-    expect(html).toContain('border-radius: 50%')
+    expect(html).toContain('<svg')   // teardrop pin, not a circle
+    expect(html).toContain('<path')  // the teardrop silhouette
   })
 
   test('backlog activity returns grey-dashed circle without label', () => {
