@@ -25,6 +25,7 @@ export default function PanelShell({
   canToggle = true,
   flexStyle,
   headerExtra,
+  hideToggle = false,
   children,
 }) {
   if (!open) {
@@ -83,11 +84,11 @@ export default function PanelShell({
         </Group>
         <Group gap={6}>
           {headerExtra}
-          {canToggle ? collapseButton : (
+          {!hideToggle && (canToggle ? collapseButton : (
             <Tooltip label="至少保留一个面板打开" withArrow>
               <span>{collapseButton}</span>
             </Tooltip>
-          )}
+          ))}
         </Group>
       </Group>
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

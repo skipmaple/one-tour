@@ -36,6 +36,7 @@ export default function DayPanel({
   author,
   members,
   filterActive = false,
+  vertical = false,
 }) {
   const autoFitButton = (
     <UnstyledButton
@@ -70,7 +71,14 @@ export default function DayPanel({
       flexStyle={flexStyle}
       headerExtra={autoFitButton}
     >
-      <div style={{
+      <div style={vertical ? {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 12,
+        alignItems: 'stretch',
+        padding: 8,
+        flex: 1,
+      } : {
         display: 'flex',
         gap: 8,
         overflowX: 'auto',
@@ -103,15 +111,16 @@ export default function DayPanel({
             author={author}
             members={members}
             filterActive={filterActive}
+            vertical={vertical}
           />
         ))}
-        <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} />
+        <AddDayButton tour={tour} nextDayIndex={nextDayIndex} empty={days.length === 0} vertical={vertical} />
       </div>
     </PanelShell>
   )
 }
 
-function AddDayButton({ tour, nextDayIndex, empty }) {
+function AddDayButton({ tour, nextDayIndex, empty, vertical = false }) {
   const handleAdd = () => {
     router.post(
       `/tours/${tour.id}/days`,
@@ -159,6 +168,7 @@ function AddDayButton({ tour, nextDayIndex, empty }) {
       onClick={handleAdd}
       style={{
         minWidth: 60,
+        width: vertical ? '100%' : undefined,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
