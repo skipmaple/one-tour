@@ -20,8 +20,13 @@ export function filterActivitiesByViewMode(activities, viewMode) {
 
 // Build the HTML content string for an AMap.Marker.
 //
-// Day-assigned: 28px solid circle with day color background and "Dn" label embedded.
-// Backlog (day_id=null): 22px white circle with 2px grey dashed border, no label.
+// Day-assigned: 30×40 teardrop "pin" in the day color with the "Dn" label in
+//   the head; the point at the bottom marks the exact coordinate. The pin is an
+//   SVG (not a CSS rotate trick) so its tip sits at the bottom-center of the
+//   element box — pairs with the marker's `anchor: 'bottom-center'` so the
+//   point lands on the location.
+// Backlog (day_id=null): 22px white circle with 2px grey dashed border, no
+//   label (anchored at center — it marks an area, not a precise point).
 //
 // `theme` is the Mantine theme object (use useMantineTheme() in component).
 // We pull colors[name][6] (the 600-shade) for solid markers — high contrast on
@@ -49,20 +54,29 @@ export function buildMarkerHTML(activity, dayIndexById, theme, highlighted = fal
   const day_index = dayIndexById[activity.day_id]
   const colorName = DAY_COLOR(day_index)
   const hex = theme.colors[colorName][6]
-  const shadow = highlighted ? '0 4px 12px rgba(0,0,0,0.4)' : '0 2px 4px rgba(0,0,0,0.3)'
+  // drop-shadow follows the pin silhouette (box-shadow would draw a rectangle).
+  const shadow = highlighted
+    ? 'drop-shadow(0 5px 6px rgba(0,0,0,0.4))'
+    : 'drop-shadow(0 3px 4px rgba(0,0,0,0.3))'
 
+  // Teardrop path: round head (r13, centered 15,15) tapering down tangent lines
+  // to a point near the bottom-center (15,39). Tangent points (25.93,22.04) /
+  // (4.07,22.04) lie on the head circle, so head and neck join smoothly. Tip is
+  // 1px above the box bottom so the 2px stroke isn't clipped by the viewBox.
+  // Scale grows the pin from its tip (transform-origin) so the point stays put.
   return `<div style="
-    width: 28px; height: 28px;
-    background: ${hex};
-    border: 2px solid white;
-    border-radius: 50%;
-    box-shadow: ${shadow};
-    display: flex; align-items: center; justify-content: center;
-    color: white; font-size: 11px; font-weight: bold;
-    box-sizing: border-box;
+    width: 30px; height: 40px;
     transform: ${scale};
+    transform-origin: center bottom;
+    filter: ${shadow};
     ${transition}
-  ">D${day_index}</div>`
+  "><svg width="30" height="40" viewBox="0 0 30 40" style="display: block">
+    <path d="M15 39 L25.93 22.04 A13 13 0 1 0 4.07 22.04 Z"
+      fill="${hex}" stroke="white" stroke-width="2" stroke-linejoin="round" />
+    <text x="15" y="15" text-anchor="middle" dominant-baseline="central"
+      fill="white" font-size="12" font-weight="bold"
+      font-family="system-ui, sans-serif">D${day_index}</text>
+  </svg></div>`
 }
 
 // Build polyline configs for AMap.Polyline construction.
@@ -365,11 +379,14 @@ function PlannerMapInner({
     visible.forEach(a => {
       const inDay = a.day_id && dayIndexById[a.day_id]
       const isHot = currentHoveredIds.includes(a.id)
+      // Day-assigned markers are teardrop pins — anchor the tip to the point.
+      // Backlog markers are centered circles. Must match buildMarkerHTML's branch.
+      const isPin = a.day_id != null
       const marker = new window.AMap.Marker({
         position: [ a.lng, a.lat ],
         title: a.name,
         content: buildMarkerHTML(a, dayIndexById, theme, isHot),
-        anchor: 'center',
+        anchor: isPin ? 'bottom-center' : 'center',
         extData: { activity: a },
       })
       const info = new window.AMap.InfoWindow({
@@ -377,7 +394,8 @@ function PlannerMapInner({
           <strong>${escapeHtml(a.name)}</strong><br/>
           <span style="color:#888">${inDay ? `已排入 D${inDay}` : '尚未排入（backlog）'}</span>
         </div>`,
-        offset: new window.AMap.Pixel(0, -20)
+        // Clear the marker above its top: pin rises ~38px from its tip, circle ~14px from center.
+        offset: new window.AMap.Pixel(0, isPin ? -44 : -20)
       })
       marker.on('click', () => info.open(map, marker.getPosition()))
       marker.on('mouseover', () => onMarkerHoverRef.current?.(a.id))
