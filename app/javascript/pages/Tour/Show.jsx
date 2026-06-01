@@ -403,7 +403,7 @@ export default function Show({
         autoScroll={{ acceleration: 10, threshold: { x: 0.15, y: 0.15 } }}
       >
         {isMobile ? (
-          <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 56px)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100dvh - 56px - var(--mantine-spacing-md))' }}>
             <div style={{ flex: 1, minHeight: 0, display: 'flex', padding: activePanel === 'map' ? 0 : 8 }}>
               {activePanel === 'candidates' && (
                 <BacklogList
