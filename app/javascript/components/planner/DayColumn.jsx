@@ -161,7 +161,7 @@ export default function DayColumn({
 
   return (
     <>
-    <Paper withBorder style={{ flex: vertical ? '1 1 auto' : '0 0 200px', width: vertical ? '100%' : undefined, display: 'flex', flexDirection: 'column' }}>
+    <Paper withBorder style={{ flex: vertical ? '0 0 auto' : '0 0 200px', width: vertical ? '100%' : undefined, display: 'flex', flexDirection: 'column' }}>
       <div
         data-testid="day-header"
         onClick={handleHeaderClick}

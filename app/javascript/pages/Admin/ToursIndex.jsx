@@ -39,7 +39,7 @@ export default function ToursIndex() {
       <Head title="旅程" />
       <Container fluid px="md">
         <Stack gap="md">
-          <Title order={2} fz={isMobile ? 'h3' : undefined}>旅程</Title>
+          <Title order={2} fz={isMobile ? 'xl' : undefined}>旅程</Title>
           <TextInput
             leftSection={<IconSearch size={16} />}
             placeholder="搜索标题"

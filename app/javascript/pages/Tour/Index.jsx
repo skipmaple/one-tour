@@ -15,7 +15,7 @@ export default function Index({ tours }) {
     <Stack gap="lg" p="md">
       <Head title="我的旅程" />
       <Group justify="space-between">
-        <Title order={2} fz={isMobile ? 'h3' : undefined}>我的旅程</Title>
+        <Title order={2} fz={isMobile ? 'xl' : undefined}>我的旅程</Title>
         <Button onClick={createTour}>+ 新建旅程</Button>
       </Group>
 

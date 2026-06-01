@@ -154,7 +154,7 @@ function TourList({ items, showRole, isMobile }) {
           >
             <Group justify="space-between" wrap="nowrap" align="center">
               <Stack gap={4} style={{ minWidth: 0, flex: 1 }}>
-                <Text fw={700} style={{ wordBreak: 'break-all' }}>{t.title}</Text>
+                <Text fw={700} style={{ wordBreak: 'break-all' }}>{t.title || '未命名旅程'}</Text>
                 <Text size="xs" c="dimmed">
                   {showRole ? `${MEMBER_ROLE_LABEL[t.role] || t.role} · ` : ''}{t.day_count ?? '—'} 天 · 更新 {fmtDate(t.updated_at)}
                 </Text>

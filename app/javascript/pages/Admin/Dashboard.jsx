@@ -46,7 +46,7 @@ export default function Dashboard() {
       <Container fluid px="md">
         <Stack gap="lg">
           <Group justify="space-between">
-            <Title order={2} fz={isMobile ? 'h3' : undefined}>概览</Title>
+            <Title order={2} fz={isMobile ? 'xl' : undefined}>概览</Title>
             <Tabs value={range} onChange={onRangeChange} variant="pills">
               <Tabs.List>
                 {RANGES.map((r) => (
