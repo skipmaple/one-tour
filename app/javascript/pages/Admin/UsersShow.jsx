@@ -77,10 +77,10 @@ export default function UsersShow() {
                 <Tabs.Tab value="joined">参与的旅程 ({joined_tours.length})</Tabs.Tab>
               </Tabs.List>
               <Tabs.Panel value="authored" pt="md">
-                <TourList items={authored_tours} showRole={false} />
+                <TourList items={authored_tours} showRole={false} isMobile={isMobile} />
               </Tabs.Panel>
               <Tabs.Panel value="joined" pt="md">
-                <TourList items={joined_tours} showRole />
+                <TourList items={joined_tours} showRole isMobile={isMobile} />
               </Tabs.Panel>
             </Tabs>
           </Card>
@@ -138,8 +138,7 @@ export default function UsersShow() {
   )
 }
 
-function TourList({ items, showRole }) {
-  const isMobile = useIsMobile()
+function TourList({ items, showRole, isMobile }) {
   if (items.length === 0) return <Text c="dimmed">暂无</Text>
   if (isMobile) {
     return (

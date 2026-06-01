@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { usePage, router, Link, Head } from '@inertiajs/react'
 import {
   Container, Title, Stack, Table, TextInput, Group, Pagination,
-  Text, Anchor, Badge, Paper,
+  Text, Anchor, Badge, Paper, Select,
 } from '@mantine/core'
-import { IconSearch, IconChevronRight } from '@tabler/icons-react'
+import { IconSearch, IconChevronRight, IconArrowsSort } from '@tabler/icons-react'
 import { useDebouncedValue } from '@mantine/hooks'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
@@ -64,7 +64,28 @@ export default function UsersIndex() {
             value={search}
             onChange={(e) => setSearch(e.currentTarget.value)}
           />
-          {isMobile ? <UserCards users={users} /> : (
+          {isMobile ? (
+            <Stack gap="sm">
+              <Select
+                size="sm"
+                aria-label="排序方式"
+                placeholder="排序方式"
+                leftSection={<IconArrowsSort size={14} />}
+                value={sort}
+                onChange={(val) => { if (val) { const i = val.lastIndexOf('_'); setSort(val.slice(0, i), val.slice(i + 1)) } }}
+                data={[
+                  { value: 'created_desc', label: '注册时间 · 最新优先' },
+                  { value: 'created_asc', label: '注册时间 · 最早优先' },
+                  { value: 'messages_desc', label: '近30天消息 · 多→少' },
+                  { value: 'tokens_desc', label: '近30天用量 · 多→少' },
+                  { value: 'cost_desc', label: '近30天花费 · 多→少' },
+                ]}
+                allowDeselect={false}
+                comboboxProps={{ withinPortal: true }}
+              />
+              <UserCards users={users} />
+            </Stack>
+          ) : (
             <Table highlightOnHover stickyHeader>
               <Table.Thead>
                 <Table.Tr>
