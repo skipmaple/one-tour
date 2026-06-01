@@ -63,9 +63,11 @@ export default function ActivityContextMenu({
         <Menu.Item leftSection={<IconCopy size={15} />} onClick={run(onClone)}>
           克隆
         </Menu.Item>
-        <Menu.Item leftSection={<IconCalendarPlus size={15} />} onClick={run(onMoveToDay)}>
-          {inDay ? '移到其他天' : '加入日程'}
-        </Menu.Item>
+        {onMoveToDay && (
+          <Menu.Item leftSection={<IconCalendarPlus size={15} />} onClick={run(onMoveToDay)}>
+            {inDay ? '移到其他天' : '加入日程'}
+          </Menu.Item>
+        )}
         <Menu.Divider />
         {inDay && (
           <Menu.Item leftSection={<IconInbox size={15} />} onClick={run(onMoveToBacklog)}>

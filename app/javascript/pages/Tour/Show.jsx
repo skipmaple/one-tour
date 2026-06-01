@@ -483,7 +483,7 @@ export default function Show({
               )}
             </div>
             {constOpen && (
-              <Drawer opened onClose={closeConst} size="100%" position="left" withCloseButton title="出行宪法" padding="md">
+              <Drawer opened onClose={closeConst} size="100%" position="left" withCloseButton={!inOnboarding} closeOnEscape={!inOnboarding} closeOnClickOutside={!inOnboarding} title={inOnboarding ? '设置这次旅程' : '出行宪法'} padding="md">
                 <ConstitutionDrawer
                   mobile
                   tour={tour}
@@ -695,7 +695,7 @@ export default function Show({
         onEdit={openEdit}
         onAddExpense={openAddExpenseForActivity}
         onClone={handleCloneActivity}
-        onMoveToDay={(id) => setMovingActivityId(id)}
+        onMoveToDay={isMobile ? (id) => setMovingActivityId(id) : undefined}
         onMoveToBacklog={(id) => performMove(id, null, 1)}
         onDelete={handleDeleteActivity}
       />
