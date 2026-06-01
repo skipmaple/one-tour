@@ -7,6 +7,7 @@ import {
   IconUserPlus, IconUsersGroup, IconMapPlus, IconMap,
   IconMessageDots, IconCurrencyYen,
 } from '@tabler/icons-react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 const RANGES = [
   { value: 'today', label: '今天' },
@@ -33,6 +34,7 @@ function fmtCost(cents) {
 export default function Dashboard() {
   const { props } = usePage()
   const { range, kpis, trend } = props
+  const isMobile = useIsMobile()
 
   const onRangeChange = (value) => {
     router.get('/admin', { range: value }, { preserveState: true, preserveScroll: true })
@@ -44,7 +46,7 @@ export default function Dashboard() {
       <Container fluid px="md">
         <Stack gap="lg">
           <Group justify="space-between">
-            <Title order={2}>概览</Title>
+            <Title order={2} fz={isMobile ? 'h3' : undefined}>概览</Title>
             <Tabs value={range} onChange={onRangeChange} variant="pills">
               <Tabs.List>
                 {RANGES.map((r) => (

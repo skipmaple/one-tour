@@ -376,3 +376,12 @@
     background-color: color-mix(in srgb, var(--day-accent) 4%, white);
   }
 }
+
+/* Mobile single-panel planner: cards are full-width, so soften the compact 2×2
+   meta grid — drop the divider lines and add column breathing room. Keeps the
+   scannable 2-row height (stacking all four would make day lists much taller). */
+@media (max-width: 767px) {
+  .ac-meta { column-gap: 14px; }
+  .ac-meta::before,
+  .ac-meta::after { display: none; }
+}

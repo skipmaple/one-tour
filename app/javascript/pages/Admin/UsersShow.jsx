@@ -3,7 +3,7 @@ import {
   Container, Stack, Title, Card, Group, Text, Badge, SimpleGrid,
   Tabs, Table, Avatar, Anchor, Paper,
 } from '@mantine/core'
-import { IconArrowLeft } from '@tabler/icons-react'
+import { IconArrowLeft, IconChevronRight } from '@tabler/icons-react'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 function fmtCost(cents) {
@@ -145,11 +145,23 @@ function TourList({ items, showRole }) {
     return (
       <Stack gap="xs">
         {items.map((t) => (
-          <Paper key={t.id} withBorder p="xs">
-            <Anchor component={Link} href={`/admin/tours/${t.id}`} fw={700}>{t.title}</Anchor>
-            <Text size="xs" c="dimmed" mt={4}>
-              {showRole ? `${MEMBER_ROLE_LABEL[t.role] || t.role} · ` : ''}{t.day_count ?? '—'} 天 · 更新 {fmtDate(t.updated_at)}
-            </Text>
+          <Paper
+            key={t.id}
+            component={Link}
+            href={`/admin/tours/${t.id}`}
+            withBorder
+            p="xs"
+            style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}
+          >
+            <Group justify="space-between" wrap="nowrap" align="center">
+              <Stack gap={4} style={{ minWidth: 0, flex: 1 }}>
+                <Text fw={700} style={{ wordBreak: 'break-all' }}>{t.title}</Text>
+                <Text size="xs" c="dimmed">
+                  {showRole ? `${MEMBER_ROLE_LABEL[t.role] || t.role} · ` : ''}{t.day_count ?? '—'} 天 · 更新 {fmtDate(t.updated_at)}
+                </Text>
+              </Stack>
+              <IconChevronRight size={16} stroke={1.5} color="var(--mantine-color-gray-5)" style={{ flexShrink: 0 }} />
+            </Group>
           </Paper>
         ))}
       </Stack>

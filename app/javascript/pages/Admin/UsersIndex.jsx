@@ -57,7 +57,7 @@ export default function UsersIndex() {
       <Head title="用户" />
       <Container fluid px="md">
         <Stack gap="md">
-          <Title order={2}>用户</Title>
+          <Title order={2} fz={isMobile ? 'h3' : undefined}>用户</Title>
           <TextInput
             leftSection={<IconSearch size={16} />}
             placeholder="搜索姓名或邮箱"
