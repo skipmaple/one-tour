@@ -56,4 +56,13 @@ describe('useLongPress', () => {
     expect(cb).toHaveBeenCalledTimes(1)
     expect(cb).toHaveBeenCalledWith(50, 60)
   })
+
+  test('does not fire after unmount (timer cleared on unmount)', () => {
+    const cb = vi.fn()
+    const { result, unmount } = renderHook(() => useLongPress(cb, { delay: 500 }))
+    result.current.onPointerDown(touch(10, 10))
+    unmount() // card removed mid-hold (concurrent refresh/filter/navigation)
+    vi.advanceTimersByTime(500)
+    expect(cb).not.toHaveBeenCalled()
+  })
 })

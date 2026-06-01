@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 
 // 触屏长按检测，与 dnd-kit 拖拽共存。拖拽在移动 ≥5px 时激活（Show.jsx 的
 // PointerSensor distance 约束），长按要求"静止"——二者天然互斥。只有 touch
@@ -40,6 +40,12 @@ export default function useLongPress(onLongPress, { delay = 500, moveTolerance =
     const dy = Math.abs(e.clientY - startPos.current.y)
     if (dx > moveTolerance || dy > moveTolerance) clear()
   }
+
+  // 卡片在长按计时窗口内被卸载（并发刷新/筛选/导航移除卡片）时，清掉在途
+  // 计时器，避免回调在 unmount 后触发、为已消失的卡片弹出菜单。
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current)
+  }, [])
 
   return {
     onPointerDown,
