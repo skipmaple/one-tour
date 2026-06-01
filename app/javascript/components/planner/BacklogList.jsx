@@ -28,6 +28,7 @@ export default function BacklogList({
   open = true,
   onToggle,
   canToggle = true,
+  mobile = false,
   flexStyle,
   hoveredActivityIds = null,
   onHoverActivity,
@@ -52,6 +53,7 @@ export default function BacklogList({
       open={open}
       onToggle={onToggle}
       canToggle={canToggle}
+      hideToggle={mobile}
       flexStyle={flexStyle}
     >
       <style>{footerStyleRules}</style>

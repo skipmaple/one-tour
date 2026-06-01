@@ -37,6 +37,7 @@ export default function DayPanel({
   members,
   filterActive = false,
   vertical = false,
+  mobile = false,
 }) {
   const autoFitButton = (
     <UnstyledButton
@@ -68,6 +69,7 @@ export default function DayPanel({
       open={open}
       onToggle={onToggle}
       canToggle={canToggle}
+      hideToggle={mobile}
       flexStyle={flexStyle}
       headerExtra={autoFitButton}
     >

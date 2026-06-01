@@ -640,6 +640,7 @@ export default function PlannerMap({
   open = true,
   onToggle,
   canToggle = true,
+  mobile = false,
   flexStyle,
   hoveredActivityIds,
   onMarkerHover,
@@ -653,6 +654,7 @@ export default function PlannerMap({
       open={open}
       onToggle={onToggle}
       canToggle={canToggle}
+      hideToggle={mobile}
       flexStyle={flexStyle}
     >
       <PlannerMapInner
