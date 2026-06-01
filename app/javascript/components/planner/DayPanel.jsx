@@ -81,6 +81,8 @@ export default function DayPanel({
         alignItems: 'stretch',
         padding: 8,
         flex: 1,
+        minHeight: 0,
+        overflowY: 'auto',
       } : {
         display: 'flex',
         gap: 8,

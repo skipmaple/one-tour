@@ -63,6 +63,8 @@ export default function BacklogList({
         style={{
           padding: 12,
           flex: 1,
+          minHeight: mobile ? 0 : undefined,
+          overflowY: mobile ? 'auto' : undefined,
           display: 'flex',
           flexDirection: 'column',
           border: dragState === 'idle' ? 'none' : '2px dashed var(--mantine-color-gray-5)',
