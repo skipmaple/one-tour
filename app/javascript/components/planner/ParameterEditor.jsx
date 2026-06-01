@@ -1,6 +1,7 @@
 // Moved from pages/Tour/Constitution.jsx (2026-04-21) so ConstitutionDrawer can reuse.
 
 import { Stack, Group, Title, Text, Button, Select } from '@mantine/core'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function ParameterEditor({ c, setC, dirty, advancedOpen, setAdvancedOpen, advancedCount, resetToDefaults }) {
   return (
@@ -30,17 +31,18 @@ export default function ParameterEditor({ c, setC, dirty, advancedOpen, setAdvan
 }
 
 function ConstRow({ label, field, scale = 1, options, unit, hint, c, setC }) {
+  const isMobile = useIsMobile()
   const current = c[field]
   const displayValue = String(current)
   const handleChange = (val) => setC({ ...c, [field]: Number(val) })
   return (
-    <Group gap="xs" align="center" style={{ padding: '6px 0', borderBottom: '1px dashed #eee' }}>
-      <Text size="sm" style={{ width: 220 }}>{label}</Text>
+    <Group gap="xs" align="center" wrap="wrap" style={{ padding: '6px 0', borderBottom: '1px dashed #eee' }}>
+      <Text size="sm" style={{ width: isMobile ? '100%' : 220 }}>{label}</Text>
       <Select
         value={displayValue}
         onChange={handleChange}
         data={options.map(v => ({ value: String(v), label: scale === 60 ? `${v / 60} 小时` : `${v} ${unit}` }))}
-        w={130}
+        w={isMobile ? '100%' : 130}
         allowDeselect={false}
       />
       <Text size="xs" c="dimmed" style={{ flex: 1 }}>{hint}</Text>

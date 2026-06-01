@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import { Modal, Stack, Group, Text, NumberInput, Textarea, Button, ActionIcon } from '@mantine/core'
 import { IconRefresh } from '@tabler/icons-react'
 import { router } from '@inertiajs/react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function RouteLegEditModal({ opened, onClose, leg }) {
+  const isMobile = useIsMobile()
   const [distKm, setDistKm] = useState('')
   const [durMin, setDurMin] = useState('')
   const [note, setNote] = useState('')
@@ -81,7 +83,7 @@ export default function RouteLegEditModal({ opened, onClose, leg }) {
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="编辑驾驶段" centered size="md">
+    <Modal opened={opened} onClose={onClose} title="编辑驾驶段" centered size="md" fullScreen={isMobile}>
       <Stack gap="md">
         <Text size="sm" c="dimmed">
           {leg.from_activity_name} → {leg.to_activity_name}

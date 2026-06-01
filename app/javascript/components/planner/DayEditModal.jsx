@@ -4,8 +4,10 @@ import { DateInput } from '@mantine/dates'
 import { modals } from '@mantine/modals'
 import { router } from '@inertiajs/react'
 import { useUndoStack } from '../../hooks/useUndoStack'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 export default function DayEditModal({ day, tourId, onClose }) {
+  const isMobile = useIsMobile()
   const [theme, setTheme] = useState('')
   const [date, setDate] = useState(null)
   const [bufferDay, setBufferDay] = useState(false)
@@ -81,6 +83,7 @@ export default function DayEditModal({ day, tourId, onClose }) {
       onClose={onClose}
       title={`编辑 D${day.day_index}`}
       size="sm"
+      fullScreen={isMobile}
     >
       <Stack gap="md">
         <Textarea
