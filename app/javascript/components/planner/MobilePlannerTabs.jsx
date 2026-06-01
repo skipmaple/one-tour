@@ -10,7 +10,7 @@ export const PLANNER_TABS = [
 
 export default function MobilePlannerTabs({ active, onChange }) {
   return (
-    <nav aria-label="规划器面板切换" style={{ display: 'flex', flexShrink: 0, background: '#fff', borderTop: '1px solid var(--mantine-color-default-border)', boxShadow: '0 -2px 8px rgba(0,0,0,0.05)' }}>
+    <nav aria-label="规划器面板切换" style={{ display: 'flex', flexShrink: 0, background: '#fff', borderTop: '1px solid var(--mantine-color-default-border)', boxShadow: '0 -2px 8px rgba(0,0,0,0.05)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {PLANNER_TABS.map(({ id, label, Icon }) => {
         const on = active === id
         return (
