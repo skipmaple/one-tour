@@ -1,9 +1,10 @@
 import { usePage, Link, Head } from '@inertiajs/react'
 import {
   Container, Stack, Title, Card, Group, Text, Badge, SimpleGrid,
-  Tabs, Table, Avatar, Anchor,
+  Tabs, Table, Avatar, Anchor, Paper,
 } from '@mantine/core'
 import { IconArrowLeft } from '@tabler/icons-react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 function fmtCost(cents) {
   if (cents == null) return '—'
@@ -28,6 +29,7 @@ function StatCard({ label, value }) {
 export default function UsersShow() {
   const { props } = usePage()
   const { profile, lifetime_stats, authored_tours, joined_tours, recent_messages } = props
+  const isMobile = useIsMobile()
 
   return (
     <>
@@ -88,6 +90,21 @@ export default function UsersShow() {
             <Title order={4} mb="sm">最近 20 条消息</Title>
             {recent_messages.length === 0 ? (
               <Text c="dimmed">暂无消息</Text>
+            ) : isMobile ? (
+              <Stack gap="xs">
+                {recent_messages.map((m) => (
+                  <Paper key={m.id} withBorder p="xs">
+                    <Group justify="space-between">
+                      <Badge variant="light">{MESSAGE_ROLE_LABEL[m.role] || m.role}</Badge>
+                      <Text size="xs" c="dimmed">{fmtDate(m.created_at)}</Text>
+                    </Group>
+                    <Text size="sm" mt={4}>{m.content}</Text>
+                    <Text size="xs" c="dimmed" mt={4}>
+                      用量 {m.tokens_in != null ? `${m.tokens_in}/${m.tokens_out}` : '—'} · {fmtCost(m.cost_cents)}
+                    </Text>
+                  </Paper>
+                ))}
+              </Stack>
             ) : (
               <Table striped highlightOnHover>
                 <Table.Thead>
@@ -122,7 +139,22 @@ export default function UsersShow() {
 }
 
 function TourList({ items, showRole }) {
+  const isMobile = useIsMobile()
   if (items.length === 0) return <Text c="dimmed">暂无</Text>
+  if (isMobile) {
+    return (
+      <Stack gap="xs">
+        {items.map((t) => (
+          <Paper key={t.id} withBorder p="xs">
+            <Anchor component={Link} href={`/admin/tours/${t.id}`} fw={700}>{t.title}</Anchor>
+            <Text size="xs" c="dimmed" mt={4}>
+              {showRole ? `${MEMBER_ROLE_LABEL[t.role] || t.role} · ` : ''}{t.day_count ?? '—'} 天 · 更新 {fmtDate(t.updated_at)}
+            </Text>
+          </Paper>
+        ))}
+      </Stack>
+    )
+  }
   return (
     <Table>
       <Table.Thead>

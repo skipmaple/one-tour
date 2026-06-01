@@ -1,8 +1,9 @@
 import { usePage, Link, Head } from '@inertiajs/react'
 import {
-  Container, Stack, Title, Card, Group, Text, Badge, SimpleGrid, Table, Anchor,
+  Container, Stack, Title, Card, Group, Text, Badge, SimpleGrid, Table, Anchor, Paper,
 } from '@mantine/core'
 import { IconArrowLeft } from '@tabler/icons-react'
+import { useIsMobile } from '../../hooks/useIsMobile'
 
 function fmtCost(cents) {
   if (cents == null) return '—'
@@ -25,6 +26,7 @@ function Stat({ label, value }) {
 export default function ToursShow() {
   const { props } = usePage()
   const { tour, members, days, conversation_stats: stats } = props
+  const isMobile = useIsMobile()
 
   return (
     <>
@@ -54,32 +56,49 @@ export default function ToursShow() {
           {/* Members */}
           <Card withBorder padding="md" radius="md">
             <Title order={4} mb="sm">成员 ({members.length})</Title>
-            <Table striped>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>姓名</Table.Th>
-                  <Table.Th>邮箱</Table.Th>
-                  <Table.Th>角色</Table.Th>
-                  <Table.Th>加入时间</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
+            {isMobile ? (
+              <Stack gap="xs">
                 {members.map((m) => (
-                  <Table.Tr key={m.user_id}>
-                    <Table.Td>
+                  <Paper key={m.user_id} withBorder p="xs">
+                    <Group justify="space-between">
                       <Anchor component={Link} href={`/admin/users/${m.user_id}`}>{m.name}</Anchor>
-                    </Table.Td>
-                    <Table.Td>{m.email}</Table.Td>
-                    <Table.Td>
                       <Badge variant="light" color={m.role === 'author' ? 'grape' : 'gray'}>
                         {MEMBER_ROLE_LABEL[m.role] || m.role}
                       </Badge>
-                    </Table.Td>
-                    <Table.Td>{fmtDate(m.joined_at)}</Table.Td>
-                  </Table.Tr>
+                    </Group>
+                    <Text size="xs" c="dimmed" mt={4} style={{ wordBreak: 'break-all' }}>{m.email}</Text>
+                    <Text size="xs" c="dimmed" mt={2}>加入 {fmtDate(m.joined_at)}</Text>
+                  </Paper>
                 ))}
-              </Table.Tbody>
-            </Table>
+              </Stack>
+            ) : (
+              <Table striped>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>姓名</Table.Th>
+                    <Table.Th>邮箱</Table.Th>
+                    <Table.Th>角色</Table.Th>
+                    <Table.Th>加入时间</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {members.map((m) => (
+                    <Table.Tr key={m.user_id}>
+                      <Table.Td>
+                        <Anchor component={Link} href={`/admin/users/${m.user_id}`}>{m.name}</Anchor>
+                      </Table.Td>
+                      <Table.Td>{m.email}</Table.Td>
+                      <Table.Td>
+                        <Badge variant="light" color={m.role === 'author' ? 'grape' : 'gray'}>
+                          {MEMBER_ROLE_LABEL[m.role] || m.role}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td>{fmtDate(m.joined_at)}</Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            )}
           </Card>
 
           {/* Days */}
@@ -87,6 +106,17 @@ export default function ToursShow() {
             <Title order={4} mb="sm">天数 ({days.length})</Title>
             {days.length === 0 ? (
               <Text c="dimmed">暂无天数安排</Text>
+            ) : isMobile ? (
+              <Stack gap="xs">
+                {days.map((d) => (
+                  <Paper key={d.id} withBorder p="xs">
+                    <Text fw={500}>第 {d.day_index} 天</Text>
+                    <Text size="xs" c="dimmed" mt={4}>
+                      {d.date || '—'} · {d.activity_count} 行 · 更新 {fmtDate(d.updated_at)}
+                    </Text>
+                  </Paper>
+                ))}
+              </Stack>
             ) : (
               <Table>
                 <Table.Thead>
