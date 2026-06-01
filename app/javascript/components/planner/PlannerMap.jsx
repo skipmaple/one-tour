@@ -33,7 +33,10 @@ export function filterActivitiesByViewMode(activities, viewMode) {
 // AMap's white tile background.
 export function buildMarkerHTML(activity, dayIndexById, theme, highlighted = false) {
   const scale = highlighted ? 'scale(1.3)' : 'scale(1)'
-  const transition = 'transition: transform 150ms ease, box-shadow 150ms ease;'
+  // Covers both branches: backlog circle animates box-shadow, the pin animates
+  // filter (drop-shadow). Highlight currently repaints via marker.setContent so
+  // this rarely fires, but it keeps the declared transition matching real props.
+  const transition = 'transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;'
 
   if (activity.day_id == null) {
     // Backlog marker — grey dashed circle, no label.
