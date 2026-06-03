@@ -1,8 +1,9 @@
 import { describe, test, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
 import { DndContext } from '@dnd-kit/core'
-import DayColumn from '../DayColumn'
+import DayColumn, { endDropPosition } from '../DayColumn'
 
 function renderIt(props = {}) {
   const day = { id: 10, day_index: 1, intensity_derived: 'green' }
@@ -24,6 +25,23 @@ function renderInDnd(element) {
     </MantineProvider>
   )
 }
+
+describe('endDropPosition (drag-to-end target)', () => {
+  test('returns maxPosition+1 so it lands after the last item even when positions are sparse', () => {
+    // Regression: positions drift to sparse values (e.g. 6,7,11,12,13). The old
+    // `length+1` (=6) collided with the first item's own position → no-op → the
+    // card never reached the end. maxPosition+1 (=14) always clears the last item.
+    expect(endDropPosition([{ position: 6 }, { position: 7 }, { position: 13 }])).toBe(14)
+  })
+
+  test('returns 1 for an empty day', () => {
+    expect(endDropPosition([])).toBe(1)
+  })
+
+  test('equals length+1 when positions are dense (no regression)', () => {
+    expect(endDropPosition([{ position: 1 }, { position: 2 }, { position: 3 }])).toBe(4)
+  })
+})
 
 describe('DayColumn dragWarning', () => {
   test('renders warning banner when dragWarning prop is set', () => {
@@ -128,6 +146,24 @@ test('filterActive=true + empty activities shows "该天无匹配"', () => {
 test('filterActive=false + empty activities does NOT show "该天无匹配"', () => {
   renderDayColumn({ activities: [], filterActive: false, day: { id: 1, day_index: 1 } })
   expect(screen.queryByText(/该天无匹配/)).not.toBeInTheDocument()
+})
+
+test('footer labels the tier-one metric as 必去 (not the 公民 jargon)', () => {
+  renderDayColumn({ activities: [], day: { id: 1, day_index: 1 } })
+  expect(screen.getByText('必去')).toBeInTheDocument()
+  expect(screen.queryByText('核心')).not.toBeInTheDocument()
+})
+
+test('buffer-day 机动 has an explanatory tooltip', async () => {
+  const user = userEvent.setup()
+  renderDayColumn({ day: { id: 1, day_index: 1, intensity_derived: 'green', buffer_day: true }, activities: [] })
+  await user.hover(screen.getByText('机动'))
+  expect(await screen.findByText(/弹性\/缓冲日/)).toBeInTheDocument()
+})
+
+test('empty day (not filtering) shows a drag/add CTA, not bare 空', () => {
+  renderDayColumn({ day: { id: 1, day_index: 1, intensity_derived: 'green' }, activities: [], filterActive: false })
+  expect(screen.getByText(/把候选拖到这里/)).toBeInTheDocument()
 })
 
 test('filterActive forwards draggable=false to ActivityCard (data-draggable attr)', () => {

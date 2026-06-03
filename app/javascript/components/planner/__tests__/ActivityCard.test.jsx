@@ -33,8 +33,11 @@ const baseActivity = {
   name: '喀纳斯湖',
   kind: 'scenic',
   citizen_level: 'tier_two',
+  status: 'confirmed',
   position: 1,
 }
+
+// ---- identity row -----------------------------------------------------------
 
 test('renders the name', () => {
   renderInDnd(<ActivityCard activity={baseActivity} />)
@@ -43,75 +46,93 @@ test('renders the name', () => {
 
 test('renders kind icon svg inside the name row', () => {
   const { container } = renderInDnd(<ActivityCard activity={baseActivity} />)
-  expect(container.querySelector('.ac-kind-icon svg')).toBeInTheDocument()
+  expect(container.querySelector('.ac-name-row .ac-kind-icon svg')).toBeInTheDocument()
 })
 
-test('renders tier1 badge only when citizen_level is tier_one', () => {
+test('renders the tier star only when citizen_level is tier_one', () => {
   const { rerender } = renderInDnd(<ActivityCard activity={{ ...baseActivity, citizen_level: 'tier_one' }} />)
-  expect(screen.getByTestId('tier-badge')).toBeInTheDocument()
+  expect(screen.getByTestId('tier-star')).toBeInTheDocument()
   rerender(<DndContext><ActivityCard activity={baseActivity} /></DndContext>)
-  expect(screen.queryByTestId('tier-badge')).not.toBeInTheDocument()
+  expect(screen.queryByTestId('tier-star')).not.toBeInTheDocument()
 })
 
-test('citizen signal carries data-level=tier_one', () => {
-  const { container } = renderInDnd(
-    <ActivityCard activity={{ ...baseActivity, citizen_level: 'tier_one' }} />
-  )
-  const signal = container.querySelector('[data-testid="citizen-signal"]')
-  expect(signal).toBeInTheDocument()
-  expect(signal.getAttribute('data-level')).toBe('tier_one')
+test('adds .ac-tier1 class for tier_one (gold accent)', () => {
+  const { container } = renderInDnd(<ActivityCard activity={{ ...baseActivity, citizen_level: 'tier_one' }} />)
+  expect(container.querySelector('.ac-card.ac-tier1')).toBeInTheDocument()
 })
 
-test('citizen signal carries data-level=infrastructure', () => {
+test('no longer renders the citizen signal bars', () => {
   const { container } = renderInDnd(
     <ActivityCard activity={{ ...baseActivity, citizen_level: 'infrastructure' }} />
   )
-  const signal = container.querySelector('[data-testid="citizen-signal"]')
-  expect(signal).toBeInTheDocument()
-  expect(signal.getAttribute('data-level')).toBe('infrastructure')
+  expect(container.querySelector('[data-testid="citizen-signal"]')).toBeNull()
 })
 
-test('renders planned time when provided', () => {
+// ---- time row ---------------------------------------------------------------
+
+test('renders arrival time labeled with 到', () => {
   renderInDnd(<ActivityCard activity={{ ...baseActivity, planned_start_at: '10:00' }} />)
-  expect(screen.getByText('10:00')).toBeInTheDocument()
+  expect(screen.getByText('10:00到')).toBeInTheDocument()
 })
 
-test('formats duration >=60 and divisible by 30 as hours', () => {
+test('renders duration with a 停留 prefix in human units', () => {
   renderInDnd(<ActivityCard activity={{ ...baseActivity, planned_duration_min: 150 }} />)
-  expect(screen.getByText('2.5h')).toBeInTheDocument()
+  expect(screen.getByText('停留2.5h')).toBeInTheDocument()
 })
 
-test('formats duration otherwise as minutes', () => {
-  renderInDnd(<ActivityCard activity={{ ...baseActivity, planned_duration_min: 45 }} />)
-  expect(screen.getByText('45分')).toBeInTheDocument()
+test('combines time and duration on one line', () => {
+  renderInDnd(
+    <ActivityCard activity={{ ...baseActivity, planned_start_at: '10:00', planned_duration_min: 120 }} />
+  )
+  expect(screen.getByText('10:00到 · 停留2h')).toBeInTheDocument()
 })
 
-test('renders truncated last segment of address', () => {
+// ---- smart-fact chips -------------------------------------------------------
+
+test('closed status desaturates the card and shows a 暂停开放 chip', () => {
+  const { container } = renderInDnd(<ActivityCard activity={{ ...baseActivity, status: 'closed' }} />)
+  expect(container.querySelector('.ac-card.ac-status-closed')).toBeInTheDocument()
+  expect(screen.getByText('暂停开放')).toBeInTheDocument()
+})
+
+test('pending status shows a 待定 chip', () => {
+  const { container } = renderInDnd(<ActivityCard activity={{ ...baseActivity, status: 'pending' }} />)
+  expect(container.querySelector('.ac-card.ac-status-pending')).toBeInTheDocument()
+  expect(screen.getByText('待定')).toBeInTheDocument()
+})
+
+test('shows a 需预约 chip when scenic activity needs a reservation', () => {
+  renderInDnd(<ActivityCard activity={{ ...baseActivity, details: { need_reservation: true } }} />)
+  expect(screen.getByText('需预约')).toBeInTheDocument()
+})
+
+test('surfaces a locator chip from the address', () => {
   renderInDnd(<ActivityCard activity={{ ...baseActivity, address: '新疆阿勒泰 布尔津县' }} />)
   expect(screen.getByText('布尔津县')).toBeInTheDocument()
 })
 
-test('renders thumb gradient when _coverUrl present', () => {
-  const { container } = renderInDnd(
-    <ActivityCard activity={{ ...baseActivity, _coverUrl: 'https://example.com/x.jpg' }} />
-  )
-  const thumb = container.querySelector('[data-testid="thumb-gradient"]')
-  expect(thumb).toBeInTheDocument()
-  expect(thumb.style.backgroundImage).toContain('example.com')
+test('a confirmed card with no notable data renders no chip row', () => {
+  const { container } = renderInDnd(<ActivityCard activity={baseActivity} />)
+  expect(container.querySelector('.ac-meta-extra')).toBeNull()
 })
 
-test('does not render thumb gradient when _coverUrl missing', () => {
-  const { container } = renderInDnd(<ActivityCard activity={baseActivity} />)
-  expect(container.querySelector('[data-testid="thumb-gradient"]')).not.toBeInTheDocument()
+// ---- no inline thumbnail (photos live in the detail drawer) -----------------
+
+test('never renders an inline thumbnail on the card face, even with a cover or place photo', () => {
+  const a = renderInDnd(<ActivityCard activity={{ ...baseActivity, _coverUrl: 'https://example.com/x.jpg' }} />)
+  expect(a.container.querySelector('.ac-thumb')).toBeNull()
+  expect(a.container.querySelector('.ac-card.ac-has-thumb')).toBeNull()
+
+  const b = renderInDnd(<ActivityCard activity={{ ...baseActivity, details: { place: { photo: 'https://amap.example/x.jpg' } } }} />)
+  expect(b.container.querySelector('.ac-thumb')).toBeNull()
 })
 
-test('hides meta cell (not removes) when its data is missing', () => {
-  const { container } = renderInDnd(<ActivityCard activity={baseActivity} />)
-  // All 4 meta cells should exist in DOM; duration/time cells should have the empty modifier
-  const cells = container.querySelectorAll('.ac-meta-cell')
-  expect(cells).toHaveLength(4)
-  expect(container.querySelector('.ac-meta-cell.ac-meta-cell--empty')).toBeInTheDocument()
+test('compact variant marks the card (narrow backlog, single-line name)', () => {
+  const { container } = renderInDnd(<ActivityCard activity={baseActivity} compact />)
+  expect(container.querySelector('.ac-card.ac-compact')).toBeInTheDocument()
 })
+
+// ---- interaction / behavior (unchanged contract) ----------------------------
 
 test('fires onClick when card body is clicked', () => {
   const onClick = vi.fn()
@@ -237,9 +258,6 @@ test('click on thumb area (outside .ac-body) still opens detail', () => {
   const { container } = renderInDnd(
     <ActivityCard activity={baseActivity} readOnly={true} onClick={onClick} />
   )
-  // Click directly on the outer .ac-card (the thumb area is part of the card
-  // but outside ac-body). The previous onClick-on-.ac-body would have missed
-  // this path.
   const card = container.querySelector('.ac-card')
   fireEvent.click(card)
   expect(onClick).toHaveBeenCalledWith(1)
@@ -281,7 +299,7 @@ test('draggable=false → data-draggable="false" on .ac-card root', () => {
 function renderCard(props = {}) {
   const activity = {
     id: 1, name: '赛里木湖', kind: 'scenic', citizen_level: 'tier_one',
-    day_id: 10, position: 1, details: {},
+    status: 'confirmed', day_id: 10, position: 1, details: {},
   }
   return render(
     <MantineProvider>
@@ -328,18 +346,13 @@ describe('ActivityCard context menu', () => {
     try {
       const onCardContextMenu = vi.fn()
       const onClick = vi.fn()
-      // draggable=false attaches ONLY the long-press pointer handlers (dnd-kit's
-      // onPointerDown is gated on draggable), so the long-press path runs cleanly
-      // in jsdom without invoking dnd-kit's sensor.
       const { container } = renderCard({ draggable: false, onCardContextMenu, onClick })
       const card = container.querySelector('.ac-card')
 
       fireEvent.pointerDown(card, { pointerType: 'touch', clientX: 30, clientY: 40 })
       vi.advanceTimersByTime(500)
-      // long-press fired → menu callback invoked at the press coords + firedRef set
       expect(onCardContextMenu).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), 30, 40)
 
-      // the click that follows the long-press must be swallowed (no detail open)
       fireEvent.click(card)
       expect(onClick).not.toHaveBeenCalled()
     } finally {

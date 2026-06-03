@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
 import { vi } from 'vitest'
 import ConstitutionBanner from '../ConstitutionBanner'
@@ -52,6 +53,20 @@ test('dismisses soft violation locally when 知道了 clicked', () => {
   fireEvent.click(screen.getByRole('button', { name: '知道了' }))
   expect(onDismiss).toHaveBeenCalledWith(violation)
   expect(screen.queryByText(/soft issue/)).not.toBeInTheDocument()
+})
+
+test('hard violation: 承认此违反 button has an explanatory tooltip', async () => {
+  const user = userEvent.setup()
+  renderWithMantine(<ConstitutionBanner violations={[{ level: 'hard', rule: 'x', message: '超了' }]} onAcknowledge={vi.fn()} />)
+  await user.hover(screen.getByRole('button', { name: '承认此违反' }))
+  expect(await screen.findByText(/记录一条豁免/)).toBeInTheDocument()
+})
+
+test('violation level icon has a soft/hard explanatory tooltip', async () => {
+  const user = userEvent.setup()
+  renderWithMantine(<ConstitutionBanner violations={[{ level: 'hard', rule: 'x', message: '超了' }]} />)
+  await user.hover(screen.getByTestId('violation-level-icon'))
+  expect(await screen.findByText(/软提示=建议/)).toBeInTheDocument()
 })
 
 test('hides 帮我修正 and 承认此违反 when readOnly', () => {

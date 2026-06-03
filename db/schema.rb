@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_04_24_041550) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_03_064402) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -46,7 +46,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_24_041550) do
     t.bigint "tour_id", null: false
     t.bigint "day_id"
     t.integer "position", null: false
-    t.integer "citizen_level", default: 2, null: false
+    t.integer "citizen_level", default: 1, null: false
     t.integer "kind", null: false
     t.string "name", null: false
     t.decimal "lat", precision: 9, scale: 6
@@ -58,7 +58,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_04_24_041550) do
     t.jsonb "details", default: {}, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "status", default: 0, null: false
     t.index [ "day_id" ], name: "index_activities_on_day_id"
+    t.index [ "status" ], name: "index_activities_on_status"
     t.index [ "tour_id", "day_id", "position" ], name: "index_activities_on_tour_id_and_day_id_and_position"
     t.index [ "tour_id", "kind", "citizen_level" ], name: "index_activities_on_tour_id_and_kind_and_citizen_level"
     t.index [ "tour_id" ], name: "index_activities_on_tour_id"

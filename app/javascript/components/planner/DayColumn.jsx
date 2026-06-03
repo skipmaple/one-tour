@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState } from 'react'
 import { DAY_COLOR } from '../../lib/dayColors'
-import { Alert, Paper, Text, Stack, Group, Button } from '@mantine/core'
+import { Alert, Paper, Text, Stack, Group, Button, Tooltip } from '@mantine/core'
 import { useDroppable } from '@dnd-kit/core'
 import { IconAlertTriangleFilled, IconFilterFilled } from '@tabler/icons-react'
 import ActivityCard from './ActivityCard'
@@ -15,6 +15,14 @@ const INTENSITY_COLORS = {
 }
 
 const WEEKDAY_LABELS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+// Target position for a "drop at the end of the day" gesture. Must clear the
+// LAST item, so it's max(position)+1 — NOT length+1: positions drift to sparse
+// values (e.g. 6,7,11,12,13) and length+1 would land mid-list (or on the first
+// item's own position → a no-op that looks like "drag to end does nothing").
+export function endDropPosition(activities) {
+  return (activities || []).reduce((max, a) => Math.max(max, a.position || 0), 0) + 1
+}
 
 export default function DayColumn({
   day,
@@ -83,7 +91,7 @@ export default function DayColumn({
 
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${day.id}`,
-    data: { dayId: day.id, position: activities.length + 1 }
+    data: { dayId: day.id, position: endDropPosition(activities) }
   })
 
   const dotColor = INTENSITY_COLORS[day.intensity_derived] || '#bbb'
@@ -161,7 +169,18 @@ export default function DayColumn({
 
   return (
     <>
-    <Paper withBorder style={{ flex: vertical ? '0 0 auto' : '0 0 200px', width: vertical ? '100%' : undefined, display: 'flex', flexDirection: 'column' }}>
+    <Paper withBorder style={{
+      flex: vertical ? '0 0 auto' : '0 0 230px',
+      width: vertical ? '100%' : undefined,
+      // Pin the desktop column to exactly 230px. Without min-width:0 a flex
+      // item's default min-width:auto lets a wide, unshrinkable card (e.g. a
+      // long alerts+notes row) push the column past its 230px basis; max-width
+      // caps it so over-long content clips instead of widening the column.
+      minWidth: vertical ? undefined : 0,
+      maxWidth: vertical ? undefined : 230,
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
       <div
         data-testid="day-header"
         onClick={handleHeaderClick}
@@ -231,7 +250,7 @@ export default function DayColumn({
           <Text size="xs" c="dimmed" ta="center" py="sm">该天无匹配</Text>
         )}
         {activities.length === 0 && !filterActive && (
-          <Text size="xs" c="dimmed" ta="center" mt="md">空</Text>
+          <Text size="xs" c="dimmed" ta="center" mt="md" px="xs">把候选拖到这里，或用下方「+ 加一个」</Text>
         )}
       </Stack>
       {!readOnly && onAddActivity && (
@@ -243,8 +262,12 @@ export default function DayColumn({
       )}
       <Stack gap={2} style={{ borderTop: '1px dashed #ccc', padding: '4px 8px' }}>
         <DayMetricBar label="驾驶" value={driveH} max={maxH} unit="h" />
-        <DayMetricBar label="核心" value={tierOneCount} max={maxTier1} />
-        {day.buffer_day && <Text size="xs" c="dimmed">机动</Text>}
+        <DayMetricBar label="必去" value={tierOneCount} max={maxTier1} />
+        {day.buffer_day && (
+          <Tooltip label="弹性/缓冲日——应对天气、疲劳或突发，不排硬行程" multiline w={220} withArrow>
+            <Text size="xs" c="dimmed" style={{ cursor: 'help', width: 'fit-content' }}>机动</Text>
+          </Tooltip>
+        )}
       </Stack>
     </Paper>
     {!readOnly && (

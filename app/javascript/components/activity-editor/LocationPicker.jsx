@@ -109,7 +109,8 @@ function SingleLocationPicker({ value, onChange, regionHint, nearbyCenter, disab
     if (c) {
       onChange({
         name: c.name, lat: c.lat, lng: c.lng, address: c.address || '',
-        pname: c.pname, cityname: c.cityname, adname: c.adname, type: c.type
+        pname: c.pname, cityname: c.cityname, adname: c.adname, type: c.type,
+        place: c.place
       })
       setQuery('')
       setCandidates([])

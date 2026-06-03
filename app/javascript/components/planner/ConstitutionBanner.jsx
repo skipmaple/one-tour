@@ -1,4 +1,4 @@
-import { Stack, Paper, Group, Text, Button } from '@mantine/core'
+import { Stack, Paper, Group, Text, Button, Tooltip } from '@mantine/core'
 import { useState } from 'react'
 import { IconAlertOctagonFilled, IconAlertTriangleFilled } from '@tabler/icons-react'
 
@@ -44,9 +44,11 @@ export default function ConstitutionBanner({
           >
             <Group justify="space-between" wrap="nowrap">
               <Group gap={6} wrap="nowrap" align="center" style={{ flex: 1, minWidth: 0 }}>
-                {v.level === 'hard'
-                  ? <IconAlertOctagonFilled size={16} style={{ flexShrink: 0 }} />
-                  : <IconAlertTriangleFilled size={16} style={{ flexShrink: 0 }} />}
+                <Tooltip label="软提示=建议，可忽略；硬违反=超出硬约束，需修正或明确承认" multiline w={240} withArrow>
+                  {v.level === 'hard'
+                    ? <IconAlertOctagonFilled size={16} data-testid="violation-level-icon" style={{ flexShrink: 0, cursor: 'help' }} />
+                    : <IconAlertTriangleFilled size={16} data-testid="violation-level-icon" style={{ flexShrink: 0, cursor: 'help' }} />}
+                </Tooltip>
                 <Text size="sm">{v.message}</Text>
               </Group>
               <Group gap="xs">
@@ -55,19 +57,21 @@ export default function ConstitutionBanner({
                     帮我修正 →
                   </Button>
                 )}
-                <Button
-                  size="compact-xs"
-                  variant="default"
-                  onClick={() => {
-                    if (v.level === 'hard' && !readOnly) {
-                      onAcknowledge(v)
-                    } else {
-                      handleDismiss(i, v)
-                    }
-                  }}
-                >
-                  {v.level === 'hard' && !readOnly ? '承认此违反' : '知道了'}
-                </Button>
+                {(() => {
+                  const isAck = v.level === 'hard' && !readOnly
+                  const btn = (
+                    <Button
+                      size="compact-xs"
+                      variant="default"
+                      onClick={() => { isAck ? onAcknowledge(v) : handleDismiss(i, v) }}
+                    >
+                      {isAck ? '承认此违反' : '知道了'}
+                    </Button>
+                  )
+                  return isAck
+                    ? <Tooltip label="记录一条豁免：我知道这超了约束，但坚持当前安排" multiline w={240} withArrow>{btn}</Tooltip>
+                    : btn
+                })()}
               </Group>
             </Group>
           </Paper>

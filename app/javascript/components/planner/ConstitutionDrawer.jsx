@@ -14,7 +14,7 @@ import ParameterEditor from './ParameterEditor'
 import RedHeaderDocument from './RedHeaderDocument'
 import ConstitutionFullText from './ConstitutionFullText'
 import {
-  postJson, formatDateISO, todayLocal, detectDateDaysConflict, parseTourDateRange,
+  postJson, formatDateISO, todayLocal, detectDateDaysConflict, parseTourDateRange, dayDateISO,
 } from './tourSetupHelpers'
 
 const DRAWER_MIN = 320
@@ -38,16 +38,17 @@ export default function ConstitutionDrawer({
   tour, violations, defaults, overrides = [], initialDaysCount = 1,
   canEdit = true,
   mobile = false,
+  days = [],
   width, onWidthChange, onClose, onFix, onAcknowledge,
 }) {
   const onboarded = isOnboarded(tour)
   const isMobile = useMediaQuery(MOBILE_QUERY)
   const drawerRef = useRef(null)
 
-  // Onboarding mode forbids dismissal until the user completes "同意并开始
-  // 规划" — the drawer hides its × button, ignores ESC, and Mantine Drawer
-  // (mobile) disables its own closeOn* shortcuts.
-  const canDismiss = onboarded
+  // Gate is skippable: the drawer is always dismissible (× / ESC / click-out),
+  // even before "同意". `onboarded` still drives the title/content branching
+  // below, but no longer locks interaction.
+  const canDismiss = true
 
   // Constitution params state.
   const [c, setC] = useState({ ...tour.constitution })
@@ -73,7 +74,14 @@ export default function ConstitutionDrawer({
   const [tourTitle, setTourTitle] = useState(tour.title || '')
   const [tourDateRange, setTourDateRange] = useState(() => parseTourDateRange(tour.date_range))
   const [tourTeamSize, setTourTeamSize] = useState(tour.team_size || '')
-  const [tourDays, setTourDays] = useState(initialDaysCount || 1)
+  const [tourDays, setTourDays] = useState(() => {
+    const [s, e] = parseTourDateRange(tour.date_range)
+    if (s && e) {
+      const implied = Math.round((new Date(e).getTime() - new Date(s).getTime()) / 86400000) + 1
+      if (implied > 0) return implied
+    }
+    return initialDaysCount || 1
+  })
 
   // Setup / review state.
   const [setupStep, setSetupStep] = useState(1)
@@ -161,7 +169,7 @@ export default function ConstitutionDrawer({
   }
 
   // ESC — scoped to drawer element so nested Select dropdowns get first
-  // dibs on the key. Onboarding mode ignores ESC (canDismiss=false).
+  // dibs on the key. canDismiss is always true now (gate is skippable); the handler is kept only to scope ESC to the drawer element.
   useEffect(() => {
     const el = drawerRef.current
     if (!el) return
@@ -192,7 +200,39 @@ export default function ConstitutionDrawer({
     window.addEventListener('mouseup', onUp)
   }
 
-  // Onboarding step 1 save: tour metadata + constitution params + create days.
+  // Persist step-1 metadata + constitution + days. No title guard (express path
+  // allows blank → backend fills a unique default). Spreads the date range onto
+  // every day when a start date is present.
+  const persistStep1 = async () => {
+    const [startDate, endDate] = tourDateRange
+    const s = formatDateISO(startDate)
+    const e = formatDateISO(endDate)
+    const dateRangeStr = (s && e) ? `${s} ~ ${e}` : null
+    const newTitle = tourTitle.trim()
+
+    await postJson(`/tours/${tour.id}`, 'PATCH', {
+      tour: { title: newTitle, date_range: dateRangeStr, team_size: tourTeamSize || null },
+    })
+    await postJson(`/tours/${tour.id}/constitution`, 'PATCH', { constitution: c })
+
+    const currentDayCount = initialDaysCount || 1
+    const targetDayCount = tourDays || 1
+    for (let i = currentDayCount + 1; i <= targetDayCount; i++) {
+      const day = { day_index: i }
+      if (s) day.date = dayDateISO(s, i)
+      await postJson(`/tours/${tour.id}/days`, 'POST', { day })
+    }
+    if (s) {
+      for (const d of days) {
+        await postJson(`/tours/${tour.id}/days/${d.id}`, 'PATCH', { day: { date: dayDateISO(s, d.day_index) } })
+      }
+    }
+
+    // The express path may submit a blank title (backend fills a unique default),
+    // so only sync the browser title when the user actually typed one.
+    if (typeof document !== 'undefined' && newTitle) document.title = newTitle
+  }
+
   const saveStep1 = async () => {
     if (!tourTitle.trim()) {
       notifications.show({ message: '请先填写程名', color: 'red' })
@@ -201,42 +241,30 @@ export default function ConstitutionDrawer({
     if (isSaving) return
     setIsSaving(true)
     try {
-      const [startDate, endDate] = tourDateRange
-      const s = formatDateISO(startDate)
-      const e = formatDateISO(endDate)
-      const dateRangeStr = (s && e) ? `${s} ~ ${e}` : null
-
-      const newTitle = tourTitle.trim()
-      await postJson(`/tours/${tour.id}`, 'PATCH', {
-        tour: {
-          title: newTitle,
-          date_range: dateRangeStr,
-          team_size: tourTeamSize || null,
-        },
-      })
-      await postJson(`/tours/${tour.id}/constitution`, 'PATCH', { constitution: c })
-
-      const currentDayCount = initialDaysCount || 1
-      const targetDayCount = tourDays || 1
-      for (let i = currentDayCount + 1; i <= targetDayCount; i++) {
-        await postJson(`/tours/${tour.id}/days`, 'POST', { day: { day_index: i } })
-      }
-
-      // Sync browser title immediately — saveStep1 uses fetch (not Inertia)
-      // so tour props aren't reloaded; the AppShell header observes <title>
-      // mutations to keep its display fresh.
-      if (typeof document !== 'undefined') document.title = newTitle
-
+      await persistStep1()
       setSetupStep(2)
     } catch (err) {
       notifications.show({ message: `保存失败：${err.message}`, color: 'red' })
-      Sentry.captureException(err, {
-        tags: { area: 'tour_setup', op: 'save_params' },
-        extra: { tour_id: tour.id },
-      })
+      Sentry.captureException(err, { tags: { area: 'tour_setup', op: 'save_params' }, extra: { tour_id: tour.id } })
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // Express: accept defaults (blank fields OK) and start planning immediately.
+  const startWithDefaults = async () => {
+    if (isSaving || isAccepting) return
+    setIsSaving(true)
+    try {
+      await persistStep1()
+    } catch (err) {
+      notifications.show({ message: `保存失败：${err.message}`, color: 'red' })
+      Sentry.captureException(err, { tags: { area: 'tour_setup', op: 'express' }, extra: { tour_id: tour.id } })
+      setIsSaving(false)
+      return
+    }
+    setIsSaving(false)
+    acceptConstitution()
   }
 
   const acceptConstitution = () => {
@@ -245,11 +273,6 @@ export default function ConstitutionDrawer({
       preserveScroll: true,
       onSuccess: () => {
         localStorage.setItem(onboardedKey(tour.id), '1')
-        notifications.show({
-          message: '旅程已启动 · 从左侧候选池开始加点',
-          color: 'green',
-          autoClose: 4000,
-        })
         onClose()
       },
       onFinish: () => setIsAccepting(false),
@@ -458,7 +481,10 @@ export default function ConstitutionDrawer({
     }
   } else if (setupStep === 1) {
     footerCta = (
-      <Group justify="flex-end">
+      <Group justify="space-between">
+        <Button variant="subtle" onClick={startWithDefaults} loading={isSaving} disabled={isSaving || isAccepting}>
+          用推荐设置开始
+        </Button>
         <Button onClick={saveStep1} loading={isSaving} disabled={isSaving} fullWidth={mobile} size={mobile ? 'md' : undefined}>
           {isSaving ? '保存中…' : '下一步 →'}
         </Button>

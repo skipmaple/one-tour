@@ -36,6 +36,13 @@ RSpec.describe "Activities", type: :request do
     expect(a.reload.name).to eq("新")
   end
 
+  it "PATCH updates status" do
+    a = create(:activity, tour: tour, status: :confirmed)
+    login_as(author)
+    patch activity_path(a), params: { activity: { status: "closed" } }
+    expect(a.reload.status).to eq("closed")
+  end
+
   it "DELETE destroys activity" do
     a = create(:activity, tour: tour)
     login_as(author)

@@ -33,6 +33,25 @@ RSpec.describe Activity do
     it "has citizen_level with 4 values" do
       expect(Activity.citizen_levels.keys).to eq(%w[tier_one tier_two tier_three infrastructure])
     end
+
+    it "has status with 3 values" do
+      expect(Activity.statuses.keys).to eq(%w[confirmed pending closed])
+    end
+
+    it "defaults citizen_level to tier_two for a new record" do
+      expect(Activity.new.citizen_level).to eq("tier_two")
+    end
+  end
+
+  describe "status" do
+    it "defaults to confirmed" do
+      expect(create(:activity).status).to eq("confirmed")
+    end
+
+    it "can be set to pending or closed" do
+      expect(build(:activity, status: :pending)).to be_valid
+      expect(build(:activity, status: :closed)).to be_valid
+    end
   end
 
   describe "backlog membership" do
@@ -332,6 +351,12 @@ RSpec.describe Activity do
       expect(clone.details).to eq("altitude" => 3650, "need_reservation" => true)
       expect(clone.tour_id).to eq(tour.id)
       expect(clone.day_id).to eq(day.id)
+    end
+
+    it "copies status" do
+      src = create(:activity, tour: tour, day: day, position: 1, status: :closed)
+      clone = src.clone_for_same_day!
+      expect(clone.status).to eq("closed")
     end
 
     it "clears planned_start_at on the clone" do

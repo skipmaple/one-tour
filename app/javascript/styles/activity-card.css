@@ -1,34 +1,56 @@
-/* Activity card — Fizzy-inspired pastel card for planner day columns.
-   All classes prefixed .ac-* to stay out of the global namespace.
-   Design source: .superpowers/brainstorm/58306-1776623576/content/22-final.html */
+/* Activity card — white surface + left kind-accent stripe for planner day
+   columns. All classes prefixed .ac-* to stay out of the global namespace.
+   Color discipline: neutral base, kind shown as a thin left stripe + icon,
+   saturated fills reserved for status/warning chips. */
 
 .ac-card {
   display: flex;
   align-items: stretch;
   box-sizing: border-box;
-  height: 60px;
-  flex-shrink: 0; /* Parent DayColumn is flex column with overflow:auto; without this, many cards per day would be crushed below 60px instead of triggering scroll. */
+  min-height: 68px;
+  flex-shrink: 0; /* Parent DayColumn is flex column with overflow:auto; without this, many cards per day would be crushed instead of triggering scroll. */
   margin-bottom: 8px;
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 5px;
+  border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   position: relative;
   font-size: 12px;
   color: #222;
   cursor: default;
+  transition: box-shadow 120ms ease, background-color 120ms ease;
 }
 
-/* Cursor affordance matches actual capability:
-   - draggable (dnd-kit spread adds aria-roledescription) → grab
-   - readOnly + onClick only → pointer
-   - actively dragging → grabbing (last rule for source-order win) */
+/* Left kind-accent stripe (replaces the old full pastel fill). --ac-accent is
+   set per kind below; tier_one widens + golds it. Drawn as a pseudo-element so
+   it is independent of the card's elevation box-shadow. */
+.ac-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--ac-accent, #d1d5db);
+  z-index: 3;
+}
+.ac-card.ac-tier1::before {
+  width: 4px;
+  background: #d4a72c;
+}
+
+/* Cursor affordance matches actual capability. */
 .ac-card[aria-roledescription="draggable"] { cursor: grab; }
 .ac-card.ac-readonly { cursor: pointer; }
 .ac-card.ac-dragging { opacity: 0.4; cursor: grabbing; }
 
-/* drop indicator — preserved from old component */
+/* Status states — pending = dashed outline + slight mute; closed = desaturate
+   the whole card (thumb included) so it visibly recedes behind its red chip. */
+.ac-card.ac-status-pending { border-style: dashed; opacity: 0.96; }
+.ac-card.ac-status-closed { filter: saturate(0.5); opacity: 0.9; }
+
+/* drop indicator */
 .ac-drop-indicator {
   position: absolute;
   top: 0;
@@ -42,203 +64,146 @@
   z-index: 5;
 }
 
-/* body */
+/* body — three stacked rows, vertically centered */
 .ac-body {
   flex: 1;
   min-width: 0;
-  padding: 6px 8px 10px 4px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  gap: 5px;
   position: relative;
-  z-index: 2; /* stacks above thumb gradient */
+  z-index: 2;
 }
 
+/* row 1 — kind icon + name + tier star */
 .ac-name-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 18px;
-  margin-bottom: 4px;
+  align-items: flex-start;
+  gap: 7px;
   min-width: 0;
+  margin-bottom: 3px; /* 把名字(主)与下方 meta(次) 分成两层,加强层级 */
 }
-
 .ac-kind-icon {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
+  margin-top: 1px;
 }
-
 .ac-name {
-  font-weight: 800;
-  font-size: 12.5px;
-  letter-spacing: -0.015em;
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #1f2937;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+.ac-star {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: #d4a72c;
+  margin-top: 1px;
 }
 
-/* meta 2x2 cross */
-.ac-meta {
-  position: relative;
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  font-size: 10px;
-  font-weight: 500;
-  margin-left: 0;
-}
-.ac-meta::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 4px;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.12);
-  z-index: 1;
-}
-.ac-meta::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: 50%;
-  width: 1px;
-  background: rgba(0, 0, 0, 0.18);
-  z-index: 2;
-}
-.ac-meta-cell {
-  padding: 0 8px;
-  gap: 4px;
+/* row 2 — labeled time/duration */
+.ac-time {
   display: flex;
   align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4b5563;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ac-time svg { color: #9ca3af; flex-shrink: 0; }
+.ac-time span { overflow: hidden; text-overflow: ellipsis; }
+
+/* row 3 — meta extra: alert badges (status/warning) + quiet gray notes.
+   OneTour idiom: color is reserved for status/warnings; all other data is
+   gray inline text (no colored data pills). */
+.ac-meta-extra {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+/* alerts — the ONLY colored chips, light-tinted like 硬违反/软提示 badges */
+.ac-alert {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.ac-alert-muted  { background: #f3f4f6; color: #4b5563; }
+.ac-alert-warn   { background: #fef3c7; color: #92400e; }
+.ac-alert-danger { background: #fee2e2; color: #b91c1c; }
+/* notes — quiet gray inline data (rating/tag/locator/可选), "·"-joined */
+/* Single-line text-overflow:ellipsis — block (not flex) + nowrap so an
+   over-long notes line clips with "…" instead of a dangling separator. The
+   notes are a flex item of .ac-meta-extra (min-width:0) so it shrinks + clips. */
+.ac-notes {
+  display: block;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  min-width: 0;
-  color: rgba(0, 0, 0, 0.68);
+  text-overflow: ellipsis;
+  color: #6b7280;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.5;
 }
-/* Left cells (1 = top-left, 3 = bottom-left): align the leading icon with
-   the kind icon above by removing the cell's left padding. */
-.ac-meta-cell:nth-child(odd) {
-  padding-left: 0;
-}
-.ac-meta-cell svg {
-  width: 9px;
-  height: 9px;
-  opacity: 0.78;
-  flex-shrink: 0;
-}
-.ac-meta-cell--empty {
-  visibility: hidden;
+.ac-note { display: inline; }
+.ac-note svg { color: #9ca3af; vertical-align: -2px; margin-right: 2px; } /* gray rating star/pin, calm — not the gold tier star */
+.ac-note-sep { color: #d1d5db; margin: 0 5px; }
+
+/* Kind accent — stripe color + icon color only (name stays near-ink for AA). */
+.ac-kind-scenic { --ac-accent: #db2777; }
+.ac-kind-scenic .ac-kind-icon { color: #db2777; }
+.ac-kind-food { --ac-accent: #ea580c; }
+.ac-kind-food .ac-kind-icon { color: #ea580c; }
+.ac-kind-road { --ac-accent: #2563eb; }
+.ac-kind-road .ac-kind-icon { color: #2563eb; }
+.ac-kind-stay { --ac-accent: #7c3aed; }
+.ac-kind-stay .ac-kind-icon { color: #7c3aed; }
+.ac-kind-fuel { --ac-accent: #0d9488; }
+.ac-kind-fuel .ac-kind-icon { color: #0d9488; }
+.ac-kind-other { --ac-accent: #9ca3af; }
+.ac-kind-other .ac-kind-icon { color: #6b7280; }
+/* tier_one 必去 — restrained gold accent, NOT a saturated fill: a whisper of
+   warm tint + the 4px gold left stripe + gold star carry the emphasis. Calm and
+   consistent with the now-quiet field (color is reserved for status/warnings). */
+.ac-card.ac-tier1 {
+  background: #fffaf2;
+  border-color: #ecdfc2;
 }
 
-/* citizen signal */
-.ac-ci {
-  display: inline-flex;
-  align-items: flex-end;
-  flex-shrink: 0;
-  opacity: 0.72;
-}
-.ac-ci svg {
-  width: 13px;
-  height: 10px;
-}
-
-/* tier1 overrides .ac-ci */
-.ac-card.ac-tier1 .ac-ci {
-  opacity: 0.9;
-  color: #c89100;
-}
-
-/* participant avatar group — pinned bottom-right above thumb gradient.
-   Uses the same right:60px shift as .ac-tier-badge when a thumb is present
-   to avoid overlap with the cover image. */
+/* participant avatar group — pinned bottom-right at the card edge. No inline
+   thumbnail any more: photos live in the detail drawer, so the card face is
+   pure text and the column's right edge stays uniform. */
 .ac-participants {
   position: absolute;
   right: 8px;
   bottom: 6px;
-  z-index: 3;
-}
-.ac-card.ac-has-thumb .ac-participants { right: 60px; }
-
-/* tier1 circular badge */
-.ac-tier-badge {
-  position: absolute;
-  right: 8px;
-  top: 8px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  color: #fff;
-  background: #c89100;
-  box-shadow: 0 1px 2px rgba(200, 145, 0, 0.4);
   z-index: 4;
-  user-select: none;
-}
-.ac-card.ac-has-thumb .ac-tier-badge { right: 60px; }
-
-/* thumb gradient */
-.ac-thumb-gradient {
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 100px;
-  background-size: cover;
-  background-position: center right;
-  -webkit-mask-image: linear-gradient(to left, black 0%, black 30%, transparent 100%);
-  mask-image: linear-gradient(to left, black 0%, black 30%, transparent 100%);
-  filter: saturate(0.85) brightness(1.02);
-  z-index: 1;
-  pointer-events: none;
 }
 
-/* Kind variants — soft pastel fill + kind-colored name/icon/meta */
-.ac-kind-scenic { background: #fdf7f9; border-color: #f8dce5; }
-.ac-kind-scenic .ac-kind-icon { color: #db2777; }
-.ac-kind-scenic .ac-name { color: #831843; }
-.ac-kind-scenic .ac-meta-cell { color: rgba(157, 23, 77, 0.8); }
-
-.ac-kind-food { background: #fffaf3; border-color: #fadcb8; }
-.ac-kind-food .ac-kind-icon { color: #ea580c; }
-.ac-kind-food .ac-name { color: #7c2d12; }
-.ac-kind-food .ac-meta-cell { color: rgba(154, 52, 18, 0.8); }
-
-.ac-kind-road { background: #f5f8fd; border-color: #cfdcf3; }
-.ac-kind-road .ac-kind-icon { color: #2563eb; }
-.ac-kind-road .ac-name { color: #1e3a8a; }
-.ac-kind-road .ac-meta-cell { color: rgba(30, 64, 175, 0.8); }
-
-.ac-kind-stay { background: #f8f6fd; border-color: #dcd3f0; }
-.ac-kind-stay .ac-kind-icon { color: #7c3aed; }
-.ac-kind-stay .ac-name { color: #4c1d95; }
-.ac-kind-stay .ac-meta-cell { color: rgba(91, 33, 182, 0.8); }
-
-.ac-kind-fuel { background: #f0fdfa; border-color: #99f6e4; }
-.ac-kind-fuel .ac-kind-icon { color: #0d9488; }
-.ac-kind-fuel .ac-name { color: #134e4a; }
-.ac-kind-fuel .ac-meta-cell { color: rgba(19, 78, 74, 0.8); }
-
-.ac-kind-other { background: #f9fafb; border-color: #e5e7eb; }
-.ac-kind-other .ac-kind-icon { color: #6b7280; }
-.ac-kind-other .ac-name { color: #374151; }
-.ac-kind-other .ac-meta-cell { color: rgba(55, 65, 81, 0.8); }
-
-/* tier1 overrides kind fill */
-.ac-card.ac-tier1 {
-  background: linear-gradient(90deg, #fff8d6 0%, #fffcf1 95%);
-  border-color: #dcc273;
-  box-shadow: 0 1px 3px rgba(200, 145, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-.ac-card.ac-tier1 .ac-kind-icon { color: #c89100; }
-.ac-card.ac-tier1 .ac-name { color: #5c3d00; }
-.ac-card.ac-tier1 .ac-meta-cell { color: rgba(138, 100, 0, 0.82); }
+/* Compact variant — the backlog/candidate column resizes down to ~120px. Keep
+   the name to one line so it doesn't squish to one character per row. (The
+   thumb slot is already image-only, so nothing extra to drop here.) */
+.ac-card.ac-compact .ac-name { -webkit-line-clamp: 1; }
 
 /* Overlay variant used by DragOverlay — tilt + heavier shadow */
 .ac-card.ac-overlay {
@@ -248,8 +213,8 @@
 }
 
 /* Road connector — slim inline line between ActivityCards for non-tier1 road
-   activities and for synthesized route_leg pairs. Visual style B from
-   brainstorm: 2px dashed left border + inline car icon + Chinese-unit text. */
+   activities and for synthesized route_leg pairs. 2px dashed left border +
+   inline car icon + Chinese-unit text. */
 .rc-line {
   display: flex;
   align-items: center;
@@ -260,23 +225,18 @@
      -12px cancels .ac-card margin-bottom (8px) + Stack gap (4px);
      -4px cancels the Stack gap (4px) below.
      margin-left: 5px puts the dashed line on the same vertical axis as the
-     card's kind-icon / signal-bar column (both inset 5px from card edge),
-     so the "route" visually continues out of the card's content column. */
+     card's kind-icon column so the "route" visually continues out of the card. */
   margin: -12px 0 -4px 5px;
   padding: 4px 8px 4px 24px;
   border-left: 2px dashed rgba(0, 0, 0, 0.18);
   font-size: 10.5px;
   color: #6b7280;
   font-weight: 500;
-  flex-shrink: 0; /* same rigidity fix as .ac-card — don't crush in dense columns */
+  flex-shrink: 0;
   cursor: default;
   position: relative;
 }
 
-/* Cursor affordance matches .ac-card pattern: grab only when actually
-   draggable (dnd-kit adds aria-roledescription on the outer element when
-   it spreads its attributes), default otherwise. Keeps readOnly/synthesized
-   connectors from showing a misleading grab cursor. */
 .rc-line[aria-roledescription="draggable"] {
   cursor: grab;
 }
@@ -288,10 +248,8 @@
   flex-shrink: 0;
 }
 
-/* Synthesized from route_legs — clickable to open RouteLegEditModal for
-   overriding km / drive_min / note. Dotted (vs dashed on activity-backed)
-   signals "inferred from route_leg, not a user-kept road activity".
-   pointer cursor signals clickability; hover lifts opacity. */
+/* Synthesized from route_legs — clickable to open RouteLegEditModal. Dotted
+   (vs dashed on activity-backed) signals "inferred from route_leg". */
 .rc-line.rc-synthesized {
   cursor: pointer;
   opacity: 0.85;
@@ -300,16 +258,13 @@
 .rc-line.rc-synthesized:hover {
   opacity: 1.0;
 }
-/* readOnly 模式（reader 角色或非 author）：不可点击。Backend 也会 403，
-   但 UX 不该让用户走到那一步。 */
 .rc-line.rc-synthesized.rc-readonly {
   cursor: default;
 }
 .rc-line.rc-synthesized.rc-readonly:hover {
   opacity: 0.85;
 }
-/* Overridden marker: 低调汇报——11px 铅笔图标 + hover tooltip 看原值。
-   不抢主数据视觉权重，不折行；悬浮才显示细节。 */
+/* Overridden marker: 低调汇报——铅笔图标 + hover tooltip 看原值。 */
 .rc-overridden-mark {
   color: var(--mantine-color-blue-5);
   opacity: 0.6;
@@ -360,28 +315,23 @@
 .ac-card[data-day-color="yellow"], .rc-line[data-day-color="yellow"] { --day-accent: var(--mantine-color-yellow-6); }
 .ac-card[data-day-color="none"],   .rc-line[data-day-color="none"]   { --day-accent: #9ca3af; }
 
-/* Hover-only device: touch devices have no hover, silently skip. */
+/* Hover highlight — elevation lift + faint day-color wash. The kind stripe is
+   a separate ::before, so it stays put; we no longer paint a second left bar. */
 @media (hover: hover) {
-  .ac-card.ac-highlighted,
+  .ac-card.ac-highlighted {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.10);
+  }
   .rc-line.rc-highlighted {
     box-shadow: inset 3px 0 0 var(--day-accent, #6b7280);
   }
 }
-
-/* Tint applies only when user hasn't asked for reduced motion.
-   Using `no-preference` (the positive form) avoids the `@media not ...`
-   syntax which varies in browser support and can drop the entire rule. */
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .ac-card.ac-highlighted {
-    background-color: color-mix(in srgb, var(--day-accent) 4%, white);
+    background-color: color-mix(in srgb, var(--day-accent) 5%, white);
   }
-}
-
-/* Mobile single-panel planner: cards are full-width, so soften the compact 2×2
-   meta grid — drop the divider lines and add column breathing room. Keeps the
-   scannable 2-row height (stacking all four would make day lists much taller). */
-@media (max-width: 767px) {
-  .ac-meta { column-gap: 14px; }
-  .ac-meta::before,
-  .ac-meta::after { display: none; }
+  /* Keep tier_one's faint warm tint on hover (higher specificity beats the
+     day-color wash); hover feedback comes from the elevation lift above. */
+  .ac-card.ac-tier1.ac-highlighted {
+    background: #fffaf2;
+  }
 }

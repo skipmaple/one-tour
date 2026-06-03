@@ -24,6 +24,12 @@ vi.mock('@sentry/react', () => ({
   captureException: vi.fn(),
 }))
 
+const postJsonMock = vi.fn(() => Promise.resolve({ ok: true }))
+vi.mock('../tourSetupHelpers', async (orig) => ({
+  ...(await orig()),
+  postJson: (...a) => postJsonMock(...a),
+}))
+
 vi.mock('../ParameterEditor', () => ({
   default: ({ c, setC }) => (
     <input
@@ -108,9 +114,9 @@ describe('ConstitutionDrawer — onboarding mode', () => {
     expect(screen.queryByText('行程超过每日上限')).not.toBeInTheDocument()
   })
 
-  it('hides close (×) button in onboarding — no escape hatch until accept', () => {
+  it('shows close (×) button even in onboarding — gate is skippable', () => {
     renderDrawer()
-    expect(screen.queryByRole('button', { name: /关闭|close/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /关闭|close/i })).toBeInTheDocument()
   })
 })
 
@@ -208,5 +214,114 @@ describe('ConstitutionDrawer — edit mode (Editing sub-state after 修宪)', ()
     renderDrawer({ tour: { ...baseTour, constitution_accepted: true } })
     expect(screen.queryByText(/已保存/)).not.toBeInTheDocument()
     expect(screen.queryByText(/自动保存/)).not.toBeInTheDocument()
+  })
+})
+
+describe('dismissible in onboarding (skippable gate)', () => {
+  beforeEach(() => {
+    localStorage.removeItem('onboarded:tour:42')
+  })
+
+  it('shows the × close button even before accepting', () => {
+    renderDrawer()
+    expect(screen.getByLabelText('关闭')).toBeInTheDocument()
+  })
+
+  it('× click calls onClose', async () => {
+    const user = userEvent.setup()
+    const onClose = vi.fn()
+    renderDrawer({ onClose })
+    await user.click(screen.getByLabelText('关闭'))
+    expect(onClose).toHaveBeenCalled()
+  })
+})
+
+function renderOnboarding(extra = {}) {
+  const defaultTour = {
+    id: 1,
+    title: '',
+    constitution: { max_daily_driving_minutes: 420 },
+    constitution_accepted: false,
+    date_range: null,
+    team_size: null,
+  }
+  const props = {
+    tour: extra.tour || defaultTour,
+    violations: [],
+    defaults: { max_daily_driving_minutes: 420 },
+    overrides: [],
+    initialDaysCount: extra.initialDaysCount != null ? extra.initialDaysCount : 1,
+    days: extra.days || [],
+    canEdit: true,
+    width: 400,
+    onWidthChange: vi.fn(),
+    onClose: vi.fn(),
+    onFix: vi.fn(),
+    onAcknowledge: vi.fn(),
+  }
+  return render(
+    <MantineProvider>
+      <DatesProvider settings={{}}>
+        <ModalsProvider>
+          <ConstitutionDrawer {...props} />
+        </ModalsProvider>
+      </DatesProvider>
+    </MantineProvider>,
+  )
+}
+
+describe('express + date spread', () => {
+  beforeEach(() => {
+    postJsonMock.mockClear()
+    postMock.mockClear()
+    localStorage.removeItem('onboarded:tour:1')
+  })
+
+  it('accept does not show the old 从候选池加点 toast', async () => {
+    const { notifications } = await import('@mantine/notifications')
+    // Make postMock call onSuccess so the acceptConstitution success handler runs
+    postMock.mockImplementationOnce((_url, _data, { onSuccess, onFinish } = {}) => {
+      onSuccess?.()
+      onFinish?.()
+    })
+    renderOnboarding()
+    await userEvent.click(screen.getByText('用推荐设置开始'))
+    const msgs = notifications.show.mock.calls.map(c => c[0]?.message || '')
+    expect(msgs.some(m => m.includes('从左侧候选池'))).toBe(false)
+  })
+
+  it('renders 用推荐设置开始 button in step 1', () => {
+    renderOnboarding()
+    expect(screen.getByText('用推荐设置开始')).toBeInTheDocument()
+  })
+
+  it('用推荐设置开始 persists then accepts', async () => {
+    renderOnboarding()
+    await userEvent.click(screen.getByText('用推荐设置开始'))
+    expect(postJsonMock).toHaveBeenCalledWith('/tours/1', 'PATCH', expect.anything())
+    expect(postJsonMock).toHaveBeenCalledWith('/tours/1/constitution', 'PATCH', expect.anything())
+    expect(postMock).toHaveBeenCalledWith('/tours/1/constitution/accept', {}, expect.anything())
+  })
+
+  it('express with no date range issues no day date PATCH/POST', async () => {
+    renderOnboarding({
+      tour: { id: 1, title: '', constitution: { max_daily_driving_minutes: 420 }, constitution_accepted: false, date_range: null, team_size: null },
+      initialDaysCount: 1, days: [{ id: 10, day_index: 1 }],
+    })
+    await userEvent.click(screen.getByText('用推荐设置开始'))
+    // no range → no day should be PATCHed/POSTed with a date
+    const dayDateCalls = postJsonMock.mock.calls.filter(c => c[2]?.day?.date)
+    expect(dayDateCalls).toHaveLength(0)
+  })
+
+  it('下一步 spreads the date range onto existing + new days', async () => {
+    renderOnboarding({
+      tour: { id: 1, title: '', constitution: { max_daily_driving_minutes: 420 }, constitution_accepted: false, date_range: '2026-06-10 ~ 2026-06-11', team_size: null },
+      initialDaysCount: 1, days: [{ id: 10, day_index: 1 }],
+    })
+    await userEvent.type(screen.getByLabelText(/程名/), '测试程')
+    await userEvent.click(screen.getByText('下一步 →'))
+    expect(postJsonMock).toHaveBeenCalledWith('/tours/1/days/10', 'PATCH', { day: { date: '2026-06-10' } })
+    expect(postJsonMock).toHaveBeenCalledWith('/tours/1/days', 'POST', { day: { day_index: 2, date: '2026-06-11' } })
   })
 })

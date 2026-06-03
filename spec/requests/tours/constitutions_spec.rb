@@ -40,16 +40,16 @@ RSpec.describe "Tours::Constitutions", type: :request do
   end
 
   describe "POST /tours/:id/constitution/accept" do
-    # Tour.validates :title, presence: true, if: :constitution_accepted?
-    # means accepting a tour with a blank title would raise
-    # ActiveRecord::RecordInvalid → 500 via update!. Controller catches this
-    # upfront and returns 422 to JSON / redirects with an alert to HTML.
-    it "returns 422 (JSON) when the tour has a blank title" do
+    # Tour#assign_default_title (before_validation) auto-fills a unique default
+    # when title is blank, so a tour can never reach accept with a blank title —
+    # the title is already present, and accept succeeds.
+    it "auto-fills a blank title at creation, so accept succeeds" do
       tour = create(:tour, author: user, title: "")
+      expect(tour.reload.title).to be_present
       login_as(user)
       post "/tours/#{tour.id}/constitution/accept", as: :json
-      expect(response).to have_http_status(:unprocessable_entity)
-      expect(tour.reload.constitution_accepted).to be false
+      expect(response).to have_http_status(:ok)
+      expect(tour.reload.constitution_accepted).to be true
     end
 
     it "accepts when the tour has a title" do

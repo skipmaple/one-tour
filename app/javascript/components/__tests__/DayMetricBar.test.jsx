@@ -71,4 +71,19 @@ describe('DayMetricBar', () => {
     const bar = screen.getByRole('progressbar')
     expect(bar.getAttribute('aria-valuenow')).toBe('0')
   })
+
+  test('shows an over-budget caption with the overflow amount', () => {
+    renderBar({ label: '驾驶', value: 18.3, max: 7, unit: 'h' })
+    expect(screen.getByText('超出 11.3h')).toBeInTheDocument()
+  })
+
+  test('over-budget caption uses an integer overflow for unit-less counts', () => {
+    renderBar({ label: '必去', value: 4, max: 3 })
+    expect(screen.getByText('超出 1')).toBeInTheDocument()
+  })
+
+  test('renders no over-budget caption when within budget', () => {
+    renderBar({ label: '驾驶', value: 3, max: 7, unit: 'h' })
+    expect(screen.queryByText(/超出/)).not.toBeInTheDocument()
+  })
 })

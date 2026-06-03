@@ -10,12 +10,12 @@ class Tour < ApplicationRecord
   has_many :route_legs, dependent: :destroy
   has_many :conversations, dependent: :destroy
 
-  # Title may be blank immediately after creation — the onboarding drawer
-  # requires 程名 before saving step 1, so real titles always land before a
-  # tour leaves setup. UI falls back to "未命名旅程" for rendering. Once the
-  # user accepts the constitution the tour is "live" and a real title becomes
-  # mandatory — this guards against API callers or future clients leaving an
-  # accepted tour permanently unnamed.
+  # Title is auto-filled when blank: a fresh tour (created with empty title via
+  # the onboarding flow) gets a unique-per-author default "未命名旅程 MM-DD"
+  # (with a " (N)" suffix on same-day collisions) so the tour list never shows
+  # a wall of identical "未命名旅程". `before_validation` runs before the
+  # presence validation below, so accepted tours always have a real title.
+  before_validation :assign_default_title, if: -> { title.blank? }
   validates :title, presence: true, if: :constitution_accepted?
 
   before_create :seed_constitution_defaults
@@ -93,6 +93,22 @@ class Tour < ApplicationRecord
   end
 
   private
+    def assign_default_title
+      return if author.nil?
+      date = (created_at || Time.current).to_date
+      base = "未命名旅程 #{date.strftime('%m-%d')}"
+      taken = author.tours.where.not(id: id)
+                    .where("title LIKE ?", "#{ActiveRecord::Base.sanitize_sql_like(base)}%").pluck(:title)
+      self.title =
+        if taken.exclude?(base)
+          base
+        else
+          n = 2
+          n += 1 while taken.include?("#{base} (#{n})")
+          "#{base} (#{n})"
+        end
+    end
+
     def editor_member?(user)
       tour_memberships.exists?(user: user, role: :editor)
     end

@@ -51,6 +51,7 @@ class Tour::ConstitutionCheck
     end
 
     def check_buffer_days
+      return nil if @tour.activities.empty?
       limit = @rules[:min_buffer_days]
       actual = @tour.buffer_days_count
       return nil if actual >= limit

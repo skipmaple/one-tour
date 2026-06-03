@@ -69,3 +69,13 @@ export function parseTourDateRange(dateRangeStr) {
   }
   return [null, null]
 }
+
+// Date of day N (1-based) given a range start (ISO string or Date):
+// start + (dayIndex - 1) days, formatted "YYYY-MM-DD". null if start invalid.
+export function dayDateISO(start, dayIndex) {
+  const base = (typeof start === 'string') ? new Date(start) : start
+  if (!base || isNaN(base)) return null
+  const d = new Date(base.getTime())
+  d.setDate(d.getDate() + (dayIndex - 1))
+  return formatDateISO(d)
+}

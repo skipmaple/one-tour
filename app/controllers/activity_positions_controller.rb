@@ -31,6 +31,20 @@ class ActivityPositionsController < ApplicationController
           make_room(activity, dest_day_id, new_position)
         end
         activity.update!(day: target_day, position: new_position)
+        # Compact positions to a dense 1..N sequence (order preserved) so the
+        # shift math's gaps don't accumulate — sparse positions break the
+        # "drop at end" target (length+1 lands mid-list). Heals existing drift.
+        renumber_dense(activity.tour, dest_day_id)
+        renumber_dense(activity.tour, source_day_id) unless source_day_id == dest_day_id
+      end
+    end
+
+    # Renumber a day's (or backlog's, day_id nil) activities to contiguous 1..N,
+    # preserving order. update_column: position bookkeeping only — skip
+    # validations/callbacks (day_id isn't changing here) and the updated_at bump.
+    def renumber_dense(tour, day_id)
+      tour.activities.where(day_id: day_id).order(:position, :id).each_with_index do |a, i|
+        a.update_column(:position, i + 1) unless a.position == i + 1
       end
     end
 

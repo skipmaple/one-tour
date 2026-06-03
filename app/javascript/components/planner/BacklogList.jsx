@@ -146,6 +146,7 @@ export default function BacklogList({
                   onClearHover={onClearHover}
                   author={author}
                   members={members}
+                  compact
                 />
               ))}
             </Stack>

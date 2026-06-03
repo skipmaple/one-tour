@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MantineProvider } from '@mantine/core'
-import { describe, test, expect, vi } from 'vitest'
+import { describe, test, expect, vi, beforeEach } from 'vitest'
 import Show from '../Show'
+import { ONBOARDING_SENTINEL } from '../../../lib/onboarding'
 
 vi.mock('@inertiajs/react', () => ({
   Head: ({ children, title }) => null,
@@ -46,7 +48,9 @@ vi.mock('../../../components/planner/PlannerHeaderRight', () => ({
 }))
 
 vi.mock('../../../components/planner/ConstitutionDrawer', () => ({
-  default: () => <div data-testid="constitution-drawer-stub" />,
+  default: (props) => (
+    <button data-testid="const-close" onClick={props.onClose}>close</button>
+  ),
 }))
 
 vi.mock('../../../components/planner/TimelineOverlay', () => ({
@@ -184,4 +188,52 @@ test('does NOT trigger onboarding when canEdit=false (reader)', () => {
     </MantineProvider>
   )
   expect(chatPanelProps.pendingPrompt).toBeNull()
+})
+
+test('no locking onboarding backdrop (gate is skippable)', () => {
+  render(
+    <MantineProvider>
+      <Show
+        tour={{ id: 1, title: '', constitution: { max_daily_driving_minutes: 420 }, constitution_accepted: false, editable_by_current_user: true }}
+        days={[]}
+        activities={[]}
+        violations={[]}
+        conversation_empty={true}
+      />
+    </MantineProvider>
+  )
+  expect(screen.queryByTestId('onboarding-backdrop')).toBeNull()
+})
+
+function renderShowFresh({ constitution_accepted = false } = {}) {
+  return render(
+    <MantineProvider>
+      <Show
+        tour={{ id: 1, title: 'x', constitution: { max_daily_driving_minutes: 420 }, constitution_accepted, editable_by_current_user: true }}
+        days={[]}
+        activities={[]}
+        violations={[]}
+        conversation_empty={true}
+      />
+    </MantineProvider>
+  )
+}
+
+beforeEach(() => {
+  localStorage.removeItem('onboarded:tour:1')
+})
+
+test('AI onboarding fires on mount for an already-onboarded empty tour', () => {
+  chatPanelProps.pendingPrompt = undefined
+  renderShowFresh({ constitution_accepted: true })
+  expect(chatPanelProps.pendingPrompt).toBe(ONBOARDING_SENTINEL)
+})
+
+test('AI onboarding fires after closing the gate on a fresh empty tour', async () => {
+  chatPanelProps.pendingPrompt = undefined
+  renderShowFresh({ constitution_accepted: false })
+  // Not fired on mount (not onboarded yet); pendingChatPrompt stays at its null initial value
+  expect(chatPanelProps.pendingPrompt).toBeNull()
+  await userEvent.click(screen.getByTestId('const-close'))
+  expect(chatPanelProps.pendingPrompt).toBe(ONBOARDING_SENTINEL)
 })
