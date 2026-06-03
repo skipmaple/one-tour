@@ -1,8 +1,10 @@
 import { useMemo, useCallback, useEffect, useRef, useState } from 'react'
 import { router, usePage } from '@inertiajs/react'
-import { KIND_OPTIONS } from '../components/activity-editor/detailsSchema'
+import { KIND_OPTIONS, STATUS_OPTIONS, CITIZEN_LEVEL_OPTIONS } from '../components/activity-editor/detailsSchema'
 
 const VALID_KINDS = new Set(KIND_OPTIONS.map(o => o.value))
+const VALID_STATUSES = new Set(STATUS_OPTIONS.map(o => o.value))
+const VALID_LEVELS = new Set(CITIZEN_LEVEL_OPTIONS.map(o => o.value))
 
 function collectStrings(value, acc) {
   if (value == null) return
@@ -35,7 +37,8 @@ function hasIntersection(setA, listB) {
  *
  * @param {object} opts
  * @param {Array}  opts.activities — the activities to filter
- * @param {object} opts.filter — { q: string, kind: string[], uids: number[] }
+ * @param {object} opts.filter — { q: string, kind: string[], uids: number[],
+ *   status: string[], levels: string[], reserve: boolean }
  * @param {object} opts.tour — abstract shape, NOT the raw Tour prop:
  *   { authorId: number, memberIds: number[] }.
  *   Callers (e.g. Tour/Show.jsx) must map from
@@ -43,7 +46,7 @@ function hasIntersection(setA, listB) {
  *   to avoid thrashing the memoized Set.
  */
 export function useActivityFilterCore({ activities, filter, tour }) {
-  const { q, kind, uids } = filter
+  const { q, kind, uids, status = [], levels = [], reserve = false } = filter
 
   const allMemberIdSet = useMemo(
     () => new Set([tour.authorId, ...tour.memberIds]),
@@ -63,7 +66,7 @@ export function useActivityFilterCore({ activities, filter, tour }) {
 
   const qTrimmed = q.trim().toLowerCase()
 
-  const active = qTrimmed !== '' || kind.length > 0 || effectiveUids.length > 0
+  const active = qTrimmed !== '' || kind.length > 0 || effectiveUids.length > 0 || status.length > 0 || levels.length > 0 || reserve
 
   const matches = useMemo(() => {
     return (activity) => {
@@ -74,13 +77,22 @@ export function useActivityFilterCore({ activities, filter, tour }) {
       if (kind.length > 0) {
         if (!kind.includes(activity.kind)) return false
       }
+      if (status.length > 0) {
+        if (!status.includes(activity.status)) return false
+      }
+      if (levels.length > 0) {
+        if (!levels.includes(activity.citizen_level)) return false
+      }
+      if (reserve && !(activity.details && activity.details.need_reservation)) {
+        return false
+      }
       if (effectiveUids.length > 0) {
         const effSet = effectiveParticipantSet(activity, allMemberIdSet)
         if (!hasIntersection(effSet, effectiveUids)) return false
       }
       return true
     }
-  }, [qTrimmed, kind, effectiveUids, searchableByActivityId, allMemberIdSet])
+  }, [qTrimmed, kind, status, levels, reserve, effectiveUids, searchableByActivityId, allMemberIdSet])
 
   const activeCount = useMemo(
     () => activities.filter(matches).length,
@@ -106,15 +118,19 @@ function filterFromParams(params) {
   const q = params.get('q') || ''
   const kindRaw = params.get('kind') || ''
   const uidsRaw = params.get('uids') || ''
-  // Drop unknown kind values silently — a typo'd / stale URL param like
-  // `?kind=typo` otherwise activates the dimension with zero matches and
-  // hides every activity. The spec calls for ignoring unknowns here.
+  const statusRaw = params.get('status') || ''
+  const levelsRaw = params.get('levels') || ''
+  // Drop unknown enum values silently — a typo'd / stale URL param otherwise
+  // activates the dimension with zero matches and hides every activity.
   const kind = kindRaw ? kindRaw.split(',').filter(v => VALID_KINDS.has(v)) : []
   const uids = uidsRaw ? uidsRaw.split(',').map(Number).filter(n => Number.isFinite(n)) : []
-  return { q, kind, uids }
+  const status = statusRaw ? statusRaw.split(',').filter(v => VALID_STATUSES.has(v)) : []
+  const levels = levelsRaw ? levelsRaw.split(',').filter(v => VALID_LEVELS.has(v)) : []
+  const reserve = params.get('reserve') === '1'
+  return { q, kind, uids, status, levels, reserve }
 }
 
-function buildUrl(path, { q, kind, uids }) {
+function buildUrl(path, { q, kind, uids, status, levels, reserve }) {
   const parts = []
   // Trim q before persisting — core matcher treats whitespace-only as
   // inactive, so the URL should not carry "%20%20" noise.
@@ -122,6 +138,9 @@ function buildUrl(path, { q, kind, uids }) {
   if (qTrimmed) parts.push(`q=${encodeURIComponent(qTrimmed)}`)
   if (kind.length > 0) parts.push(`kind=${kind.join(',')}`)
   if (uids.length > 0) parts.push(`uids=${uids.join(',')}`)
+  if (status.length > 0) parts.push(`status=${status.join(',')}`)
+  if (levels.length > 0) parts.push(`levels=${levels.join(',')}`)
+  if (reserve) parts.push('reserve=1')
   const qs = parts.join('&')
   return qs ? `${path}?${qs}` : path
 }
@@ -150,7 +169,7 @@ export function useActivityFilter({ activities, tour }) {
   // /tours/43) resets local state even when both URLs carry identical
   // (or empty) filter params. Without path in the key, stale filter
   // could persist across tour switches under preserveState navigation.
-  const urlKey = `${path}|${urlFilter.q}|${urlFilter.kind.join(',')}|${urlFilter.uids.join(',')}`
+  const urlKey = `${path}|${urlFilter.q}|${urlFilter.kind.join(',')}|${urlFilter.uids.join(',')}|${urlFilter.status.join(',')}|${urlFilter.levels.join(',')}|${urlFilter.reserve}`
   useEffect(() => {
     setLocal(urlFilter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -196,8 +215,35 @@ export function useActivityFilter({ activities, tour }) {
     })
   }, [pushUrl])
 
+  const setStatus = useCallback((v) => {
+    if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
+    setLocal(prev => {
+      const next = { ...prev, status: v }
+      pushUrl(next)
+      return next
+    })
+  }, [pushUrl])
+
+  const setLevels = useCallback((v) => {
+    if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
+    setLocal(prev => {
+      const next = { ...prev, levels: v }
+      pushUrl(next)
+      return next
+    })
+  }, [pushUrl])
+
+  const setReserve = useCallback((v) => {
+    if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
+    setLocal(prev => {
+      const next = { ...prev, reserve: v }
+      pushUrl(next)
+      return next
+    })
+  }, [pushUrl])
+
   const reset = useCallback(() => {
-    const empty = { q: '', kind: [], uids: [] }
+    const empty = { q: '', kind: [], uids: [], status: [], levels: [], reserve: false }
     setLocal(empty)
     pushUrl(empty)
     if (qDebounceRef.current) clearTimeout(qDebounceRef.current)
@@ -210,6 +256,9 @@ export function useActivityFilter({ activities, tour }) {
     setQ,
     setKind,
     setUids,
+    setStatus,
+    setLevels,
+    setReserve,
     reset,
     ...core,
   }

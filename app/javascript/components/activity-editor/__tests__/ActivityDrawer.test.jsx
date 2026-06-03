@@ -28,7 +28,8 @@ vi.mock('../LocationPicker', () => ({
     <div data-testid="location-picker-stub">
       <button type="button" onClick={() => onChange({
         name: '兰州大学(地铁站)', lat: 36.05, lng: 103.82, address: '兰州城关区天水南路',
-        pname: '甘肃省', cityname: '兰州市', adname: '城关区', type: '地铁站'
+        pname: '甘肃省', cityname: '兰州市', adname: '城关区', type: '地铁站',
+        place: { rating: '4.8', keytag: '高档型', photo: 'https://x/p.jpg', typecode: '100100', opentime: '', tel: '' }
       })}>pick-lanzhou</button>
       <button type="button" onClick={() => onChange({
         name: '米生拉', lat: 29.77, lng: 87.25, address: '谢通门县 · 地名',
@@ -471,6 +472,17 @@ describe('省市区消歧义持久化 (details jsonb)', () => {
     expect(body.activity.pname).toBeUndefined()
   })
 
+  it('把 AMAP place 元数据(评分/标签/照片)写进 activity.details.place', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 777, position: 1 }) })
+    renderDrawer({ mode: 'create', targetDayId: 5 })
+    fireEvent.click(screen.getByRole('button', { name: 'pick-lanzhou' }))
+    await waitFor(() => expect(screen.getByLabelText('名称', { exact: false })).toHaveValue('兰州大学(地铁站)'))
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body)
+    expect(body.activity.details.place).toMatchObject({ rating: '4.8', keytag: '高档型', photo: 'https://x/p.jpg' })
+  })
+
   it('edit mode 从 activity.details 读回省市区字段', async () => {
     const { router } = await import('@inertiajs/react')
     router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())
@@ -499,6 +511,85 @@ describe('省市区消歧义持久化 (details jsonb)', () => {
   })
 })
 
+describe('状态 (status)', () => {
+  it('renders a 状态 select control in 分类与时间', () => {
+    renderDrawer({ mode: 'create', targetDayId: 5 })
+    expect(screen.getByRole('combobox', { name: '状态' })).toBeInTheDocument()
+  })
+
+  it('create payload defaults status to confirmed', async () => {
+    global.fetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ id: 999, position: 1 }) })
+    renderDrawer({ targetDayId: 5 })
+    fireEvent.change(screen.getByLabelText('名称', { exact: false }), { target: { value: '景点' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled())
+    const body = JSON.parse(global.fetch.mock.calls[0][1].body)
+    expect(body.activity.status).toBe('confirmed')
+  })
+
+  it('edit mode loads status and includes it in the save payload', async () => {
+    const { router } = await import('@inertiajs/react')
+    router.patch.mockImplementation((url, data, opts) => opts?.onSuccess?.())
+    renderDrawer({
+      mode: 'edit',
+      activity: {
+        id: 42, name: '乌沙安集海大峡谷', kind: 'scenic', citizen_level: 'tier_one',
+        status: 'closed', day_id: 5, details: {},
+      },
+    })
+    fireEvent.click(screen.getByRole('button', { name: '保存' }))
+    await waitFor(() => {
+      expect(router.patch).toHaveBeenCalledWith(
+        '/activities/42',
+        expect.objectContaining({ activity: expect.objectContaining({ status: 'closed' }) }),
+        expect.anything(),
+      )
+    })
+  })
+})
+
+test('shows AMAP place info (photo / rating / 营业 / 电话) in the drawer detail', () => {
+  renderDrawer({
+    mode: 'edit',
+    activity: {
+      id: 99, name: '赛里木湖', kind: 'scenic', citizen_level: 'tier_one', day_id: 5,
+      details: { place: { photo: 'https://amap.example/p.jpg', rating: '4.9', keytag: '5A景区', opentime: '09:00-18:00', tel: '0909-7659990' } },
+    },
+  })
+  const block = screen.getByTestId('poi-place-info')
+  expect(block).toBeInTheDocument()
+  expect(screen.getByText('4.9')).toBeInTheDocument()
+  expect(screen.getByText('5A景区')).toBeInTheDocument()
+  expect(screen.getByText(/0909-7659990/)).toBeInTheDocument()
+  expect(block.querySelector('img').getAttribute('src')).toContain('amap.example/p.jpg')
+})
+
+describe('create mode defaults', () => {
+  it('new-activity create defaults 重点层级 to 想去 (tier_two)', async () => {
+    renderDrawer({})   // create mode — blank drawer
+    expect(await screen.findByRole('radio', { name: '想去' })).toBeChecked()
+  })
+
+  it('shows the 高德选点 rich-card hint in the location section', async () => {
+    renderDrawer({})
+    expect(await screen.findByText(/用高德搜索选点/)).toBeInTheDocument()
+  })
+})
+
+describe('重点层级 field label and tier hint', () => {
+  it('citizen_level field is labeled 重点层级 with a tier hint', async () => {
+    renderDrawer({ activity: { id: 1, name: 'X', kind: 'scenic', citizen_level: 'tier_three', day_id: 5, details: {} } })
+    expect(await screen.findByText('重点层级')).toBeInTheDocument()
+    expect(screen.queryByText('公民等级')).not.toBeInTheDocument()
+    expect(screen.getByText(/必去=核心/)).toBeInTheDocument()
+  })
+
+  it('road kind shows the 景观公路→必去 explanation instead of the tier hint', async () => {
+    renderDrawer({ mode: 'edit', activity: { id: 2, name: 'R', kind: 'road', citizen_level: 'tier_one', day_id: 5, details: {} } })
+    expect(await screen.findByText(/景观公路本身就是核心体验/)).toBeInTheDocument()
+  })
+})
+
 describe('road kind (景观公路)', () => {
   // Helper: open the kind Select and pick "景观公路"
   async function switchToRoad() {
@@ -513,9 +604,9 @@ describe('road kind (景观公路)', () => {
   it('auto-sets citizen_level=tier_one when switching to road', async () => {
     renderDrawer()
     await switchToRoad()
-    // "一等公民（核心）" radio input should be checked
+    // "必去" radio input should be checked
     await waitFor(() => {
-      expect(screen.getByLabelText('一等公民（核心）')).toBeChecked()
+      expect(screen.getByLabelText('必去')).toBeChecked()
     })
   })
 
@@ -524,11 +615,20 @@ describe('road kind (景观公路)', () => {
     await switchToRoad()
     // All radios except tier_one must be disabled
     await waitFor(() => {
-      expect(screen.getByLabelText('二等公民（配角）')).toBeDisabled()
-      expect(screen.getByLabelText('三等公民（可删）')).toBeDisabled()
-      expect(screen.getByLabelText('基础设施（自动）')).toBeDisabled()
+      expect(screen.getByLabelText('想去')).toBeDisabled()
+      expect(screen.getByLabelText('备选')).toBeDisabled()
+      expect(screen.getByLabelText('后勤')).toBeDisabled()
     })
     // tier_one itself should NOT be disabled
-    expect(screen.getByLabelText('一等公民（核心）')).not.toBeDisabled()
+    expect(screen.getByLabelText('必去')).not.toBeDisabled()
+  })
+
+  it('drops POI place metadata when switching to road (no stale rating on a road)', async () => {
+    renderDrawer({ mode: 'edit', activity: { id: 7, name: 'X', kind: 'scenic', citizen_level: 'tier_three', day_id: 5, details: { place: { rating: 4.6 } } } })
+    expect(await screen.findByTestId('poi-place-info')).toBeInTheDocument()
+    await switchToRoad()
+    await waitFor(() => {
+      expect(screen.queryByTestId('poi-place-info')).not.toBeInTheDocument()
+    })
   })
 })

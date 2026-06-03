@@ -88,11 +88,21 @@ export const KIND_ICONS = {
   other:  IconCategory,
 }
 
+// citizen_level → 用户可见标签（唯一一份）。值是 Rails enum key，标签是友好词。
+// 旧的「公民」黑话与上一轮的「今日重点」均已弃用。
 export const CITIZEN_LEVEL_OPTIONS = [
-  { value: 'tier_one',       label: '一等公民（核心）' },
-  { value: 'tier_two',       label: '二等公民（配角）' },
-  { value: 'tier_three',     label: '三等公民（可删）' },
-  { value: 'infrastructure', label: '基础设施（自动）' },
+  { value: 'tier_one',       label: '必去' },
+  { value: 'tier_two',       label: '想去' },
+  { value: 'tier_three',     label: '备选' },
+  { value: 'infrastructure', label: '后勤' },
+]
+
+// Activity.status enum → human labels. Mirrors the Rails enum
+// (confirmed/pending/closed). Drives the 状态 Select + ActivityCard chips.
+export const STATUS_OPTIONS = [
+  { value: 'confirmed', label: '已定' },
+  { value: 'pending',   label: '待定' },
+  { value: 'closed',    label: '暂停开放' },
 ]
 
 // Common field presets (consumed by CommonFields)

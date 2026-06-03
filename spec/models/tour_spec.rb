@@ -1,6 +1,50 @@
 require "rails_helper"
 
 RSpec.describe Tour do
+  describe "default title (blank → unique per author)" do
+    let(:author) { create(:user) }
+    let(:mmdd) { Date.current.strftime("%m-%d") }
+
+    it "assigns 未命名旅程 MM-DD when title is blank" do
+      t = create(:tour, author: author, title: "")
+      expect(t.title).to eq("未命名旅程 #{mmdd}")
+    end
+
+    it "suffixes (2), (3) for same-author same-day collisions" do
+      create(:tour, author: author, title: "")
+      t2 = create(:tour, author: author, title: "")
+      t3 = create(:tour, author: author, title: "")
+      expect(t2.title).to eq("未命名旅程 #{mmdd} (2)")
+      expect(t3.title).to eq("未命名旅程 #{mmdd} (3)")
+    end
+
+    it "reuses the first free gap after a delete" do
+      create(:tour, author: author, title: "")
+      t2 = create(:tour, author: author, title: "")
+      create(:tour, author: author, title: "")
+      t2.destroy!
+      t4 = create(:tour, author: author, title: "")
+      expect(t4.title).to eq("未命名旅程 #{mmdd} (2)")
+    end
+
+    it "does not overwrite a provided title" do
+      t = create(:tour, author: author, title: "新疆环线")
+      expect(t.title).to eq("新疆环线")
+    end
+
+    it "is scoped per author (other authors don't bump the suffix)" do
+      create(:tour, author: author, title: "")
+      other = create(:tour, author: create(:user), title: "")
+      expect(other.title).to eq("未命名旅程 #{mmdd}")
+    end
+
+    it "re-fills a blank title on update (user clears the field before accepting)" do
+      t = create(:tour, author: author, title: "新疆")
+      t.update!(title: "")
+      expect(t.reload.title).to eq("未命名旅程 #{mmdd}")
+    end
+  end
+
   describe "defaults" do
     it "deep-copies Constitution::DEFAULTS into constitution on create" do
       tour = create(:tour)
@@ -204,12 +248,11 @@ RSpec.describe Tour do
       expect(tour).to be_valid
     end
 
-    it "forbids a blank title once constitution_accepted is true" do
-      tour = create(:tour, title: "伊犁")
-      tour.constitution_accepted = true
-      tour.title = ""
-      expect(tour).not_to be_valid
-      expect(tour.errors[:title]).to include("can't be blank")
+    it "auto-fills blank title even when constitution_accepted is true" do
+      tour = create(:tour, title: "伊犁", constitution_accepted: true)
+      tour.update!(title: "")
+      expect(tour.reload.title).to eq("未命名旅程 #{Date.current.strftime('%m-%d')}")
+      expect(tour).to be_valid
     end
   end
 end

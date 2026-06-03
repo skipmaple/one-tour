@@ -1,6 +1,7 @@
-import { TextInput, Select, Radio, Group, SimpleGrid, Stack, NumberInput, Divider, Text } from '@mantine/core'
+import { TextInput, Select, Radio, Group, SimpleGrid, Stack, NumberInput, Divider, Text, Paper, Image } from '@mantine/core'
+import { IconStarFilled } from '@tabler/icons-react'
 import { TimePicker } from '@mantine/dates'
-import { KIND_OPTIONS, KIND_ICONS, CITIZEN_LEVEL_OPTIONS, DURATION_PRESET_CHIPS, KIND_SCHEMA } from './detailsSchema'
+import { KIND_OPTIONS, KIND_ICONS, CITIZEN_LEVEL_OPTIONS, STATUS_OPTIONS, DURATION_PRESET_CHIPS, KIND_SCHEMA } from './detailsSchema'
 import LocationPicker from './LocationPicker'
 import PresetChips from './PresetChips'
 import DetailsFields from './DetailsFields'
@@ -136,12 +137,40 @@ export default function CommonFields({
           disabled={!canEdit}
         />
       )}
+      <Text size="xs" c="dimmed">用高德搜索选点，可自动带评分、营业时间、照片</Text>
       <TextInput
         label="名称"
         required
         maxLength={80}
         {...form.getInputProps('name')}
       />
+
+      {/* POI 元数据（高德，只读）：照片 + 评分/标签/营业/电话。卡面不放图，在这里看。 */}
+      {details?.place && (details.place.photo || details.place.rating || details.place.opentime || details.place.tel) && (
+        <Paper withBorder radius="sm" p="xs" data-testid="poi-place-info">
+          <Group gap="sm" wrap="nowrap" align="flex-start">
+            {details.place.photo && (
+              <Image src={details.place.photo} w={64} h={64} radius="sm" fit="cover" alt="" />
+            )}
+            <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+              {(details.place.rating || details.place.keytag) && (
+                <Group gap={8} wrap="nowrap">
+                  {details.place.rating && (
+                    <Group gap={2} wrap="nowrap">
+                      <IconStarFilled size={13} style={{ color: '#d4a72c' }} />
+                      <Text size="sm" fw={600}>{details.place.rating}</Text>
+                    </Group>
+                  )}
+                  {details.place.keytag && <Text size="xs" c="dimmed">{details.place.keytag}</Text>}
+                </Group>
+              )}
+              {details.place.opentime && <Text size="xs" c="dimmed" lineClamp={2}>营业 {details.place.opentime}</Text>}
+              {details.place.tel && <Text size="xs" c="dimmed">电话 {details.place.tel}</Text>}
+              <Text size="xs" c="dimmed">高德地图</Text>
+            </Stack>
+          </Group>
+        </Paper>
+      )}
 
       {/* 段 2：分类与时间 */}
       <Divider label="分类与时间" labelPosition="left" />
@@ -164,14 +193,25 @@ export default function CommonFields({
         }}
         {...form.getInputProps('kind')}
       />
-      <Radio.Group label="公民等级" {...form.getInputProps('citizen_level')}>
+      <Radio.Group label="重点层级" {...form.getInputProps('citizen_level')}>
         <SimpleGrid cols={2} spacing="xs" mt={4}>
           {CITIZEN_LEVEL_OPTIONS.map(o => (
             <Radio key={o.value} value={o.value} label={o.label}
                    disabled={form.values.kind === 'road' && o.value !== 'tier_one'} />
           ))}
         </SimpleGrid>
+        <Text size="xs" c="dimmed" mt={6}>
+          {form.values.kind === 'road'
+            ? '景观公路本身就是核心体验，自动归为「必去」'
+            : '必去=核心、不可错过 · 想去=锦上添花 · 备选=时间紧可删 · 后勤=加油/休息等自动归类'}
+        </Text>
       </Radio.Group>
+      <Select
+        label="状态"
+        data={STATUS_OPTIONS}
+        allowDeselect={false}
+        {...form.getInputProps('status')}
+      />
       <Group grow align="flex-start">
         <TimePicker
           label="开始时间"

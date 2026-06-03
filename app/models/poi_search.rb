@@ -7,7 +7,10 @@ class PoiSearch
     params = {
       "key"      => ENV.fetch("AMAP_API_KEY"),
       "keywords" => keywords,
-      "output"   => "JSON"
+      "output"   => "JSON",
+      # v5 returns a minimal POI by default; business (rating/opentime/tel/keytag)
+      # and photos only come back when explicitly requested via show_fields.
+      "show_fields" => "business,photos"
     }
     params["region"]   = region_hint if region_hint
     params["location"] = "#{near_lng},#{near_lat}" if near_lng && near_lat
@@ -30,12 +33,30 @@ class PoiSearch
         pname:    poi["pname"],
         cityname: poi["cityname"],
         adname:   poi["adname"],
-        pcode:    poi["pcode"]
+        pcode:    poi["pcode"],
+        place:    place_metadata(poi)
       }
     end
   end
 
   private
+    # Structured place metadata sourced from AMAP business/photos fields. Stored
+    # on the activity under details.place so cards can show rating / quality tag
+    # / photo instead of just name + time. Sparsely populated: roads & abstract
+    # 地名 return mostly nil; cost(人均) is null even for hotels, so we don't keep it.
+    def place_metadata(poi)
+      b = poi["business"] || {}
+      photo = Array(poi["photos"]).map { |p| p["url"] }.find(&:present?)
+      {
+        rating:   b["rating"].presence,
+        opentime: b["opentime_today"].presence || b["opentime_week"].presence,
+        tel:      b["tel"].presence,
+        keytag:   b["keytag"].presence,
+        typecode: poi["typecode"].presence,
+        photo:    photo && photo.sub(/\Ahttp:/, "https:")
+      }
+    end
+
     def connection
       @connection ||= Faraday.new do |f|
         f.request :url_encoded

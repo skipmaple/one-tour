@@ -11,8 +11,9 @@ RSpec.describe Tour::TimelineSummary do
       expect(result[:tier_one_total]).to eq(0)
       expect(result[:buffer_count]).to eq(0)
       expect(result[:hard_count]).to eq(0)
-      # soft_count: min_buffer_days=1 default and buffer_count=0 → 1 soft violation
-      expect(result[:soft_count]).to be >= 1
+      # Empty tour (no activities) is not flagged for min_buffer_days — and the
+      # other soft checks need activities — so a fresh tour has 0 soft violations.
+      expect(result[:soft_count]).to eq(0)
     end
 
     it "counts days, activities, buffer days and tier_one total" do

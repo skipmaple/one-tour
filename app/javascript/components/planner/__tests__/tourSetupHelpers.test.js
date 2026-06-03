@@ -4,6 +4,7 @@ import {
   todayLocal,
   detectDateDaysConflict,
   parseTourDateRange,
+  dayDateISO,
 } from '../tourSetupHelpers'
 
 describe('formatDateISO', () => {
@@ -82,5 +83,20 @@ describe('parseTourDateRange', () => {
   it('returns [null, null] for unparseable input', () => {
     expect(parseTourDateRange('garbage')).toEqual([null, null])
     expect(parseTourDateRange('2026-05-01')).toEqual([null, null])
+  })
+})
+
+describe('dayDateISO', () => {
+  it('day 1 equals the start date', () => {
+    expect(dayDateISO('2026-06-10', 1)).toBe('2026-06-10')
+  })
+  it('day N = start + (N-1) days', () => {
+    expect(dayDateISO('2026-06-10', 3)).toBe('2026-06-12')
+  })
+  it('rolls over month boundaries', () => {
+    expect(dayDateISO('2026-06-29', 3)).toBe('2026-07-01')
+  })
+  it('returns null for an unparseable start', () => {
+    expect(dayDateISO(null, 1)).toBeNull()
   })
 })

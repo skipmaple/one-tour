@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Group, TextInput, ActionIcon, Popover, Stack, Chip, Checkbox, Badge, Button, Indicator, Avatar, Divider, Tooltip } from '@mantine/core'
 import { IconSearch, IconFilter, IconX } from '@tabler/icons-react'
-import { KIND_OPTIONS as CANONICAL_KIND_OPTIONS, KIND_ICONS } from '../activity-editor/detailsSchema'
+import { KIND_OPTIONS as CANONICAL_KIND_OPTIONS, KIND_ICONS, STATUS_OPTIONS, CITIZEN_LEVEL_OPTIONS } from '../activity-editor/detailsSchema'
 import { useIsMobile } from '../../hooks/useIsMobile'
 
 const KIND_OPTIONS = CANONICAL_KIND_OPTIONS.map(o => ({ ...o, Icon: KIND_ICONS[o.value] }))
 
 export default function ActivityFilterBar({
-  filter, setQ, setKind, setUids, reset,
+  filter, setQ, setKind, setUids, setStatus, setLevels, setReserve, reset,
   active, activeCount, totalCount,
   members, author,
 }) {
@@ -54,7 +54,7 @@ export default function ActivityFilterBar({
       </Popover.Target>
 
       <Popover.Dropdown style={isMobile ? { width: 'min(92vw, 360px)', maxWidth: '92vw' } : undefined}>
-        <Stack gap="sm">
+        <Stack gap="sm" style={{ maxHeight: 'min(70vh, 520px)', overflowY: 'auto' }}>
           <TextInput
             size="xs"
             value={filter.q}
@@ -85,6 +85,35 @@ export default function ActivityFilterBar({
               </Group>
             </Chip.Group>
           </div>
+
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--mantine-color-gray-7)', marginBottom: 6 }}>重点层级</div>
+            <Chip.Group multiple value={filter.levels || []} onChange={setLevels}>
+              <Group gap={4}>
+                {CITIZEN_LEVEL_OPTIONS.map(({ value, label }) => (
+                  <Chip key={value} value={value} size="xs">{label}</Chip>
+                ))}
+              </Group>
+            </Chip.Group>
+          </div>
+
+          <div>
+            <div style={{ fontSize: 12, color: 'var(--mantine-color-gray-7)', marginBottom: 6 }}>状态</div>
+            <Chip.Group multiple value={filter.status || []} onChange={setStatus}>
+              <Group gap={4}>
+                {STATUS_OPTIONS.map(({ value, label }) => (
+                  <Chip key={value} value={value} size="xs">{label}</Chip>
+                ))}
+              </Group>
+            </Chip.Group>
+          </div>
+
+          <Checkbox
+            size="xs"
+            checked={!!filter.reserve}
+            onChange={e => setReserve(e.currentTarget.checked)}
+            label="仅看需预约"
+          />
 
           <div>
             <div style={{ fontSize: 12, color: 'var(--mantine-color-gray-7)', marginBottom: 6 }}>参与人</div>

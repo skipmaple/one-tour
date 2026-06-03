@@ -14,7 +14,8 @@ import ActivityRouteTab from './ActivityRouteTab'
 const EMPTY_FORM_VALUES = {
   name: '',
   kind: 'scenic',
-  citizen_level: 'tier_three',
+  citizen_level: 'tier_two',
+  status: 'confirmed',
   lat: '',
   lng: '',
   address: '',
@@ -58,7 +59,8 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       form.setValues({
         name: activity.name || '',
         kind: activity.kind || 'scenic',
-        citizen_level: activity.citizen_level || 'tier_three',
+        citizen_level: activity.citizen_level || 'tier_two',
+        status: activity.status || 'confirmed',
         lat: activity.lat ?? '',
         lng: activity.lng ?? '',
         address: activity.address || '',
@@ -96,7 +98,11 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       form.setFieldValue('citizen_level', 'tier_one')
     }
     const validKeys = (KIND_SCHEMA[newKind] || []).map(f => f.key)
-    const preserved = [ 'pname', 'cityname', 'adname', 'type' ]
+    // 'place'(高德 POI 元数据)只属于按 POI 选点的 kind;景观公路用起止坐标,
+    // 切到 road 时丢弃残留 place,避免评分/照片泄漏进 road 活动及其卡片 meta。
+    const preserved = newKind === 'road'
+      ? [ 'pname', 'cityname', 'adname', 'type' ]
+      : [ 'pname', 'cityname', 'adname', 'type', 'place' ]
     const cleaned = {}
     for (const k of validKeys) {
       if (details[k] !== undefined) cleaned[k] = details[k]
@@ -153,10 +159,11 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       form.setFieldValue('cityname', '')
       form.setFieldValue('adname', '')
       form.setFieldValue('type', '')
+      setDetails(prev => { const n = { ...prev }; delete n.place; return n })
       poiFilledName.current = ''
       return
     }
-    const { name, lat, lng, address, pname, cityname, adname, type } = picked
+    const { name, lat, lng, address, pname, cityname, adname, type, place } = picked
     const current = form.values.name
     if (!current || current === poiFilledName.current) {
       form.setFieldValue('name', name)
@@ -169,6 +176,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
     form.setFieldValue('cityname', cityname || '')
     form.setFieldValue('adname', adname || '')
     form.setFieldValue('type', type || '')
+    if (place) setDetails(prev => ({ ...prev, place }))
   }
 
   const handleClose = () => {
@@ -262,6 +270,9 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       if (adname)   cleanDetails.adname = adname
       if (type)     cleanDetails.type = type
     }
+    // AMAP place metadata (rating/hours/tel/keytag/typecode/photo) — kept across
+    // kinds so cards can show it; sourced at POI-pick time, stored under .place.
+    if (details.place) cleanDetails.place = details.place
 
     const payload = {
       activity: {
@@ -354,6 +365,7 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
                     name: savedAttrs.name,
                     kind: savedAttrs.kind,
                     citizen_level: savedAttrs.citizen_level,
+                    status: savedAttrs.status,
                     lat: savedAttrs.lat,
                     lng: savedAttrs.lng,
                     address: savedAttrs.address,

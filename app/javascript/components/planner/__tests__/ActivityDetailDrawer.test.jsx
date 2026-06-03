@@ -102,7 +102,7 @@ describe('ActivityDetailDrawer – header meta + actions', () => {
     const header = screen.getByTestId('detail-header')
     expect(header).toHaveTextContent('D1')
     expect(header).toHaveTextContent('景点')
-    expect(header).toHaveTextContent('二等公民（配角）')
+    expect(header).toHaveTextContent('想去')
     expect(header).toHaveTextContent('14:00')
     expect(header).toHaveTextContent('2h')
   })

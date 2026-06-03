@@ -12,10 +12,13 @@ const author = { user_id: 1, name: 'Alice', avatar_url: null }
 
 function renderBar(props = {}) {
   const defaultProps = {
-    filter: { q: '', kind: [], uids: [] },
+    filter: { q: '', kind: [], uids: [], status: [], levels: [], reserve: false },
     setQ: vi.fn(),
     setKind: vi.fn(),
     setUids: vi.fn(),
+    setStatus: vi.fn(),
+    setLevels: vi.fn(),
+    setReserve: vi.fn(),
     reset: vi.fn(),
     active: false,
     activeCount: 10,
@@ -87,7 +90,7 @@ describe('ActivityFilterBar', () => {
   })
 
   it('filter.q controls popover input value', async () => {
-    renderBar({ filter: { q: '赛里木', kind: [], uids: [] } })
+    renderBar({ filter: { q: '赛里木', kind: [], uids: [], status: [], levels: [], reserve: false } })
     await openPopover()
     expect(screen.getByLabelText('搜索活动')).toHaveValue('赛里木')
   })
@@ -109,24 +112,65 @@ describe('ActivityFilterBar', () => {
     expect(screen.getByText('Bob')).toBeInTheDocument()
   })
 
+  it('popover reveals 重点层级 / 状态 / 需预约 sections', async () => {
+    renderBar()
+    await openPopover()
+    expect(screen.getByText('重点层级')).toBeInTheDocument()
+    expect(screen.getByText('必去')).toBeInTheDocument()
+    expect(screen.getByText('想去')).toBeInTheDocument()
+    expect(screen.getByText('备选')).toBeInTheDocument()
+    expect(screen.getByText('后勤')).toBeInTheDocument()
+    expect(screen.getByText('状态')).toBeInTheDocument()
+    expect(screen.getByText('已定')).toBeInTheDocument()
+    expect(screen.getByText('待定')).toBeInTheDocument()
+    expect(screen.getByText('暂停开放')).toBeInTheDocument()
+    expect(screen.getByText('仅看需预约')).toBeInTheDocument()
+  })
+
+  it('clicking a 状态 chip calls setStatus', async () => {
+    const setStatus = vi.fn()
+    renderBar({ setStatus })
+    const user = await openPopover()
+    await user.click(screen.getByText('待定'))
+    expect(setStatus).toHaveBeenCalledWith(['pending'])
+  })
+
+  it('clicking a 重点层级 chip calls setLevels', async () => {
+    const setLevels = vi.fn()
+    renderBar({ setLevels })
+    const user = await openPopover()
+    await user.click(screen.getByText('必去'))
+    expect(setLevels).toHaveBeenCalledWith(['tier_one'])
+  })
+
+  it('toggling 需预约 checkbox calls setReserve(true)', async () => {
+    const setReserve = vi.fn()
+    renderBar({ setReserve })
+    const user = await openPopover()
+    await user.click(screen.getByText('仅看需预约'))
+    expect(setReserve).toHaveBeenCalledWith(true)
+  })
+
   it('filter-active prop toggles the Mantine Indicator dot visibility', () => {
     // Inactive: Mantine Indicator doesn't render its `.mantine-Indicator-indicator`
     // child element at all. Active: it renders one. Observing presence is the
     // most stable signal for the "active state badge" across Mantine versions.
     const base = {
-      setQ: vi.fn(), setKind: vi.fn(), setUids: vi.fn(), reset: vi.fn(),
+      setQ: vi.fn(), setKind: vi.fn(), setUids: vi.fn(),
+      setStatus: vi.fn(), setLevels: vi.fn(), setReserve: vi.fn(),
+      reset: vi.fn(),
       activeCount: 10, totalCount: 10, members, author,
     }
     const { rerender } = render(
       <MantineProvider>
-        <ActivityFilterBar filter={{ q: '', kind: [], uids: [] }} active={false} {...base} />
+        <ActivityFilterBar filter={{ q: '', kind: [], uids: [], status: [], levels: [], reserve: false }} active={false} {...base} />
       </MantineProvider>
     )
     expect(document.querySelector('.mantine-Indicator-indicator')).toBeNull()
 
     rerender(
       <MantineProvider>
-        <ActivityFilterBar filter={{ q: '餐', kind: [], uids: [] }} active={true} {...base} />
+        <ActivityFilterBar filter={{ q: '餐', kind: [], uids: [], status: [], levels: [], reserve: false }} active={true} {...base} />
       </MantineProvider>
     )
     expect(document.querySelector('.mantine-Indicator-indicator')).not.toBeNull()

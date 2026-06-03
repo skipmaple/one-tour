@@ -1,11 +1,17 @@
 require "rails_helper"
 
 RSpec.describe Tour::ConstitutionCheck do
-  it "returns min_buffer_days violation for a fresh tour with no days" do
+  it "does not flag min_buffer_days on an empty tour (no activities)" do
+    tour = create(:tour)   # fresh, 0 activities, D1 seeded (buffer_day=false), default min_buffer_days >= 1
+    rules = described_class.for(tour).map(&:rule)
+    expect(rules).not_to include(:min_buffer_days)
+  end
+
+  it "flags min_buffer_days once the tour has an activity but too few buffer days" do
     tour = create(:tour)
-    violations = described_class.for(tour)
-    expect(violations.length).to eq(1)
-    expect(violations.first.rule).to eq(:min_buffer_days)
+    create(:activity, tour: tour, day: tour.days.first)
+    rules = described_class.for(tour).map(&:rule)
+    expect(rules).to include(:min_buffer_days)
   end
 
   describe "#check_daily_driving" do
@@ -57,6 +63,7 @@ RSpec.describe Tour::ConstitutionCheck do
     it "flags soft violation when buffer_days < min_buffer_days (default 1)" do
       # D1 seeded by callback has buffer_day=false by default
       create(:day, tour: tour, day_index: 2, buffer_day: false)
+      create(:activity, tour: tour, day: tour.days.first)   # tour must have activities for check to apply
       violations = described_class.for(tour)
       v = violations.find { |x| x.rule == :min_buffer_days }
       expect(v).not_to be_nil

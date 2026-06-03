@@ -159,6 +159,61 @@ describe('useActivityFilterCore', () => {
     expect(result.current.matches(activities[3])).toBe(true)
     expect(result.current.matches(activities[0])).toBe(false) // other activities don't have 'Hotel' anywhere
   })
+
+  it('status filter — single + multi (OR)', () => {
+    const acts = [
+      { id: 1, name: 'a', kind: 'scenic', status: 'confirmed', details: {}, participant_user_ids: [] },
+      { id: 2, name: 'b', kind: 'scenic', status: 'pending',   details: {}, participant_user_ids: [] },
+      { id: 3, name: 'c', kind: 'scenic', status: 'closed',    details: {}, participant_user_ids: [] },
+    ]
+    const { result } = renderHook(() =>
+      useActivityFilterCore({ activities: acts, filter: { q: '', kind: [], uids: [], status: ['pending', 'closed'] }, tour })
+    )
+    expect(result.current.matches(acts[0])).toBe(false)
+    expect(result.current.matches(acts[1])).toBe(true)
+    expect(result.current.matches(acts[2])).toBe(true)
+    expect(result.current.active).toBe(true)
+  })
+
+  it('levels filter — citizen_level OR', () => {
+    const acts = [
+      { id: 1, name: 'a', kind: 'scenic', citizen_level: 'tier_one',   details: {}, participant_user_ids: [] },
+      { id: 2, name: 'b', kind: 'scenic', citizen_level: 'tier_three', details: {}, participant_user_ids: [] },
+    ]
+    const { result } = renderHook(() =>
+      useActivityFilterCore({ activities: acts, filter: { q: '', kind: [], uids: [], levels: ['tier_one'] }, tour })
+    )
+    expect(result.current.matches(acts[0])).toBe(true)
+    expect(result.current.matches(acts[1])).toBe(false)
+    expect(result.current.active).toBe(true)
+  })
+
+  it('reserve filter — only need_reservation; missing/false details excluded', () => {
+    const acts = [
+      { id: 1, name: 'a', kind: 'scenic', details: { need_reservation: true },  participant_user_ids: [] },
+      { id: 2, name: 'b', kind: 'scenic', details: { need_reservation: false }, participant_user_ids: [] },
+      { id: 3, name: 'c', kind: 'scenic', details: null,                         participant_user_ids: [] },
+    ]
+    const { result } = renderHook(() =>
+      useActivityFilterCore({ activities: acts, filter: { q: '', kind: [], uids: [], reserve: true }, tour })
+    )
+    expect(result.current.matches(acts[0])).toBe(true)
+    expect(result.current.matches(acts[1])).toBe(false)
+    expect(result.current.matches(acts[2])).toBe(false)
+    expect(result.current.active).toBe(true)
+  })
+
+  it('AND across new + existing dimensions', () => {
+    const acts = [
+      { id: 1, name: '湖', kind: 'scenic', status: 'pending',   citizen_level: 'tier_one', details: { need_reservation: true }, participant_user_ids: [] },
+      { id: 2, name: '湖', kind: 'scenic', status: 'confirmed', citizen_level: 'tier_one', details: { need_reservation: true }, participant_user_ids: [] },
+    ]
+    const { result } = renderHook(() =>
+      useActivityFilterCore({ activities: acts, filter: { q: '', kind: ['scenic'], uids: [], status: ['pending'], levels: ['tier_one'], reserve: true }, tour })
+    )
+    expect(result.current.matches(acts[0])).toBe(true)
+    expect(result.current.matches(acts[1])).toBe(false)
+  })
 })
 
 describe('useActivityFilter · URL sync', () => {
@@ -246,6 +301,42 @@ describe('useActivityFilter · URL sync', () => {
     expect(router.replace.mock.calls.length).toBe(callsBefore)
   })
 
+  it('setStatus cancels pending q debounce', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setQ('餐') })
+    act(() => { result.current.setStatus(['pending']) })
+    expect(router.replace).toHaveBeenLastCalledWith(
+      expect.objectContaining({ url: '/tours/42?q=%E9%A4%90&status=pending' })
+    )
+    const callsBefore = router.replace.mock.calls.length
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(router.replace.mock.calls.length).toBe(callsBefore)
+  })
+
+  it('setLevels cancels pending q debounce', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setQ('餐') })
+    act(() => { result.current.setLevels(['tier_one']) })
+    expect(router.replace).toHaveBeenLastCalledWith(
+      expect.objectContaining({ url: '/tours/42?q=%E9%A4%90&levels=tier_one' })
+    )
+    const callsBefore = router.replace.mock.calls.length
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(router.replace.mock.calls.length).toBe(callsBefore)
+  })
+
+  it('setReserve cancels pending q debounce', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setQ('餐') })
+    act(() => { result.current.setReserve(true) })
+    expect(router.replace).toHaveBeenLastCalledWith(
+      expect.objectContaining({ url: '/tours/42?q=%E9%A4%90&reserve=1' })
+    )
+    const callsBefore = router.replace.mock.calls.length
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(router.replace.mock.calls.length).toBe(callsBefore)
+  })
+
   it('setUids cancels pending q debounce', () => {
     const { result } = renderHook(() => useActivityFilter({ activities, tour }))
     act(() => { result.current.setQ('餐') })
@@ -294,5 +385,69 @@ describe('useActivityFilter · URL sync', () => {
     rerender()
     expect(result.current.filter.q).toBe('')
     expect(result.current.filter.kind).toEqual([])
+  })
+
+  it('reads status/levels/reserve from URL', () => {
+    usePage.mockReturnValue({ url: '/tours/42?status=pending,closed&levels=tier_one&reserve=1' })
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    expect(result.current.filter.status).toEqual(['pending', 'closed'])
+    expect(result.current.filter.levels).toEqual(['tier_one'])
+    expect(result.current.filter.reserve).toBe(true)
+  })
+
+  it('defaults new dims to empty/false when URL has no params', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    expect(result.current.filter.status).toEqual([])
+    expect(result.current.filter.levels).toEqual([])
+    expect(result.current.filter.reserve).toBe(false)
+  })
+
+  it('setStatus is immediate', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setStatus(['pending']) })
+    expect(router.replace).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/tours/42?status=pending', preserveState: true, preserveScroll: true })
+    )
+  })
+
+  it('setLevels is immediate', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setLevels(['tier_one', 'tier_three']) })
+    expect(router.replace).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/tours/42?levels=tier_one,tier_three' })
+    )
+  })
+
+  it('setReserve false→true adds reserve=1', () => {
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setReserve(true) })
+    expect(router.replace).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/tours/42?reserve=1' })
+    )
+  })
+
+  it('setReserve true adds reserve=1; false drops it', () => {
+    usePage.mockReturnValue({ url: '/tours/42?reserve=1' })
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.setReserve(false) })
+    expect(router.replace).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/tours/42' })
+    )
+  })
+
+  it('ignores unknown status/levels values from URL', () => {
+    usePage.mockReturnValue({ url: '/tours/42?status=typo,pending&levels=bogus,tier_two' })
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    expect(result.current.filter.status).toEqual(['pending'])
+    expect(result.current.filter.levels).toEqual(['tier_two'])
+  })
+
+  it('reset clears new dims too', () => {
+    usePage.mockReturnValue({ url: '/tours/42?status=pending&levels=tier_one&reserve=1' })
+    const { result } = renderHook(() => useActivityFilter({ activities, tour }))
+    act(() => { result.current.reset() })
+    expect(router.replace).toHaveBeenCalledWith(
+      expect.objectContaining({ url: '/tours/42' })
+    )
   })
 })

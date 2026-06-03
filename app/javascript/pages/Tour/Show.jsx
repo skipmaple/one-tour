@@ -125,7 +125,7 @@ export default function Show({
   )
 
   const {
-    filter, setQ, setKind, setUids, reset,
+    filter, setQ, setKind, setUids, setStatus, setLevels, setReserve, reset,
     active: filterActive, matches, activeCount, totalCount,
   } = useActivityFilter({ activities: displayActivities, tour: tourShape })
 
@@ -151,6 +151,26 @@ export default function Show({
   // Constitution drawer state
   const [constOpen, { open: openConst, close: closeConst }] = useDisclosure(false)
   const [constWidth, setConstWidth] = useState(400)
+
+  // AI onboarding: fires at most once per page load, either on mount (already
+  // onboarded) or when the user closes the setup gate (accept / express / skip).
+  const aiOnboardingStartedRef = useRef(false)
+  const maybeStartOnboarding = useCallback(() => {
+    if (!canEdit) return
+    if (aiOnboardingStartedRef.current) return
+    if (activities.length === 0 && conversation_empty) {
+      aiOnboardingStartedRef.current = true
+      setPendingChatPrompt(ONBOARDING_SENTINEL)
+    }
+  }, [canEdit, activities.length, conversation_empty])
+
+  const handleConstClose = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`onboarded:tour:${tour.id}`, '1')
+    }
+    closeConst()
+    maybeStartOnboarding()
+  }, [closeConst, maybeStartOnboarding, tour.id])
 
   // Timeline overlay state
   const [timelineOpen, { open: openTimeline, close: closeTimeline }] = useDisclosure(false)
@@ -329,19 +349,17 @@ export default function Show({
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // On mount, auto-start AI onboarding when this is a fresh tour.
-  // Conditions: user can edit (reader can't — AI would try to mutate) +
-  // backlog is empty (user hasn't started) +
-  // conversation has no messages (avoid re-triggering on refresh) +
-  // constitution has been accepted (otherwise the AI welcome collides with
-  // the ConstitutionDrawer onboarding flow — two "welcomes" at once).
+  // Delegates to maybeStartOnboarding (ref-guarded, fires at most once).
+  // Only runs when the constitution is already done (accepted server-side or
+  // via localStorage). For the un-onboarded case, the greet fires in
+  // handleConstClose instead (when the user leaves the setup gate).
   useEffect(() => {
     const alreadyOnboardedLocally = typeof window !== 'undefined'
       && localStorage.getItem(`onboarded:tour:${tour.id}`) === '1'
     const constitutionDone = tour.constitution_accepted || alreadyOnboardedLocally
-    if (canEdit && constitutionDone && activities.length === 0 && conversation_empty) {
-      setPendingChatPrompt(ONBOARDING_SENTINEL)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (constitutionDone) maybeStartOnboarding()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // First-visit auto-open constitution drawer. Only for users who can edit;
   // a read-only viewer landing on an unaccepted tour shouldn't be forced
@@ -365,6 +383,9 @@ export default function Show({
         setQ={setQ}
         setKind={setKind}
         setUids={setUids}
+        setStatus={setStatus}
+        setLevels={setLevels}
+        setReserve={setReserve}
         reset={reset}
         active={filterActive}
         activeCount={activeCount}
@@ -382,7 +403,7 @@ export default function Show({
       />
       <OutboxStatus />
     </Group>
-  ), [filter, setQ, setKind, setUids, reset, filterActive, activeCount, totalCount, members, author, tour.author_id, violations, openConst, openTimeline, canEdit])
+  ), [filter, setQ, setKind, setUids, setStatus, setLevels, setReserve, reset, filterActive, activeCount, totalCount, members, author, tour.author_id, violations, openConst, openTimeline, canEdit])
   useInjectHeaderRight(headerRight)
 
   // True only during "first visit" onboarding — lets the planner dim itself
@@ -483,7 +504,7 @@ export default function Show({
               )}
             </div>
             {constOpen && (
-              <Drawer opened onClose={closeConst} size="100%" position="left" withCloseButton={!inOnboarding} closeOnEscape={!inOnboarding} closeOnClickOutside={!inOnboarding} title={inOnboarding ? '设置这次旅程' : '出行宪法'} padding="md">
+              <Drawer opened onClose={handleConstClose} size="100%" position="left" withCloseButton closeOnEscape closeOnClickOutside title={inOnboarding ? '设置这次旅程' : '出行宪法'} padding="md">
                 <ConstitutionDrawer
                   mobile
                   tour={tour}
@@ -491,9 +512,10 @@ export default function Show({
                   defaults={defaults}
                   overrides={overrides}
                   initialDaysCount={days.length || 1}
+                  days={days}
                   canEdit={canEdit}
                   width="100%"
-                  onClose={closeConst}
+                  onClose={handleConstClose}
                   onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
                   onAcknowledge={(v) => setAcknowledgingViolation(v)}
                 />
@@ -517,28 +539,13 @@ export default function Show({
               defaults={defaults}
               overrides={overrides}
               initialDaysCount={days.length || 1}
+              days={days}
               canEdit={canEdit}
               width={constWidth}
               onWidthChange={setConstWidth}
-              onClose={closeConst}
+              onClose={handleConstClose}
               onFix={(v) => setPendingChatPrompt(fixPromptFor(v))}
               onAcknowledge={(v) => setAcknowledgingViolation(v)}
-            />
-          )}
-          {inOnboarding && (
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: constWidth + 10,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(255, 255, 255, 0.5)',
-                zIndex: 5,
-                pointerEvents: 'auto',
-                cursor: 'not-allowed',
-              }}
-              data-testid="onboarding-backdrop"
             />
           )}
           <BacklogList
