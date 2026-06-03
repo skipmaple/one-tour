@@ -57,8 +57,6 @@ class PoiSearch
       }
     end
 
-
-  private
     def connection
       @connection ||= Faraday.new do |f|
         f.request :url_encoded

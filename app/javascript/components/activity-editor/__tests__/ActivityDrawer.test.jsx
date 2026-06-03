@@ -622,4 +622,13 @@ describe('road kind (景观公路)', () => {
     // tier_one itself should NOT be disabled
     expect(screen.getByLabelText('必去')).not.toBeDisabled()
   })
+
+  it('drops POI place metadata when switching to road (no stale rating on a road)', async () => {
+    renderDrawer({ mode: 'edit', activity: { id: 7, name: 'X', kind: 'scenic', citizen_level: 'tier_three', day_id: 5, details: { place: { rating: 4.6 } } } })
+    expect(await screen.findByTestId('poi-place-info')).toBeInTheDocument()
+    await switchToRoad()
+    await waitFor(() => {
+      expect(screen.queryByTestId('poi-place-info')).not.toBeInTheDocument()
+    })
+  })
 })

@@ -98,7 +98,11 @@ export default function ActivityDrawer({ tourId, opened, onClose, mode, activity
       form.setFieldValue('citizen_level', 'tier_one')
     }
     const validKeys = (KIND_SCHEMA[newKind] || []).map(f => f.key)
-    const preserved = [ 'pname', 'cityname', 'adname', 'type', 'place' ]
+    // 'place'(高德 POI 元数据)只属于按 POI 选点的 kind;景观公路用起止坐标,
+    // 切到 road 时丢弃残留 place,避免评分/照片泄漏进 road 活动及其卡片 meta。
+    const preserved = newKind === 'road'
+      ? [ 'pname', 'cityname', 'adname', 'type' ]
+      : [ 'pname', 'cityname', 'adname', 'type', 'place' ]
     const cleaned = {}
     for (const k of validKeys) {
       if (details[k] !== undefined) cleaned[k] = details[k]

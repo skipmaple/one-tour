@@ -93,6 +93,10 @@ class Tour < ApplicationRecord
   end
 
   private
+    # Best-effort uniqueness, not an invariant: under rare concurrent same-author
+    # blank-title creates this can race to the same name (both see the same `taken`).
+    # Acceptable — the title is a cosmetic default the user can rename. We do NOT add
+    # a (author_id, title) unique index, since users may legitimately reuse a title.
     def assign_default_title
       return if author.nil?
       date = (created_at || Time.current).to_date
