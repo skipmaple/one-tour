@@ -76,7 +76,7 @@ jobs:
 
     steps:
       - name: Checkout target ref
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           # workflow_run 触发时用 head_sha(CI 跑过的 sha,merge 提交);
           # workflow_dispatch 用 inputs.ref(默认 main)。`||` 第一个 truthy 胜。
@@ -248,7 +248,7 @@ jobs:
 
     steps:
       - name: Checkout target ref
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           # 同 staging:workflow_run 用 head_sha(跟 staging 部署同 sha,
           # 保证 prod 部 staging 验过那一坨),workflow_dispatch 用 inputs.ref
